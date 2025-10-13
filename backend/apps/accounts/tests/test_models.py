@@ -2,12 +2,15 @@
 Tests for the User model.
 """
 
+from typing import cast
+
 import pytest
 from django.contrib.auth import get_user_model
 
-from apps.accounts.models import UserRole
+from apps.accounts.models import User, UserRole
 
-User = get_user_model()
+# Type alias for the User model
+UserModel = cast("type[User]", get_user_model())
 
 
 @pytest.fixture
@@ -25,13 +28,13 @@ def user_data():
 @pytest.fixture
 def user(user_data):
     """Fixture creating a test user."""
-    return User.objects.create_user(**user_data)  # type: ignore[attr-defined]
+    return UserModel.objects.create_user(**user_data)
 
 
 @pytest.mark.django_db
 def test_user_creation(user_data):
     """Test that a user can be created successfully."""
-    user = User.objects.create_user(**user_data)  # type: ignore[attr-defined]
+    user = UserModel.objects.create_user(**user_data)
     assert user.email == "test@example.com"
     assert user.first_name == "John"
     assert user.last_name == "Doe"
@@ -89,7 +92,7 @@ def test_user_role_properties_admin(user):
 @pytest.mark.django_db
 def test_user_email_lowercase():
     """Test that email is automatically converted to lowercase."""
-    user = User.objects.create_user(  # type: ignore[attr-defined]
+    user = UserModel.objects.create_user(
         email="TEST@EXAMPLE.COM",
         first_name="John",
         last_name="Doe",
@@ -104,6 +107,6 @@ def test_user_unique_email(user_data):
     """Test that email must be unique."""
     from django.db import IntegrityError
 
-    User.objects.create_user(**user_data)  # type: ignore[attr-defined]
+    UserModel.objects.create_user(**user_data)
     with pytest.raises(IntegrityError):
-        User.objects.create_user(**user_data)  # type: ignore[attr-defined]
+        UserModel.objects.create_user(**user_data)

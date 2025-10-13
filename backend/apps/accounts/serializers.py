@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
@@ -46,8 +46,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict[str, Any]) -> User:
         """Create user with hashed password."""
-        user = User.objects.create_user(**validated_data)
-        return cast(User, user)
+        return User.objects.create_user(**validated_data)
 
 class UserLoginSerializer(serializers.ModelSerializer):
     """

@@ -11,26 +11,26 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-django = "^5.2.6"
+django = "^5.2.7"
 djangorestframework = "^3.16.1"
 django-cors-headers = "^4.9.0"
-psycopg2-binary = "^2.9.10"
+psycopg2-binary = "^2.9.11"
 python-decouple = "^3.8"
 djangorestframework-simplejwt = "^5.5.1"
 dj-database-url = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.1.0"
-mypy = "^1.5.0"
+ruff = "^0.14.0"
+mypy = "^1.18.2"
 pre-commit = "^3.4.0"
-django-stubs = "^5.2.5"
+django-stubs = "^5.2.7"
 djangorestframework-stubs = "^3.16.4"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.4.2"
 pytest-django = "^4.11.1"
 factory-boy = "^3.3.3"
-coverage = "^7.3.2"
+coverage = "^7.10.7"
 pytest-cov = "^4.1.0"
 
 [build-system]
@@ -41,6 +41,8 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -60,11 +62,11 @@ ignore = [
     "DJ01",  # Django model requires __str__ method
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Allow unused imports in __init__.py
 "*/migrations/*" = ["ALL"]  # Ignore all rules in migrations
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["adaptive_testing", "apps"]
 
 [tool.pytest.ini_options]

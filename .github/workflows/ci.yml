@@ -23,51 +23,10 @@ jobs:
         id: branch_name
         uses: tj-actions/branch-names@v8
 
-  create_neon_branch:
-    name: Create Neon Branch
-    outputs:
-      db_url: ${{ steps.create_neon_branch.outputs.db_url }}
-      db_url_with_pooler: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
-    needs: setup
-    if: |
-      github.event_name == 'pull_request' && (
-        github.event.action == 'synchronize'
-        || github.event.action == 'opened'
-        || github.event.action == 'reopened')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get branch expiration date (2 weeks from now)
-        id: get_expiration_date
-        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-      - name: Create Neon Branch
-        id: create_neon_branch
-        uses: neondatabase/create-branch-action@v6
-        with: 
-            project_id: ${{ vars.NEON_PROJECT_ID }}
-            branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
-            api_key: ${{ secrets.NEON_API_KEY }}
-            expires_at: ${{ env.EXPIRES_AT }}
-
-  delete_neon_branch:
-    name: Delete Neon Branch
-    needs: setup
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete Neon Branch
-        uses: neondatabase/delete-branch-action@v3
-        with:
-            project_id: ${{ vars.NEON_PROJECT_ID }}
-            branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
-            api_key: ${{ secrets.NEON_API_KEY }}
-
   backend:
+    name: backend
+    needs: setup
     runs-on: ubuntu-latest
-    needs: create_neon_branch
-    if: always() && (needs.create_neon_branch.result == 'success' || needs.create_neon_branch.result == 'skipped')
-    strategy:
-      matrix:
-        python-version: [3.11, 3.13]
     defaults:
       run:
         working-directory: backend
@@ -76,13 +35,40 @@ jobs:
       SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY || 'ci-secret-key-for-testing-only' }}
       DEBUG: false
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      DATABASE_URL: ${{ needs.create_neon_branch.outputs.db_url_with_pooler || '' }}
+      # For non-PR events use a persistent secret; for PRs we'll set via Neon action
+      DATABASE_URL: ${{ github.event_name != 'pull_request' && secrets.DATABASE_URL || '' }}
+      PY_VERSION: '3.13.7'
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
+      
+      - name: Get branch expiration date (2 weeks from now)
+        if: github.event_name == 'pull_request'
+        id: get_expiration_date
+        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+      
+      - name: Create Neon Branch
+        if: github.event_name == 'pull_request'
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6.1.1
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.EXPIRES_AT }}
+      
+      - name: Set DATABASE_URL from Neon action
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "DATABASE_URL=${{ steps.create_neon_branch.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
+      
+      - name: Export per-run test DB suffix
+        run: |
+          echo "DJANGO_TEST_DB_SUFFIX=${{ github.run_id }}_${{ github.run_attempt }}" >> "$GITHUB_ENV"
+      
+      - name: Set up Python ${{ env.PY_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PY_VERSION }}
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
@@ -94,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ env.PY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
@@ -103,7 +89,7 @@ jobs:
       - name: Run type checking
         run: poetry run mypy .
       - name: Run migrations
-        run: poetry run python manage.py migrate --settings=adaptive_testing.settings.ci
+        run: poetry run python manage.py migrate --noinput --settings=adaptive_testing.settings.ci
       - name: Run tests
         run: poetry run pytest --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=html --ds=adaptive_testing.settings.ci
       - name: Upload coverage to Codecov
@@ -112,6 +98,20 @@ jobs:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
+
+  delete_neon_branch:
+    name: Delete Neon Branch
+    needs: [setup, backend]
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon Branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+            project_id: ${{ vars.NEON_PROJECT_ID }}
+            branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+            api_key: ${{ secrets.NEON_API_KEY }}
+
 
   frontend:
     runs-on: ubuntu-latest
@@ -155,19 +155,12 @@ jobs:
       
       # CodeQL - Static analysis
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript, python
       
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-      
-      # Actionlint - GitHub Actions security
-      # - name: Run Actionlint
-      #   uses: rhysd/actionlint@v1.7.0
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     fail_on_error: true
+        uses: github/codeql-action/analyze@v4

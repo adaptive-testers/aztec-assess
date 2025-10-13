@@ -4,26 +4,34 @@ CI settings for adaptive_testing project.
 This module contains settings specifically for CI/CD environments.
 """
 
+import os
 from datetime import timedelta
 
+# Database configuration
+# Always use Neon database for CI - fail if not available
+import dj_database_url
 from decouple import config
 
 from .base import *  # noqa: F403, F401
 
-# Database configuration
-# Use Neon database if DATABASE_URL is set, otherwise use a simple file-based SQLite
-if config("DATABASE_URL", default=None):
-    import dj_database_url
-    DATABASES = {
-        "default": dj_database_url.parse(config("DATABASE_URL"))
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": "/tmp/test_ci.db",
+DATABASE_URL = config("DATABASE_URL", default=None)
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required for CI environment.")
+
+DATABASES = {
+    "default": dj_database_url.parse(DATABASE_URL)
+}
+
+CONN_MAX_AGE = 0
+
+# Use a unique test database per CI run when provided, to avoid clashes on reruns.
+_test_db_suffix = os.getenv("DJANGO_TEST_DB_SUFFIX")
+if _test_db_suffix:
+    _base_name = DATABASES["default"].get("NAME")
+    if _base_name:
+        DATABASES["default"]["TEST"] = {
+            "NAME": f"test_{_base_name}_{_test_db_suffix}",
         }
-    }
 
 # Disable password hashing for faster CI
 PASSWORD_HASHERS = [

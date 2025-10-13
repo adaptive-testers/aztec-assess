@@ -1,21 +1,61 @@
 version: 2
 updates:
+  # Backend dependencies (production and development combined)
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "weekly"
-    allow:
-      - dependency-type: "all"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      backend-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    reviewers:
+      - "talberry"
+    assignees:
+      - "talberry"
+
+  # Frontend dependencies (production and development combined)
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    allow:
-      - dependency-type: "all"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    reviewers:
+      - "talberry"
+    assignees:
+      - "talberry"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 2
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    reviewers:
+      - "talberry"
+    assignees:
+      - "talberry"
