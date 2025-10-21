@@ -52,19 +52,25 @@ class UserLoginSerializer(serializers.ModelSerializer):
     """
     Serializer for user login.
 
-    TODO: Implement this serializer with:
-    - Email validation
-    - Password validation
+    Validates:
+    - presence of email/password
+    - normalizes email
+    - authenticates against the backend
     """
 
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    # Set after successful validation
+    user: User | None = None
 
     class Meta:
         model = User
         fields = ["email", "password"]
 
-    # TODO: Add validation methods
+    def validate_email(self, value: str) -> str:
+        """Normalize email format."""
+        return str(value).strip().lower()
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

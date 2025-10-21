@@ -26,5 +26,5 @@
     /* Testing */
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src", "src/**/*.test.tsx", "src/**/*.test.ts"]
+  "include": ["src", "src/**/*.test.tsx", "src/**/*.test.ts", "src/context", "src/types/**/*.d.ts"]
 }
