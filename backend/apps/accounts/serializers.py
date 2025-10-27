@@ -77,9 +77,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for user profile.
 
-    TODO: Implement this serializer with:
-    - Read-only fields
-    - Update validation
+    Validates:
+    - first name and last name are not empty
     """
 
     class Meta:
@@ -92,6 +91,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "is_verified",
             "created_at",
         ]
-        read_only_fields = ["email", "created_at"]
+        read_only_fields = ["email", "created_at", "role"]
 
-    # TODO: Add validation methods
+    def validate_first_name(self, value: str) -> str:
+        value = value.strip()
+        if len(value) == 0:
+            raise serializers.ValidationError("First name cannot be empty.")
+        return value
+
+    def validate_last_name(self, value: str) -> str:
+        value = value.strip()
+        if len(value) == 0:
+            raise serializers.ValidationError("Last name cannot be empty.")
+        return value

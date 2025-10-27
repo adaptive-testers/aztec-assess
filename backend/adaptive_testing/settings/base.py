@@ -42,6 +42,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 LOCAL_APPS = [
@@ -143,6 +144,14 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "200/hour",        # Anonymous users: 200 requests per hour
+        "user": "2000/hour",       # Authenticated users: 2000 requests per hour
+    },
 }
 
 # JWT Settings
@@ -183,6 +192,11 @@ CORS_ALLOWED_ORIGINS = config(
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Cookie Security Settings
+# Controls whether cookies are sent only over HTTPS
+# Defaults to True in production (when DEBUG=False), False in development
+COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
 
 # Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (

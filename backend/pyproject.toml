@@ -20,11 +20,11 @@ djangorestframework-simplejwt = "^5.5.1"
 dj-database-url = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.14.1"
+ruff = "^0.14.2"
 mypy = "^1.18.2"
 pre-commit = "^3.4.0"
 django-stubs = "^5.2.7"
-djangorestframework-stubs = "^3.16.4"
+djangorestframework-stubs = "^3.16.5"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.4.2"
