@@ -12,8 +12,8 @@ function App() {
         <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
           <Routes>
 -            <Route path="/" element={<LogInPage />} />
-+            <Route path="/roleSelect" element={<RoleSelectionPage />} />
-             <Route path="/signup" element={<SignUpPage />} />
++            <Route path="/role-select" element={<RoleSelectionPage />} />
+             <Route path="/sign-up" element={<SignUpPage />} />
              <Route path="/login" element={<LogInPage />} />
           </Routes>
         </div>
