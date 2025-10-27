@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { IoPersonOutline } from "react-icons/io5";
@@ -204,7 +204,7 @@ export default function SignUpContainer() {
                 </div>
 
                 <div className="geist-font text-[12px] font-[150] tracking-wider mt-10 flex justify-center">
-                    <p className="text-primary-text">Already have an account? <a href="/login" className="text-primary-accent transition-all duration-500 hover:underline">Log in</a></p>
+                    <p className="text-primary-text">Already have an account? <Link to="/login" className="text-primary-accent transition-all duration-500 hover:underline">Log in</Link></p>
                 </div>
             </div>
         </div>
