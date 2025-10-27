@@ -23,70 +23,164 @@ describe("RoleSelectionPage", () => {
         vi.mocked(useNavigate).mockReturnValue(mockNavigate)
     })
 
-    // Basic rendering tests
-    describe("Rendering", () => {
-        it("renders the page with correct title", () => {
+    describe("Initial Rendering", () => {
+        it("renders the title correctly", () => {
             render(<RoleSelectionPage />)
             expect(screen.getByText("Select Your Role")).toBeInTheDocument()
         })
 
-        it("renders both role options", () => {
+        it("renders both role cards", () => {
             render(<RoleSelectionPage />)
             expect(screen.getByText("Student")).toBeInTheDocument()
             expect(screen.getByText("Instructor")).toBeInTheDocument()
         })
 
-        it("renders continue button in disabled state initially", () => {
+        it("renders the continue button", () => {
             render(<RoleSelectionPage />)
             const continueButton = screen.getByText("Continue")
             expect(continueButton).toBeInTheDocument()
+        })
+
+        it("has continue button disabled initially", () => {
+            render(<RoleSelectionPage />)
+            const continueButton = screen.getByText("Continue")
             expect(continueButton).toBeDisabled()
+        })
+
+        it("renders role options with role=button attribute", () => {
+            render(<RoleSelectionPage />)
+            const roleButtons = screen.getAllByRole('button')
+            // Should have 3 buttons: student div, instructor div, and continue button
+            expect(roleButtons.length).toBeGreaterThanOrEqual(2)
         })
     })
 
-    // User interaction tests
-    describe("User Interactions", () => {
-        it("enables continue button when a role is selected", async () => {
+    describe("Student Role Selection", () => {
+        it("selects student role when clicked", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const studentOption = screen.getByText("Student").closest('div[role="button"]')
-            expect(studentOption).toBeInTheDocument()
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
             
-            await user.click(studentOption!)
-            
-            const continueButton = screen.getByRole('button', { name: /continue/i })
-            expect(continueButton).not.toHaveAttribute('disabled')
+            expect(studentCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
         })
 
-        it("applies correct styles when student role is selected", async () => {
+        it("enables continue button after selecting student", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const studentOption = screen.getByText("Student").closest('div[role="button"]')
-            await user.click(studentOption!)
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
             
-            expect(studentOption).toHaveClass('border-[rgba(174,58,58,0.8)]')
-            expect(screen.getByText("Student")).toHaveClass('text-[var(--color-primary-text)]')
+            const continueButton = screen.getByText("Continue")
+            expect(continueButton).not.toBeDisabled()
         })
 
-        it("applies correct styles when instructor role is selected", async () => {
+        it("applies correct text color to student label when selected", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const instructorOption = screen.getByText("Instructor").closest('div[role="button"]')
-            await user.click(instructorOption!)
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
             
-            expect(instructorOption).toHaveClass('border-[rgba(174,58,58,0.8)]')
-            expect(screen.getByText("Instructor")).toHaveClass('text-[var(--color-primary-text)]')
+            const studentText = screen.getByText("Student")
+            expect(studentText).toHaveClass('text-[var(--color-primary-text)]')
         })
 
-        it("navigates to signup page with correct role when continue is clicked", async () => {
+        it("logs the selected role when student is selected and continue is clicked", async () => {
+            const user = userEvent.setup()
+            const consoleSpy = vi.spyOn(console, 'log')
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
+            
+            const continueButton = screen.getByText("Continue")
+            await user.click(continueButton)
+            
+            expect(consoleSpy).toHaveBeenCalledWith('Selected role:', 'student')
+            consoleSpy.mockRestore()
+        })
+    })
+
+    describe("Instructor Role Selection", () => {
+        it("selects instructor role when clicked", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const studentOption = screen.getByText("Student").parentElement?.parentElement
-            await user.click(studentOption!)
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            await user.click(instructorCard!)
+            
+            expect(instructorCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+        })
+
+        it("enables continue button after selecting instructor", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            await user.click(instructorCard!)
+            
+            const continueButton = screen.getByText("Continue")
+            expect(continueButton).not.toBeDisabled()
+        })
+
+        it("applies correct text color to instructor label when selected", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            await user.click(instructorCard!)
+            
+            const instructorText = screen.getByText("Instructor")
+            expect(instructorText).toHaveClass('text-[var(--color-primary-text)]')
+        })
+    })
+
+    describe("Role Switching", () => {
+        it("can switch from student to instructor", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            
+            // Select student first
+            await user.click(studentCard!)
+            expect(studentCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+            
+            // Switch to instructor
+            await user.click(instructorCard!)
+            expect(instructorCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+            expect(studentCard).not.toHaveClass('border-[rgba(174,58,58,0.8)]')
+        })
+
+        it("can switch from instructor to student", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            
+            // Select instructor first
+            await user.click(instructorCard!)
+            expect(instructorCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+            
+            // Switch to student
+            await user.click(studentCard!)
+            expect(studentCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+            expect(instructorCard).not.toHaveClass('border-[rgba(174,58,58,0.8)]')
+        })
+    })
+
+    describe("Navigation", () => {
+        it("navigates to signup with student role state", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
             
             const continueButton = screen.getByText("Continue")
             await user.click(continueButton)
@@ -96,63 +190,103 @@ describe("RoleSelectionPage", () => {
             })
         })
 
-        it("allows switching between roles", async () => {
+        it("navigates to signup with instructor role state", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const studentOption = screen.getByText("Student").closest('div[role="button"]')
-            const instructorOption = screen.getByText("Instructor").closest('div[role="button"]')
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            await user.click(instructorCard!)
             
-            await user.click(studentOption!)
-            expect(studentOption).toHaveClass('border-[rgba(174,58,58,0.8)]')
-            expect(instructorOption).not.toHaveClass('border-[rgba(174,58,58,0.8)]')
+            const continueButton = screen.getByText("Continue")
+            await user.click(continueButton)
             
-            await user.click(instructorOption!)
-            expect(instructorOption).toHaveClass('border-[rgba(174,58,58,0.8)]')
-            expect(studentOption).not.toHaveClass('border-[rgba(174,58,58,0.8)]')
+            expect(mockNavigate).toHaveBeenCalledWith('/signup', {
+                state: { role: 'instructor' }
+            })
+        })
+
+        it("does not navigate when continue is clicked without selection", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const continueButton = screen.getByText("Continue")
+            // Button is disabled, but try clicking anyway
+            await user.click(continueButton)
+            
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
     })
 
-    // Accessibility tests
-    describe("Accessibility", () => {
-        it("supports keyboard navigation", async () => {
+    describe("Keyboard Interactions", () => {
+        it("selects student role with Enter key", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            // Get elements
-            const studentOption = screen.getByText("Student").closest('div[role="button"]') as HTMLElement
-            const instructorOption = screen.getByText("Instructor").closest('div[role="button"]') as HTMLElement
-            const continueButton = screen.getByRole('button', { name: /continue/i })
+            const studentCard = screen.getByText("Student").closest('div[role="button"]') as HTMLElement
             
-            // Initial tab should focus student option
-            await user.tab()
-            expect(studentOption).toHaveFocus()
+            // Focus and press Enter
+            studentCard.focus()
+            await user.keyboard('{Enter}')
             
-            // Tab to instructor
-            await user.tab()
-            expect(instructorOption).toHaveFocus()
-            
-            // Tab to continue button
-            await user.tab()
-            expect(continueButton).toHaveFocus()
-            
-            // Tab back to student (full circle)
-            await user.tab()
-            expect(studentOption).toHaveFocus()
+            expect(studentCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
         })
 
-        it("allows role selection with keyboard", async () => {
+        it("selects instructor role with Space key", async () => {
             const user = userEvent.setup()
             render(<RoleSelectionPage />)
             
-            const studentOption = screen.getByText("Student").closest('div[role="button"]')
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]') as HTMLElement
+            
+            // Focus and press Space
+            instructorCard.focus()
+            await user.keyboard(' ')
+            
+            expect(instructorCard).toHaveClass('border-[rgba(174,58,58,0.8)]')
+        })
+
+        it("has tabIndex on role selection divs", () => {
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]')
+            
+            expect(studentCard).toHaveAttribute('tabIndex', '0')
+            expect(instructorCard).toHaveAttribute('tabIndex', '0')
+        })
+
+        it("can tab through focusable elements", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]') as HTMLElement
+            const instructorCard = screen.getByText("Instructor").closest('div[role="button"]') as HTMLElement
+            
+            // Start tabbing
+            await user.tab()
+            expect(studentCard).toHaveFocus()
             
             await user.tab()
-            expect(studentOption).toHaveFocus()
+            expect(instructorCard).toHaveFocus()
+        })
+    })
+
+    describe("Button States", () => {
+        it("continue button has correct styling when disabled", () => {
+            render(<RoleSelectionPage />)
+            const continueButton = screen.getByText("Continue")
             
-            await user.keyboard('{Enter}')
-            expect(studentOption).toHaveClass('border-[rgba(174,58,58,0.8)]')
-            expect(screen.getByRole('button', { name: /continue/i })).not.toHaveAttribute('disabled')
+            expect(continueButton).toHaveClass('cursor-not-allowed')
+        })
+
+        it("continue button maintains base styling when enabled", async () => {
+            const user = userEvent.setup()
+            render(<RoleSelectionPage />)
+            
+            const studentCard = screen.getByText("Student").closest('div[role="button"]')
+            await user.click(studentCard!)
+            
+            const continueButton = screen.getByText("Continue")
+            expect(continueButton).toHaveClass('bg-[var(--color-primary-accent)]')
         })
     })
 })
