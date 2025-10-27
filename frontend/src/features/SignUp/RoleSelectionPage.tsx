@@ -31,8 +31,10 @@ export default function RoleSelectionPage() {
                     <div 
                         role="button"
                         tabIndex={0}
-                        className={`flex-1 bg-[var(--color-secondary-background)] border-[3px] border-[var(--color-primary-border)] rounded-lg p-11 cursor-pointer transition-all duration-350 hover:border-[rgb(174,58,58)] group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-accent)] ${
-                            selectedRole === 'student' ? 'border-[rgba(174,58,58,0.8)]' : ''
+                        className={`flex-1 bg-[var(--color-secondary-background)] border-[3px] rounded-lg p-11 cursor-pointer transition-all duration-350 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-accent)] ${
+                            selectedRole === 'student' 
+                                ? 'border-[rgba(174,58,58,0.8)] hover:border-[rgba(174,58,58,1)]' 
+                                : 'border-[var(--color-primary-border)] hover:border-[rgb(174,58,58)]'
                         }`}
                         onClick={() => handleRoleSelect('student')}
                         onKeyDown={(e) => {
@@ -56,8 +58,10 @@ export default function RoleSelectionPage() {
                     <div 
                         role="button"
                         tabIndex={0}
-                        className={`flex-1 bg-[var(--color-secondary-background)] border-[3px] border-[var(--color-primary-border)] rounded-lg p-11 cursor-pointer transition-all duration-350 hover:border-[rgb(174,58,58)] group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-accent)] ${
-                            selectedRole === 'instructor' ? 'border-[rgba(174,58,58,0.8)]' : ''
+                        className={`flex-1 bg-[var(--color-secondary-background)] border-[3px] rounded-lg p-11 cursor-pointer transition-all duration-350 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-accent)] ${
+                            selectedRole === 'instructor' 
+                                ? 'border-[rgba(174,58,58,0.8)] hover:border-[rgba(174,58,58,1)]' 
+                                : 'border-[var(--color-primary-border)] hover:border-[rgb(174,58,58)]'
                         }`}
                         onClick={() => handleRoleSelect('instructor')}
                         onKeyDown={(e) => {

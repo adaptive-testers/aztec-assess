@@ -96,7 +96,7 @@ export default function SignUpContainer() {
             p-5">
                     
             <div>
-                <p className="text-primary-text geist-font text-[27px] font-[415] mt-3">Sign Up</p>
+                <p className="text-primary-text geist-font text-[27px] font-[415] mt-3">Finish signing up!</p>
             </div>
 
             <div className="w-full pl-4 pr-4">
