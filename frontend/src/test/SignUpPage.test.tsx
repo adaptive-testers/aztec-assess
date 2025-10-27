@@ -61,7 +61,7 @@ describe("SignUpContainer", () => {
     describe("Rendering", () => {
         it("renders the SignUpContainer with the correct title", () => {
             render(<SignUpContainer />)
-            expect(screen.getByText("Sign Up")).toBeInTheDocument()
+            expect(screen.getByText("Complete Your Account!")).toBeInTheDocument()
         })
 
         it("renders all form fields", () => {
