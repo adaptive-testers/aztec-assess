@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FaBook } from "react-icons/fa";
 import { IoIosArrowUp } from "react-icons/io";
 import { IoMdPerson } from "react-icons/io";
@@ -9,32 +10,73 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [coursesOpen, setCoursesOpen] = useState(false);
   const { logout } = useAuth();
+
+  const courses = [
+    {
+      id: 1,
+      name: "Mathematics 101",
+      path: "/courses/mathematics-101",
+    },
+    { id: 2, name: "Physics 202", path: "/courses/physics-202" },
+    {
+      id: 3,
+      name: "Computer Science 150",
+      path: "/courses/computer-science-301",
+    },
+    {
+      id: 4,
+      name: "Chemistry 150",
+      path: "/courses/chemistry-150",
+    },
+  ];
 
   const handleLogout = () => {
     logout();
   };
 
   return (
-    <div className="absolute left-0 top-0 flex h-[985px] w-[280px] flex-col items-start bg-[#0F0F0F] border-r border-[#404040] shadow-[0_3px_3px_rgba(0,0,0,0.25)]">
+    <div
+      className={`absolute left-0 top-0 flex h-[985px] flex-col items-start bg-[#0F0F0F] border-r border-[#404040] shadow-[0_3px_3px_rgba(0,0,0,0.25)] overflow-hidden transition-[width] duration-300
+      ${collapsed ? "w-[78px]" : "w-[280px]"}`}
+    >
       {/* Header */}
-      <div className="flex h-[70px] w-[280px] items-center justify-between px-[17px] border-b border-[#404040]">
-        <h2 className="font-geist text-[17px] font-medium leading-[26px] tracking-[0px] text-slate-100">
-          Aztec Assess
-        </h2>
-        <button className="flex h-[35px] w-[39px] items-center justify-center rounded-[7px]">
-          <IoIosArrowUp className="h-[17px] w-[17px] rotate-270 text-[rgba(241,245,249,0.7)]" />
+      <div className="flex h-[70px] w-full items-center justify-between px-[19px] border-b border-[#404040]">
+        <div
+          className={`min-w-0 transition-opacity duration-200 ${
+            collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto"
+          }`}
+        >
+          <h2 className="truncate font-geist text-[17px] font-medium leading-[26px] tracking-[0px] text-slate-100">
+            Aztec Assess
+          </h2>
+        </div>
+        <button
+          onClick={() => {
+            setCollapsed(!collapsed);
+            if (coursesOpen) setCoursesOpen((v) => !v);
+          }}
+          className="ml-auto flex h-[35px] w-[39px] items-center justify-center rounded-[7px]"
+        >
+          <IoIosArrowUp
+            className={`h-[17px] w-[17px] text-[rgba(241, 245, 249, 0.7)] transition-transform duration-300 ${
+              collapsed ? "rotate-90" : "rotate-[270deg]"
+            }`}
+          />
         </button>
       </div>
 
       {/* Nav */}
       <nav className="flex h-[878px] w-[278px] flex-col items-start gap-[9px] px-[17px] pt-[17px]">
+        {/* Dashboard */}
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
-            `group relative flex items-center h-[39px] w-[243px] rounded-[7px] transition-colors duration-200 ${
-              isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"
-            }`
+            `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
+            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
           {({ isActive }) => (
@@ -46,15 +88,21 @@ export default function Sidebar() {
                     : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
                 }`}
               />
-              <span
-                className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] tracking-[0px] transition-colors duration-200 ${
-                  isActive
-                    ? "text-white"
-                    : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                }`}
-              >
-                Dashboard
-              </span>
+              {!collapsed && (
+                <span
+                  className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out ${
+                    collapsed
+                      ? "opacity-0 -translate-x-1"
+                      : "opacity-100 translate-x-0"
+                  } ${
+                    isActive
+                      ? "text-white"
+                      : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
+                  }`}
+                >
+                  Dashboard
+                </span>
+              )}
             </>
           )}
         </NavLink>
@@ -63,9 +111,9 @@ export default function Sidebar() {
         <NavLink
           to="/profile"
           className={({ isActive }) =>
-            `group relative flex items-center h-[39px] w-[243px] rounded-[7px] transition-colors duration-200 ${
-              isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"
-            }`
+            `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
+            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
           {({ isActive }) => (
@@ -77,15 +125,21 @@ export default function Sidebar() {
                     : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
                 }`}
               />
-              <span
-                className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] tracking-[0px] transition-colors duration-200 ${
-                  isActive
-                    ? "text-white"
-                    : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                }`}
-              >
-                Profile
-              </span>
+              {!collapsed && (
+                <span
+                  className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out ${
+                    collapsed
+                      ? "opacity-0 -translate-x-1"
+                      : "opacity-100 translate-x-0"
+                  } ${
+                    isActive
+                      ? "text-white"
+                      : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
+                  }`}
+                >
+                  Profile
+                </span>
+              )}
             </>
           )}
         </NavLink>
@@ -94,9 +148,9 @@ export default function Sidebar() {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `group relative flex items-center h-[39px] w-[243px] rounded-[7px] transition-colors duration-200 ${
-              isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"
-            }`
+            `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
+            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
           {({ isActive }) => (
@@ -108,47 +162,118 @@ export default function Sidebar() {
                     : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
                 }`}
               />
-              <span
-                className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] tracking-[0px] transition-colors duration-200 ${
-                  isActive
-                    ? "text-white"
-                    : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                }`}
-              >
-                Settings
-              </span>
+              {!collapsed && (
+                <span
+                  className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out ${
+                    collapsed
+                      ? "opacity-0 -translate-x-1"
+                      : "opacity-100 translate-x-0"
+                  } ${
+                    isActive
+                      ? "text-white"
+                      : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
+                  }`}
+                >
+                  Settings
+                </span>
+              )}
             </>
           )}
         </NavLink>
 
         {/* Courses */}
         <NavLink
-          className={({ isActive }) =>
-            `group relative h-[39px] w-[243px] rounded-[7px] transition-colors duration-200 ${
-              isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"
-            }`
-          }
           to="/courses"
+          onClick={(e) => {
+            e.preventDefault();
+            if (!collapsed) setCoursesOpen((v) => !v);
+            if (collapsed) setCoursesOpen((v) => !v);
+            if (collapsed) setCollapsed((v) => !v);
+          }}
+          aria-expanded={coursesOpen}
+          aria-controls="courses-menu"
+          className={() => `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 hover:bg-[#F87171]
+            ${collapsed ? "w-[43px]" : "w-[243px]"}`}
         >
-          <FaBook className="absolute left-[13px] top-[11px] h-[17px] w-[17px] text-[rgba(241,245,249,0.7)]" />
-          <span className="absolute left-[52px] top-[9px] font-geist text-[15px] font-medium leading-[22px] tracking-[0px] text-[rgba(241,245,249,0.7)]">
-            Courses
-          </span>
-          <IoIosArrowUp className="absolute left-[213px] top-[11px] h-[17px] w-[17px] rotate-180 text-[rgba(241,245,249,0.7)]" />
+          <FaBook className="ml-[13px] h-[17px] w-[17px] text-[rgba(241,245,249,0.7)] transition-colors duration-200 group-hover:text-white" />
+
+          {!collapsed && (
+            <>
+              <span className="ml-[25px] font-geist text-[15px] font-medium leading-[22px] text-[rgba(241,245,249,0.7)] transition-colors duration-200 group-hover:text-white">
+                Courses
+              </span>
+              <IoIosArrowUp
+                className={`ml-auto mr-[12px] h-[17px] w-[17px] text-[rgba(241,245,249,0.7)] transition-transform duration-200
+                  ${coursesOpen ? "rotate-0" : "rotate-180"}`}
+              />
+            </>
+          )}
         </NavLink>
+
+        <div className={`${collapsed ? "hidden" : "block"} mt-[6px]`}>
+          <div
+            id="courses-menu"
+            className={`grid transition-[grid-template-rows,transform] duration-200 ${
+              coursesOpen
+                ? "grid-rows-[1fr] opacity-100 translate-y-0"
+                : "grid-rows-[0fr] opacity-0 -translate-y-1 pointer-events-none"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="w-[244px] rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[5px]">
+                <NavLink
+                  to="/courses/create"
+                  className="group/item relative flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 transition-colors"
+                >
+                  <span className="mr-[12px] grid place-items-center h-[17px] w-[17px] rounded-[3px] border border-[#A1A1AA]" />
+                  <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
+                    Create Course
+                  </span>
+                </NavLink>
+
+                {/* Divider */}
+                {courses.length > 1 && (
+                  <div className="mx-[5.45px] my-[6px] h-px bg-[#404040] rounded" />
+                )}
+
+                {courses.map((course) => (
+                  <NavLink
+                    key={course.id}
+                    to={course.path}
+                    className="group/item relative mt-[2px] flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 duration-200 transition-colors"
+                  >
+                    <span className="mr-[12px] grid place-items-center h-[17px] w-[17px] rounded-[3px] border border-[#A1A1AA]" />
+                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
+                      {course.name}
+                    </span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       {/* Logout */}
-      <div className="flex h-[75px] w-[278px] flex-col items-start border-t-[1px] border-[#404040] px-[17px] pt-[19px]">
+      <div className="flex h-[75px] w-full flex-col items-start border-t border-[#404040] px-[17px] pt-[19px]">
         <button
-          onClick={handleLogout}
-          className="relative h-[39px] w-[243px] rounded-[7px] hover:bg-[#F87171] duration-200"
           type="button"
+          onClick={handleLogout}
+          className={`group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 hover:bg-[#F87171] focus:outline-none
+          ${collapsed ? "w-[43px]" : "w-[243px]"}`}
+          aria-label="Logout"
         >
-          <IoLogOut className="absolute left-[13px] top-[11px] h-[17px] w-[17px] text-[rgba(241,245,249,0.7)]" />
-          <span className="absolute left-[52px] top-[9px] text-[15px] font-medium leading-[22px] tracking-[0px] text-[rgba(241,245,249,0.7)]">
-            Logout
-          </span>
+          <IoLogOut
+            className={`ml-[13px] h-[17px] w-[17px] transition-colors duration-200 text-[rgba(241,245,249,0.7)] group-hover:text-white`}
+          />
+
+          {!collapsed && (
+            <span
+              className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out opacity-100 translate-x-0 text-[rgba(241,245,249,0.7)] group-hover:text-white`}
+            >
+              Logout
+            </span>
+          )}
         </button>
       </div>
     </div>
