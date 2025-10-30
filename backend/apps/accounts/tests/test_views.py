@@ -68,7 +68,8 @@ class TestUserRegistrationView:
         assert resp.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
         assert "tokens" in resp.data
         assert "access" in resp.data["tokens"]
-        assert "refresh" in resp.data["tokens"]
+        # Refresh token is now in cookie, not in response body
+        assert "refresh_token" in resp.cookies
 
     def test_register_rejects_weak_password(self):
         client = APIClient()
@@ -160,7 +161,8 @@ class TestUserLoginView:
         assert resp.data["email"] == user.email
         assert "tokens" in resp.data
         assert "access" in resp.data["tokens"]
-        assert "refresh" in resp.data["tokens"]
+        # Refresh token is now in cookie, not in response body
+        assert "refresh_token" in resp.cookies
 
     def test_login_success_with_email_normalization_spaces_and_case(self):
         UserModel.objects.create_user(
@@ -214,7 +216,9 @@ class TestUserLoginView:
             format="json",
         )
         assert resp.status_code == status.HTTP_200_OK
-        assert set(resp.data["tokens"].keys()) == {"access", "refresh"}
+        # Only access token in response body, refresh token in cookie
+        assert set(resp.data["tokens"].keys()) == {"access"}
+        assert "refresh_token" in resp.cookies
 
     # ---------- FAILURE (4) ----------
     def test_login_rejects_invalid_password(self):
@@ -268,6 +272,232 @@ class TestUserLoginView:
             format="json",
         )
         assert resp.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
+
+
+# =========================
+# Cookie-Based Auth Tests
+# =========================
+class TestCookieBasedAuthentication:
+    """Test cookie-based authentication flow."""
+
+    def test_login_sets_refresh_cookie(self):
+        """Test that login sets a secure refresh token cookie."""
+        UserModel.objects.create_user(
+            email="cookieuser@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Cookie",
+            last_name="User",
+            role="student",
+        )
+
+        client = APIClient()
+        url = reverse("accounts:login")
+        response = client.post(
+            url,
+            {"email": "cookieuser@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "refresh_token" in response.cookies
+        assert response.cookies["refresh_token"].value is not None
+        assert response.cookies["refresh_token"]["httponly"] is True
+        assert response.cookies["refresh_token"]["samesite"] == "Lax"
+
+    def test_login_cookie_security_settings(self):
+        """Test that refresh token cookie has proper security settings."""
+        UserModel.objects.create_user(
+            email="security@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Security",
+            last_name="Test",
+            role="student",
+        )
+
+        client = APIClient()
+        url = reverse("accounts:login")
+        response = client.post(
+            url,
+            {"email": "security@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        cookie = response.cookies["refresh_token"]
+        assert cookie["httponly"] is True  # Prevents XSS
+        assert cookie["samesite"] == "Lax"  # CSRF protection
+        assert cookie["path"] == "/api/auth/"  # Limited scope
+
+    def test_token_refresh_with_cookie(self):
+        """Test token refresh using cookie-based refresh token."""
+        UserModel.objects.create_user(
+            email="refresh@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Refresh",
+            last_name="User",
+            role="student",
+        )
+
+        # First login to get refresh token cookie
+        client = APIClient()
+        login_url = reverse("accounts:login")
+        login_response = client.post(
+            login_url,
+            {"email": "refresh@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+        refresh_cookie = login_response.cookies["refresh_token"].value
+
+        # Now test token refresh
+        refresh_url = reverse("accounts:token_refresh")
+        refresh_response = client.post(
+            refresh_url,
+            {},
+            format="json",
+            HTTP_COOKIE=f"refresh_token={refresh_cookie}",
+        )
+
+        assert refresh_response.status_code == status.HTTP_200_OK
+        assert "tokens" in refresh_response.data
+        assert "access" in refresh_response.data["tokens"]
+
+    def test_token_refresh_without_cookie_fails(self):
+        """Test that token refresh fails without refresh token cookie."""
+        client = APIClient()
+        url = reverse("accounts:token_refresh")
+        response = client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "detail" in response.data
+        assert "Missing refresh token" in response.data["detail"]
+
+    def test_logout_blacklists_token(self):
+        """Test that logout blacklists the refresh token."""
+
+        UserModel.objects.create_user(
+            email="logout@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Logout",
+            last_name="User",
+            role="student",
+        )
+
+        # Login to get refresh token
+        client = APIClient()
+        login_url = reverse("accounts:login")
+        login_response = client.post(
+            login_url,
+            {"email": "logout@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+        refresh_cookie = login_response.cookies["refresh_token"].value
+
+        # We'll test blacklisting by attempting to use the token for refresh
+
+        # Logout
+        logout_url = reverse("accounts:logout")
+        logout_response = client.post(
+            logout_url,
+            {},
+            format="json",
+            HTTP_COOKIE=f"refresh_token={refresh_cookie}",
+        )
+
+        assert logout_response.status_code == status.HTTP_200_OK
+        assert "detail" in logout_response.data
+        assert "Logged out" in logout_response.data["detail"]
+
+        # Verify token is blacklisted by trying to use it for refresh
+        # This should fail if the token is blacklisted
+        refresh_url = reverse("accounts:token_refresh")
+        test_response = client.post(
+            refresh_url,
+            {},
+            format="json",
+            HTTP_COOKIE=f"refresh_token={refresh_cookie}",
+        )
+        assert test_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_logout_clears_cookie(self):
+        """Test that logout clears the refresh token cookie."""
+        UserModel.objects.create_user(
+            email="clearcookie@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Clear",
+            last_name="Cookie",
+            role="student",
+        )
+
+        # Login to get refresh token cookie
+        client = APIClient()
+        login_url = reverse("accounts:login")
+        login_response = client.post(
+            login_url,
+            {"email": "clearcookie@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+
+        # Logout
+        logout_url = reverse("accounts:logout")
+        logout_response = client.post(logout_url, {}, format="json")
+
+        assert logout_response.status_code == status.HTTP_200_OK
+
+        # Check that cookie is cleared
+        assert "refresh_token" in logout_response.cookies
+        cookie = logout_response.cookies["refresh_token"]
+        assert cookie.value == ""  # Cookie is cleared
+
+    def test_blacklisted_token_cannot_refresh(self):
+        """Test that blacklisted tokens cannot be used for refresh."""
+        UserModel.objects.create_user(
+            email="blacklist@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Blacklist",
+            last_name="Test",
+            role="student",
+        )
+
+        # Login to get refresh token
+        client = APIClient()
+        login_url = reverse("accounts:login")
+        login_response = client.post(
+            login_url,
+            {"email": "blacklist@example.com", "password": "StrongP@ssw0rd!"},
+            format="json",
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+        refresh_cookie = login_response.cookies["refresh_token"].value
+
+        # Logout to blacklist the token
+        logout_url = reverse("accounts:logout")
+        logout_response = client.post(
+            logout_url,
+            {},
+            format="json",
+            HTTP_COOKIE=f"refresh_token={refresh_cookie}",
+        )
+
+        assert logout_response.status_code == status.HTTP_200_OK
+
+        # Try to use blacklisted token for refresh
+        refresh_url = reverse("accounts:token_refresh")
+        refresh_response = client.post(
+            refresh_url,
+            {},
+            format="json",
+            HTTP_COOKIE=f"refresh_token={refresh_cookie}",
+        )
+
+        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 # =========================
