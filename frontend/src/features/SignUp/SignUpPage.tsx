@@ -9,6 +9,7 @@ import { TbLockPassword } from "react-icons/tb";
 import { publicApi } from "../../api/axios";
 import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
+import { useGoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../../context/AuthContext";
 
 interface FormFields {
@@ -24,6 +25,29 @@ export default function SignUpContainer() {
     const { setAccessToken } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
+
+    // Read client id from Vite env; if missing we disable the button and surface helpful console message
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+
+    const googleLogin = useGoogleLogin({
+    flow: 'auth-code',  // ← Changed from 'implicit'
+    onSuccess: async (codeResponse) => {
+        try {
+            // Send authorization code to backend
+            const resp = await publicApi.post('/auth/google/', { 
+                code: codeResponse.code 
+            });
+            if (resp.data?.tokens?.access) {
+                setAccessToken(resp.data.tokens.access);
+            }
+        } catch (err) {
+            console.error('Error exchanging Google code with backend', err);
+        }
+    },
+    onError: (err) => {
+        console.error('Google login error', err);
+    }
+});
 
     // Password validation function
     const validatePassword = (password: string) => {
@@ -168,13 +192,23 @@ export default function SignUpContainer() {
                 </div>
 
                 <div className="flex flex-row gap-4 mt-7">
+                    {/* Google button: enabled when VITE_GOOGLE_CLIENT_ID is present; otherwise visually disabled */}
                     <button
                         aria-label="Sign up with Google"
-                        className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-200 cursor-not-allowed opacity-50"
-                        disabled
+                        onClick={() => {
+                            if (!googleClientId) {
+                                console.warn('Missing VITE_GOOGLE_CLIENT_ID in environment; cannot sign in with Google');
+                                return;
+                            }
+                            googleLogin();
+                        }}
+                        className={`flex items-center justify-center h-[34px] w-55 border-[2px] rounded-lg shadow-sm transition-all duration-200 ${googleClientId ? 'border-primary-border cursor-pointer opacity-100 hover:shadow-[0_6px_18px_0_rgba(0,0,0,0.08)] hover:bg-[#4a4a4a56]' : 'border-primary-border cursor-not-allowed opacity-50'}`}
+                        disabled={!googleClientId}
                     >
                         <img src={googleLogo} alt="Google logo" className="h-4 w-4" />
                     </button>
+
+                    {/* Microsoft is left as a placeholder; hook up similar flow when ready */}
                     <button
                         aria-label="Sign up with Microsoft"
                         className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-200 cursor-not-allowed opacity-50"
