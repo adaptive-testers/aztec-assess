@@ -17,18 +17,13 @@ from pathlib import Path
 import dj_database_url
 from decouple import config
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("SECRET_KEY")
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=True, cast=bool)
-
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
-# Application definition
+# Apps
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -37,18 +32,17 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
-
 THIRD_PARTY_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
 ]
-
 LOCAL_APPS = [
     "apps.accounts",
 ]
-
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
@@ -82,7 +76,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "adaptive_testing.wsgi.application"
 
-# Database
+# DB
 DATABASES = {
     "default": dj_database_url.config(
         default=config("DATABASE_URL", default="sqlite:///db.sqlite3"),
@@ -91,50 +85,28 @@ DATABASES = {
     )
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
+# Auth
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATIC_URL = "static/"
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Custom User Model
+# Custom user
 AUTH_USER_MODEL = "accounts.User"
 
-# Django REST Framework
+# DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -148,13 +120,27 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "200/hour",        # Anonymous users: 200 requests per hour
-        "user": "2000/hour",       # Authenticated users: 2000 requests per hour
+    "DEFAULT_THROTTLE_RATES": {"anon": "200/hour", "user": "2000/hour"},
+    # ★ Spectacular schema class
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ★ Spectacular settings
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Aztec Assess API",
+    "DESCRIPTION": "Assessment services for the Adaptive Testers project.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+    "SECURITY": [{"bearerAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+        }
     },
 }
 
-# JWT Settings
+# JWT
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
         minutes=config("JWT_ACCESS_TOKEN_LIFETIME", default=20, cast=int)
@@ -167,16 +153,10 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
-    "VERIFYING_KEY": None,
-    "AUDIENCE": None,
-    "ISSUER": None,
-    "JWK_URL": None,
-    "LEEWAY": 0,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
@@ -185,27 +165,22 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
-# CORS Settings
+# CORS / email / logging
 CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173"
+    "CORS_ALLOWED_ORIGINS",
+    default="http://localhost:5173,http://127.0.0.1:5173",
 ).split(",")
-
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
-# Cookie Security Settings
-# Controls whether cookies are sent only over HTTPS
-# Defaults to True in production (when DEBUG=False), False in development
 COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
 
-# Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (
     "django.core.mail.backends.console.EmailBackend"
     if DEBUG
     else "django.core.mail.backends.smtp.EmailBackend"
 )
 
-# Logging
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -214,26 +189,9 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
             "style": "{",
         },
-        "simple": {
-            "format": "{levelname} {message}",
-            "style": "{",
-        },
+        "simple": {"format": "{levelname} {message}", "style": "{"},
     },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {"django": {"handlers": ["console"], "level": "INFO", "propagate": False}},
 }
