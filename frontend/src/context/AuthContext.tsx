@@ -44,10 +44,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     didAttemptRefresh.current = true;
 
     const run = async () => {
-      if (accessToken != null) {
-        setCheckingRefresh(false);
-        return;
-      }
       try {
         // Dedupe refresh calls if multiple components mount simultaneously
         if (!refreshInFlight) {
@@ -68,7 +64,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (checkingRefresh) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { privateApi } from "../../api/axios";
+import { AUTH } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
 interface ProfileData {
@@ -19,7 +20,7 @@ export default function ProfilePage() {
     if (!accessToken) return;
     
     privateApi
-      .get("/auth/profile/")
+      .get(AUTH.PROFILE)
       .then((res) => setProfile(res.data))
       .catch((err) => {
         if (err.response?.status === 401) {
