@@ -42,7 +42,7 @@ export default function LogInContainer() {
       const { data: res } = await publicApi.post(AUTH.LOGIN, {
         email: data.userEmail,
         password: data.userPassword,
-        // keepSignedIn: data.keepSignedIn,
+        // TODO: Enable keepSignedIn once backend support is available
       });
 
       if (res?.tokens?.access) setAccessToken(res.tokens.access);

@@ -66,30 +66,36 @@ export default function SignUpContainer() {
                 // Extract field-specific errors or general error message
                 const errorData = error.response?.data;
                 
+                let fieldErrorSet = false;
+                
                 // Check for field-specific errors (e.g., email, password)
                 if (errorData?.email) {
                     setError("userEmail", {
                         message: Array.isArray(errorData.email) ? errorData.email[0] : errorData.email,
                     });
+                    fieldErrorSet = true;
                 }
                 if (errorData?.password) {
                     setError("userPassword", {
                         message: Array.isArray(errorData.password) ? errorData.password[0] : errorData.password,
                     });
+                    fieldErrorSet = true;
                 }
                 if (errorData?.first_name) {
                     setError("firstName", {
                         message: Array.isArray(errorData.first_name) ? errorData.first_name[0] : errorData.first_name,
                     });
+                    fieldErrorSet = true;
                 }
                 if (errorData?.last_name) {
                     setError("lastName", {
                         message: Array.isArray(errorData.last_name) ? errorData.last_name[0] : errorData.last_name,
                     });
+                    fieldErrorSet = true;
                 }
                 
                 // Set general error if no field-specific errors or as fallback
-                if (!errorData?.email && !errorData?.password && !errorData?.first_name && !errorData?.last_name) {
+                if (!fieldErrorSet) {
                     const backendMessage = errorData?.detail || errorData?.message;
                     setError("root", {
                         message: backendMessage || "An error occurred while creating your account",
