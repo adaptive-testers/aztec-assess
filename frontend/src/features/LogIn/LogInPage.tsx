@@ -1,12 +1,13 @@
 import axios from "axios";
 import { useState } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
+import { useForm, type SubmitHandler, useWatch } from "react-hook-form";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
 import { Link, useNavigate } from "react-router-dom";
 
 import { publicApi } from "../../api/axios";
+import { AUTH } from "../../api/endpoints";
 import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
 import { useAuth } from "../../context/AuthContext";
@@ -17,14 +18,6 @@ interface FormFields {
   keepSignedIn: boolean;
 }
 
-const validatePassword = (password: string) => {
-  const hasNumber = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
-  if (!hasNumber) return "Password must contain at least one number";
-  if (!hasSpecialChar)
-    return "Password must contain at least one special character";
-  return true as const;
-};
 
 export default function LogInContainer() {
   const [showPassword, setShowPassword] = useState(false);
@@ -36,28 +29,31 @@ export default function LogInContainer() {
     handleSubmit,
     setError,
     setValue,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormFields>({
     defaultValues: { userEmail: "", userPassword: "", keepSignedIn: false },
   });
 
-  const keepSignedIn = watch("keepSignedIn") ?? false;
+  const keepSignedIn = useWatch({ control, name: "keepSignedIn" }) ?? false;
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
-      const { data: res } = await publicApi.post("/auth/login", {
+      const { data: res } = await publicApi.post(AUTH.LOGIN, {
         email: data.userEmail,
         password: data.userPassword,
-        keepSignedIn: data.keepSignedIn,
+        // keepSignedIn: data.keepSignedIn,
       });
 
-      if (res?.access) setAccessToken(res.access);
-      navigate("/dashboard");
+      if (res?.tokens?.access) setAccessToken(res.tokens.access);
+      navigate("/");
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        // Extract error message from backend response
+        const backendMessage = error.response?.data?.detail || 
+                               error.response?.data?.message;
         setError("root", {
-          message: error.response?.data?.message || "Invalid email or password",
+          message: backendMessage || "Invalid email or password",
         });
       } else {
         setError("root", { message: "An unexpected error occurred" });
@@ -69,18 +65,27 @@ export default function LogInContainer() {
     <div className="Log-In w-[1280px] h-[832px] bg-[#000000]">
       <div className="Sign-Up-Box relative flex justify-center items-center p-[40px] gap-[10px] w-[482px] h-[631px] bg-[#0A0A0A] left-[50%] top-[50%] -translate-x-[50%] -translate-y-[50%] border border-[#282828] rounded-[15px]">
         <div className="Frame-25 absolute flex flex-col items-start gap-[40px] w-[402px] h-[551px]">
-          <div className="Frame-19 flex flex-col items-center gap-[40px] w-[402px] h-[335px]">
-            <h1 className="Log-In w-[120px] h-[31px] flex items-center justify-center font-geist font-medium text-[32px] leading-[42px] flex items-center text-center tracking-[0.5px] text-[#ffffff]">
+          <div className="Frame-19 flex flex-col items-center w-[402px]">
+            <h1 className="Log-In w-[120px] h-[31px] mb-[32px] flex items-center justify-center font-geist font-medium text-[32px] leading-[42px] text-center tracking-[0.5px] text-[#ffffff]">
               Log In
             </h1>
-            <div className="Frame-18 flex flex-col items-start gap-[32px] w-[402px] h-[264px]">
+            
+            {/* Error message banner */}
+            {errors.root && (
+              <div
+                className="w-[402px] px-4 py-2 mb-[24px] bg-[#2A1414] border border-[#EF6262] rounded-[8px] text-[#EF6262] text-sm text-center"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {errors.root.message}
+              </div>
+            )}
+            
+            <form className="Frame-18 flex flex-col items-start gap-[32px] w-[402px]" onSubmit={handleSubmit(onSubmit)} noValidate>
               <div className="Frame-17 flex flex-col items-start gap-[24px] w-[402px] h-[192px]">
                 {/* Email */}
-                <form
-                  className="Frame-13 flex flex-col items-start gap-[8px] w-[402px] h-[64px]"
-                  onSubmit={handleSubmit(onSubmit)}
-                  noValidate
-                >
+                <div className="Frame-13 flex flex-col items-start gap-[8px] w-[402px] h-[64px]">
                   <div className="flex justify-between items-center w-full">
                     <label
                       htmlFor="email-input"
@@ -110,14 +115,10 @@ export default function LogInContainer() {
                     />
                     <MdOutlineMailOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
                   </div>
-                </form>
+                </div>
 
                 {/* Password */}
-                <form
-                  className="Frame-14 flex flex-col items-start gap-[8px] w-[402px] h-[64px]"
-                  onSubmit={handleSubmit(onSubmit)}
-                  noValidate
-                >
+                <div className="Frame-14 flex flex-col items-start gap-[8px] w-[402px] h-[64px]">
                   <div className="flex justify-between items-center w-full">
                     <label
                       htmlFor="password-input"
@@ -139,8 +140,6 @@ export default function LogInContainer() {
                       placeholder="Enter your password"
                       {...register("userPassword", {
                         required: "Password is required",
-                        minLength: { value: 8, message: "Minimum length is 8" },
-                        validate: validatePassword,
                       })}
                     />
                     <TbLockPassword className="flex order-first justify-center scale-170 w-[11px] h-[12px] gap-[10px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
@@ -160,7 +159,7 @@ export default function LogInContainer() {
                       )}
                     </button>
                   </div>
-                </form>
+                </div>
 
                 {/* Keep me signed in */}
                 <input
@@ -200,18 +199,16 @@ export default function LogInContainer() {
               </div>
 
               {/* Login */}
-              <form onSubmit={handleSubmit(onSubmit)} noValidate>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  aria-busy={isSubmitting}
-                  aria-disabled={isSubmitting}
-                  className="flex justify-center items-center w-[402px] h-[40px] gap-2 bg-[#EF6262] rounded-[8px] hover:border hover:border-white hover:scale-101 duration-300 font-geist text-[14px] tracking-[0.5px] text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? "Logging in..." : "Log In"}
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                aria-busy={isSubmitting}
+                aria-disabled={isSubmitting}
+                className="flex justify-center items-center w-[402px] h-[40px] gap-2 bg-[#EF6262] rounded-[8px] hover:border hover:border-white hover:scale-101 duration-300 font-geist text-[14px] tracking-[0.5px] text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? "Logging in..." : "Log In"}
+              </button>
+            </form>
           </div>
 
           <div className="Frame-26 flex justify-center items-center gap-[10px] w-[402px] h-[16px]">

@@ -1,12 +1,15 @@
+import axios from "axios";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { IoPersonOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
+import { useNavigate } from "react-router-dom";
 
 import { publicApi } from "../../api/axios";
+import { AUTH } from "../../api/endpoints";
 import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
 import { useAuth } from "../../context/AuthContext";
@@ -22,6 +25,7 @@ interface FormFields {
 export default function SignUpContainer() {
     const {register, handleSubmit, setError, formState: { errors, isSubmitting }} = useForm<FormFields>();
     const { setAccessToken } = useAuth();
+    const navigate = useNavigate();
 
     const [showPassword, setShowPassword] = useState(false);
 
@@ -51,20 +55,51 @@ export default function SignUpContainer() {
                 role: "student"
             };
 
-            const response = await publicApi.post("/auth/register/", registrationData);
-            
+            const response = await publicApi.post(AUTH.REGISTER, registrationData);
             if (response.data.tokens?.access) {
                 setAccessToken(response.data.tokens.access);
+                navigate('/');
             }
-
-            
-            
         }
         catch (error){
-            setError("root", {
-                message: "An error occurred while creating your account.",
-            });
-            console.log(error)
+            if (axios.isAxiosError(error)) {
+                // Extract field-specific errors or general error message
+                const errorData = error.response?.data;
+                
+                // Check for field-specific errors (e.g., email, password)
+                if (errorData?.email) {
+                    setError("userEmail", {
+                        message: Array.isArray(errorData.email) ? errorData.email[0] : errorData.email,
+                    });
+                }
+                if (errorData?.password) {
+                    setError("userPassword", {
+                        message: Array.isArray(errorData.password) ? errorData.password[0] : errorData.password,
+                    });
+                }
+                if (errorData?.first_name) {
+                    setError("firstName", {
+                        message: Array.isArray(errorData.first_name) ? errorData.first_name[0] : errorData.first_name,
+                    });
+                }
+                if (errorData?.last_name) {
+                    setError("lastName", {
+                        message: Array.isArray(errorData.last_name) ? errorData.last_name[0] : errorData.last_name,
+                    });
+                }
+                
+                // Set general error if no field-specific errors or as fallback
+                if (!errorData?.email && !errorData?.password && !errorData?.first_name && !errorData?.last_name) {
+                    const backendMessage = errorData?.detail || errorData?.message;
+                    setError("root", {
+                        message: backendMessage || "An error occurred while creating your account",
+                    });
+                }
+            } else {
+                setError("root", {
+                    message: "An unexpected error occurred",
+                });
+            }
         }
         
     };
@@ -81,6 +116,18 @@ export default function SignUpContainer() {
             <div>
                 <p className="text-primary-text geist-font text-[27px] font-[415] mt-3">Sign Up</p>
             </div>
+
+            {/* Error message banner */}
+            {errors.root && (
+                <div
+                    className="mx-4 px-4 py-2 bg-[#2A1414] border border-[#EF6262] rounded-[8px] text-[#EF6262] text-sm text-center geist-font"
+                    role="alert"
+                    aria-live="polite"
+                    aria-atomic="true"
+                >
+                    {errors.root.message}
+                </div>
+            )}
 
             <div className="w-full pl-4 pr-4">
                 <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -145,15 +192,9 @@ export default function SignUpContainer() {
                             </button>
                     </div>
 
-                    <div className="relative">
-                        <button disabled={isSubmitting} className="text-primary-text bg-primary-accent w-full h-[35px] rounded-[6px] tracking-wider geist-font font-[250] text-[13px] mt-4 cursor-pointer transition-all duration-200 origin-center will-change-transform hover:bg-primary-accent-hover hover:shadow-[0_2px_12px_0_rgba(192,74,74,0.25)]">
-                            {isSubmitting ? "Creating account..." : "Create Account"} </button>
-                        {errors.root && (
-                            <p className="absolute left-0 right-0 top-full mt-2 tracking-wider geist-font text-error-text text-[10px] text-center pointer-events-none" aria-live="polite" aria-atomic="true">
-                                {errors.root.message}
-                            </p>
-                        )}
-                    </div>
+                    <button disabled={isSubmitting} className="text-primary-text bg-primary-accent w-full h-[35px] rounded-[6px] tracking-wider geist-font font-[250] text-[13px] mt-4 cursor-pointer transition-all duration-200 origin-center will-change-transform hover:bg-primary-accent-hover hover:shadow-[0_2px_12px_0_rgba(192,74,74,0.25)]">
+                        {isSubmitting ? "Creating account..." : "Create Account"}
+                    </button>
                             
 
                 </form>
