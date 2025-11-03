@@ -185,7 +185,7 @@ describe("RoleSelectionPage", () => {
             const continueButton = screen.getByText("Continue")
             await user.click(continueButton)
             
-            expect(mockNavigate).toHaveBeenCalledWith('/signup', {
+            expect(mockNavigate).toHaveBeenCalledWith('/sign-up', {
                 state: { role: 'student' }
             })
         })
@@ -200,7 +200,7 @@ describe("RoleSelectionPage", () => {
             const continueButton = screen.getByText("Continue")
             await user.click(continueButton)
             
-            expect(mockNavigate).toHaveBeenCalledWith('/signup', {
+            expect(mockNavigate).toHaveBeenCalledWith('/sign-up', {
                 state: { role: 'instructor' }
             })
         })
