@@ -40,6 +40,7 @@ export default function SignUpContainer() {
             if (resp.data?.tokens?.access) {
                 setAccessToken(resp.data.tokens.access);
             }
+            
         } catch (err) {
             console.error('Error exchanging Google code with backend', err);
         }
