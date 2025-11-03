@@ -14,7 +14,7 @@ export default function RoleSelectionPage() {
     const handleContinue = () => {
         if (selectedRole) {
             console.log('Selected role:', selectedRole)
-            navigate('/signup', { state: { role: selectedRole } })
+            navigate('/sign-up', { state: { role: selectedRole } })
         }
     }
 
