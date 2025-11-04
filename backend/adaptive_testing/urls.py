@@ -21,13 +21,19 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # App routes
+    # Existing accounts routes
     path(
         "api/accounts/",
         include(("apps.accounts.urls", "accounts"), namespace="accounts"),
     ),
 
-    # OpenAPI schema & Swagger (no ReDoc)
+    # New auth alias (separate namespace so URL names don't clash)
+    path(
+        "api/auth/",
+        include(("apps.accounts.urls", "auth"), namespace="auth"),
+    ),
+
+    # OpenAPI schema & Swagger
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
