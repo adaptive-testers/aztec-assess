@@ -27,13 +27,13 @@ urlpatterns = [
         include(("apps.accounts.urls", "accounts"), namespace="accounts"),
     ),
 
-    # New auth alias (separate namespace so URL names don't clash)
+    # Auth alias -> same module for now; TODO: split endpoints by functionality
     path(
         "api/auth/",
         include(("apps.accounts.urls", "auth"), namespace="auth"),
     ),
 
-    # OpenAPI schema & Swagger
+    # OpenAPI schema & Swagger (no ReDoc)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
