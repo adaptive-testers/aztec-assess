@@ -125,10 +125,10 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# ★ Spectacular settings
+# Spectacular settings
 SPECTACULAR_SETTINGS = {
     "TITLE": "Aztec Assess API",
-    "DESCRIPTION": "Assessment services for the Adaptive Testers project.",
+    "DESCRIPTION": "Aztec Assess API — adaptive quizzes and AI-assisted analytics for students and instructors",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
