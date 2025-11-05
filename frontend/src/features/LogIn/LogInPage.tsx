@@ -18,7 +18,6 @@ interface FormFields {
   keepSignedIn: boolean;
 }
 
-
 export default function LogInContainer() {
   const [showPassword, setShowPassword] = useState(false);
   const { setAccessToken } = useAuth();
@@ -50,8 +49,8 @@ export default function LogInContainer() {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         // Extract error message from backend response
-        const backendMessage = error.response?.data?.detail || 
-                               error.response?.data?.message;
+        const backendMessage =
+          error.response?.data?.detail || error.response?.data?.message;
         setError("root", {
           message: backendMessage || "Invalid email or password",
         });
@@ -62,14 +61,14 @@ export default function LogInContainer() {
   };
 
   return (
-    <div className="Log-In w-[1280px] h-[832px] bg-[#000000]">
-      <div className="Sign-Up-Box relative flex justify-center items-center p-[40px] gap-[10px] w-[482px] h-[631px] bg-[#0A0A0A] left-[50%] top-[50%] -translate-x-[50%] -translate-y-[50%] border border-[#282828] rounded-[15px]">
-        <div className="Frame-25 absolute flex flex-col items-start gap-[40px] w-[402px] h-[551px]">
+    <div className="Log-In w-[1280px] h-[832px] bg-[#000000] flex items-center justify-center">
+      <div className="Sign-Up-Box flex flex-col justify-center items-center p-[40px] gap-[10px] w-[482px] min-h-[631px] bg-[#0A0A0A] border border-[#282828] rounded-[15px] transition-all duration-300 ease-out">
+        <div className="Frame-25 flex flex-col items-start gap-[40px] w-[402px]">
           <div className="Frame-19 flex flex-col items-center w-[402px]">
             <h1 className="Log-In w-[120px] h-[31px] mb-[32px] flex items-center justify-center font-geist font-medium text-[32px] leading-[42px] text-center tracking-[0.5px] text-[#ffffff]">
               Log In
             </h1>
-            
+
             {/* Error message banner */}
             {errors.root && (
               <div
@@ -81,8 +80,12 @@ export default function LogInContainer() {
                 {errors.root.message}
               </div>
             )}
-            
-            <form className="Frame-18 flex flex-col items-start gap-[32px] w-[402px]" onSubmit={handleSubmit(onSubmit)} noValidate>
+
+            <form
+              className="Frame-18 flex flex-col items-start gap-[32px] w-[402px]"
+              onSubmit={handleSubmit(onSubmit)}
+              noValidate
+            >
               <div className="Frame-17 flex flex-col items-start gap-[24px] w-[402px] h-[192px]">
                 {/* Email */}
                 <div className="Frame-13 flex flex-col items-start gap-[8px] w-[402px] h-[64px]">
@@ -219,7 +222,7 @@ export default function LogInContainer() {
             <div className="Rectangle-1 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
           </div>
 
-          <div className="Frame-24 flex flex-col items-center gap-[40px] w-[402px] h-[120px]">
+          <div className="Frame-24 flex flex-col items-center gap-[40px] w-[402px] h-[25px]">
             <div className="Frame-27 flex justify-between items-center gap-[24px] w-[402px] h-[40px]">
               <button className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
                 <img
