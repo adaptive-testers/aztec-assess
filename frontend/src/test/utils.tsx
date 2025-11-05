@@ -1,19 +1,20 @@
 import { render, type RenderOptions } from '@testing-library/react'
 import { type ReactElement } from 'react'
-import { BrowserRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
+
 import { AuthProvider } from '../context/AuthContext'
 
-// Custom render function that wraps components with providers
+// Custom render function that wraps components with Router + AuthProvider
 const customRender = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) => render(ui, { 
+) => render(ui, {
   wrapper: ({ children }) => (
-    <BrowserRouter>
+    <MemoryRouter>
       <AuthProvider>{children}</AuthProvider>
-    </BrowserRouter>
+    </MemoryRouter>
   ),
-  ...options 
+  ...options,
 })
 
 export * from '@testing-library/react'

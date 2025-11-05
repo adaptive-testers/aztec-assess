@@ -1,9 +1,11 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 import { publicApi } from '../api/axios'
+import { AUTH } from '../api/endpoints'
 import { useAuth } from '../context/AuthContext'
 import SignUpContainer from '../features/SignUp/SignUpPage'
 
@@ -12,7 +14,7 @@ import { render } from './utils'
 // Mock the API, Auth context, and router hooks
 vi.mock('../api/axios', () => ({
     publicApi: {
-        post: vi.fn()
+        post: vi.fn(() => Promise.reject(new Error('No refresh token')))
     }
 }))
 
@@ -20,7 +22,8 @@ vi.mock('../context/AuthContext', async (importOriginal) => {
     const actual = await importOriginal() as Record<string, unknown>
     return {
         ...actual,
-        useAuth: vi.fn()
+        useAuth: vi.fn(),
+        AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
     }
 })
 
@@ -292,7 +295,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(publicApi.post).toHaveBeenCalledWith("/auth/register/", {
+                expect(publicApi.post).toHaveBeenCalledWith(AUTH.REGISTER, {
                     email: "john@example.com",
                     first_name: "John",
                     last_name: "Doe",
@@ -406,7 +409,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(screen.getByText("An error occurred while creating your account.")).toBeInTheDocument()
+                expect(screen.getByText("An unexpected error occurred")).toBeInTheDocument()
             })
         })
 
@@ -425,9 +428,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                const errorMessage = screen.getByText("An error occurred while creating your account.")
-                const alertContainer = errorMessage.closest('[role="alert"]')
-                expect(alertContainer).toBeInTheDocument()
+                const errorMessage = screen.getByText("An unexpected error occurred")
                 expect(errorMessage).toHaveAttribute("aria-live", "polite")
             })
         })

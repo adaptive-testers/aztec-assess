@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -200,6 +200,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     max_age = int(lifetime.total_seconds()) if lifetime else None
 
     secure = getattr(settings, "COOKIE_SECURE", True)
+    samesite: Literal["Lax", "Strict", "None"] | None = getattr(settings, "COOKIE_SAMESITE", "Lax")
     # Path limited to auth endpoints
     response.set_cookie(
         key="refresh_token",
@@ -207,7 +208,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         max_age=max_age,
         httponly=True,
         secure=secure,
-        samesite="Lax",
+        samesite=samesite,
         path="/api/auth/",
     )
 

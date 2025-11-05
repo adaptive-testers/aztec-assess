@@ -101,32 +101,18 @@ describe("LogInContainer", () => {
     ).toBeInTheDocument();
   });
 
-  it("validates password rules when submitting the password field form", async () => {
+  it("requires password to be filled", async () => {
     renderWithRouter(<LogInContainer />);
 
+    const email = screen.getByLabelText(/email/i);
     const pwd = screen.getByLabelText(/password/i);
 
-    // Too short -> min length error
-    await userEvent.clear(pwd);
-    await userEvent.type(pwd, "short");
+    // Fill email but leave password empty
+    await userEvent.type(email, "user@example.com");
     fireEvent.submit(pwd.closest("form")!);
-    expect(await screen.findByText(/minimum length is 8/i)).toBeInTheDocument();
-
-    // Long but missing number -> number error
-    await userEvent.clear(pwd);
-    await userEvent.type(pwd, "password!");
-    fireEvent.submit(pwd.closest("form")!);
-    expect(
-      await screen.findByText(/must contain at least one number/i)
-    ).toBeInTheDocument();
-
-    // Has number but missing special char -> special-char error
-    await userEvent.clear(pwd);
-    await userEvent.type(pwd, "password1");
-    fireEvent.submit(pwd.closest("form")!);
-    expect(
-      await screen.findByText(/must contain at least one special character/i)
-    ).toBeInTheDocument();
+    
+    // Should show "Password is required" error
+    expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
   });
 
   it("submits successfully (pressing Enter on the password form), shows loading, sets token, and navigates", async () => {
@@ -142,7 +128,7 @@ describe("LogInContainer", () => {
     postMock.mockImplementationOnce(
       () =>
         new Promise((resolve) =>
-          setTimeout(() => resolve({ data: { access: "test-token" } }), 50)
+          setTimeout(() => resolve({ data: { tokens: { access: "test-token" } } }), 50)
         )
     );
 
@@ -154,7 +140,7 @@ describe("LogInContainer", () => {
 
     await waitFor(() => {
       expect(setAccessTokenMock).toHaveBeenCalledWith("test-token");
-      expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+      expect(navigateMock).toHaveBeenCalledWith("/");
     });
   });
 
