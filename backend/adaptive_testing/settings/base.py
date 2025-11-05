@@ -52,6 +52,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -59,7 +60,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "adaptive_testing.urls"
@@ -191,12 +191,18 @@ CORS_ALLOWED_ORIGINS = config(
 ).split(",")
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173").split(",")
 
 # Cookie Security Settings
 # Controls whether cookies are sent only over HTTPS
 # Defaults to True in production (when DEBUG=False), False in development
 COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
+
+# Controls SameSite attribute for cookies we set (e.g., refresh token)
+# Use "None" when frontend and backend are on different origins
+# Valid values: "Lax", "Strict", "None"
+COOKIE_SAMESITE = config("COOKIE_SAMESITE", default="Lax")
 
 # Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (
