@@ -4,14 +4,15 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 
 ## 🚧 Project Status
 
-**Currently in Development** - We are actively working on this project. The authentication system is nearly complete, and we're preparing to implement the core features including student/instructor dashboards, course management, and quiz creation.
+**Currently in Development** - We are actively working on this project. The basic authentication system is complete with user registration and login. Docker support has been added for consistent development environments. Core features including student/instructor dashboards, course management, and quiz creation are in development.
 
 ## ✨ Features
 
-### 🔐 Authentication (In Progress)
+### 🔐 Authentication
 - **Multi-role Support**: Admin, Instructor, and Student roles
 - **Email-based Authentication**: Secure login with email verification
-- **JWT Token Management**: Stateless authentication with refresh tokens
+- **JWT Token Management**: Stateless authentication with refresh tokens stored in HTTP-only cookies
+- **Auto Token Refresh**: Automatic token refresh for seamless user experience
 - **OAuth Integration**: Google and Microsoft authentication (planned)
 
 ### 🎯 Planned Core Features
@@ -40,7 +41,7 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Vite** - Build tool
 
 ### Development Tools
-- **Docker** - Containerization (in progress)
+- **Docker** - Containerization for development and production
 - **ESLint & Prettier** - Code formatting
 - **Pytest** - Testing framework
 - **MyPy** - Type checking
@@ -54,10 +55,56 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Poetry (for Python dependencies)
+- Python 3.11+ (or Docker)
+- Node.js 18+ (or Docker)
+- Poetry (for Python dependencies) - only needed if not using Docker
+- Docker and Docker Compose (recommended for development)
 - Neon PostgreSQL account (for database)
+
+### Quick Start with Docker (Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/adaptive-testers/aztec-assess
+   cd aztec-assess
+   ```
+
+2. **Create a `.env` file in the root directory**
+   ```bash
+   # Database (Neon PostgreSQL)
+   DATABASE_URL=postgresql://username:password@your-neon-host/database_name
+
+   # Django Settings
+   SECRET_KEY=your-secret-key-here
+   DEBUG=True
+   ALLOWED_HOSTS=localhost,127.0.0.1,backend
+   CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+   ```
+
+3. **Start the development environment**
+   ```bash
+   docker-compose up --build frontend-dev backend
+   ```
+
+4. **Run database migrations** (first time only)
+   ```bash
+   docker-compose exec backend /app/.venv/bin/python manage.py migrate
+   docker-compose exec backend /app/.venv/bin/python manage.py createsuperuser
+   ```
+
+The application will be available at:
+- **Frontend**: http://localhost:5173 (Vite dev server with hot reload)
+- **Backend API**: http://localhost:8000
+
+**Docker Commands:**
+- `docker-compose up frontend-dev backend` - Start development services
+- `docker-compose up frontend-prod backend` - Start production services
+- `docker-compose down` - Stop all services
+- `docker-compose logs -f` - View logs
+- `docker-compose exec backend <command>` - Run commands in backend container
+- `docker-compose exec frontend-dev <command>` - Run commands in frontend container
+
+### Manual Setup (Without Docker)
 
 ### Backend Setup
 
@@ -108,6 +155,9 @@ The application will be available at:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 
+> [!NOTE]
+> If you're using Docker, follow the Docker setup instructions above instead.
+
 ## 🧪 Testing
 
 ### Backend Tests
@@ -126,25 +176,45 @@ npm run test:coverage
 
 ## 📁 Project Structure
 
-```
-adaptive-testing/
-├── backend/                # Django backend
-│   ├── adaptive_testing/   # Main Django project
-│   ├── apps/               # Django applications
-│   │   └── accounts/       # User management
+```text
+aztec-assess/
+├── backend/                    # Django backend
+│   ├── adaptive_testing/       # Main Django project
+│   │   ├── settings/           # Environment-specific settings
+│   │   └── ...
+│   ├── apps/                   # Django applications
+│   │   └── accounts/           # User management
+│   ├── Dockerfile              # Backend container configuration
+│   ├── .dockerignore           # Files excluded from Docker build
 │   ├── manage.py
 │   └── pyproject.toml
-├── frontend/               # React frontend
+├── frontend/                   # React frontend
 │   ├── src/
-│   │   ├── features/       # Feature-based components
-│   │   ├── context/        # React context providers
-│   │   ├── api/            # API client configuration
-│   │   └── types/          # TypeScript type definitions
+│   │   ├── features/           # Feature-based components
+│   │   │   ├── LogIn/          # Login page
+│   │   │   └── SignUp/         # Sign up page
+│   │   ├── context/            # React context providers
+│   │   ├── api/                # API client configuration
+│   │   └── types/              # TypeScript type definitions
+│   ├── Dockerfile              # Multi-stage frontend container
+│   ├── .dockerignore           # Files excluded from Docker build
+│   ├── nginx.conf              # Nginx config for production
 │   └── package.json
+├── docker-compose.yml          # Docker Compose configuration
+├── .env                        # Environment variables (create this)
 └── README.md
 ```
 
 ## 🔧 Development
+
+### Docker Development
+
+The project uses Docker for consistent development environments. The setup includes:
+
+- **Multi-stage builds**: Optimized Docker images for development and production
+- **Hot reload**: Code changes are automatically reflected in development containers
+- **Volume mounting**: Source code is mounted for instant updates
+- **Isolated dependencies**: Node modules and Python virtual environments are containerized
 
 ### Code Quality
 - **Python**: Ruff for linting, MyPy for type checking
