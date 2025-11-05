@@ -9,6 +9,7 @@ baseURL, // Set a base URL for all requests
 headers: {
     'Content-Type': 'application/json',
 },
+withCredentials: true, // Always send cookies (needed for refresh token)
 timeout: 5000, // Set a request timeout
 });
 
