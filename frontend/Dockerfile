@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 FROM base AS builder
+WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
