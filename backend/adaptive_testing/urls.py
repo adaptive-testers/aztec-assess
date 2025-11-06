@@ -16,24 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView  # added
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # Existing accounts routes
-    path(
-        "api/accounts/",
-        include(("apps.accounts.urls", "accounts"), namespace="accounts"),
-    ),
-
-    # Auth alias -> same module for now; TODO: split endpoints by functionality
-    path(
-        "api/auth/",
-        include(("apps.accounts.urls", "auth"), namespace="auth"),
-    ),
+    # keep existing accounts include(s)
+    path("api/auth/", include("apps.accounts.urls")),
+    path("api/accounts/", include("apps.accounts.urls")),  # added per review (alias)
 
     # OpenAPI schema & Swagger (no ReDoc)
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),          # added
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),  # added
 ]
