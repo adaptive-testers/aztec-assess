@@ -18,17 +18,17 @@ import dj_database_url
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("SECRET_KEY")
+
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=True, cast=bool)
+
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
 # Application definition
-
-# Apps
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -37,20 +37,25 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+
 THIRD_PARTY_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    # drf-spectacular (adds OpenAPI schema & Swagger UI)
     "drf_spectacular",
     "drf_spectacular_sidecar",
 ]
+
 LOCAL_APPS = [
     "apps.accounts",
 ]
+
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -58,7 +63,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "adaptive_testing.urls"
@@ -81,7 +85,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "adaptive_testing.wsgi.application"
 
-# DB
+# Database
 DATABASES = {
     "default": dj_database_url.config(
         default=config("DATABASE_URL", default="sqlite:///db.sqlite3"),
@@ -90,28 +94,50 @@ DATABASES = {
     )
 }
 
-# Auth
+# Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
 ]
 
+# Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
 LANGUAGE_CODE = "en-us"
+
 TIME_ZONE = "UTC"
+
 USE_I18N = True
+
 USE_TZ = True
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATIC_URL = "static/"
 
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Custom user
+# Custom User Model
 AUTH_USER_MODEL = "accounts.User"
 
-# DRF
+# Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -125,12 +151,15 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "200/hour", "user": "2000/hour"},
-    # ★ Spectacular schema class
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "200/hour",        # Anonymous users: 200 requests per hour
+        "user": "2000/hour",       # Authenticated users: 2000 requests per hour
+    },
+    # drf-spectacular: enable OpenAPI schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# Spectacular settings
+# OpenAPI / Swagger (drf-spectacular)
 SPECTACULAR_SETTINGS = {
     "TITLE": "Aztec Assess API",
     "DESCRIPTION": "Aztec Assess API — adaptive quizzes and AI-assisted analytics for students and instructors",
@@ -145,7 +174,7 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# JWT
+# JWT Settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
         minutes=config("JWT_ACCESS_TOKEN_LIFETIME", default=20, cast=int)
@@ -158,10 +187,16 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": None,
+    "AUDIENCE": None,
+    "ISSUER": None,
+    "JWK_URL": None,
+    "LEEWAY": 0,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
@@ -170,22 +205,33 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
-# CORS / email / logging
+# CORS Settings
 CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:5173,http://127.0.0.1:5173",
+    "CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG
 
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173").split(",")
+
+# Cookie Security Settings
+# Controls whether cookies are sent only over HTTPS
+# Defaults to True in production (when DEBUG=False), False in development
 COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
 
+# Controls SameSite attribute for cookies we set (e.g., refresh token)
+# Use "None" when frontend and backend are on different origins
+# Valid values: "Lax", "Strict", "None"
+COOKIE_SAMESITE = config("COOKIE_SAMESITE", default="Lax")
+
+# Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (
     "django.core.mail.backends.console.EmailBackend"
     if DEBUG
     else "django.core.mail.backends.smtp.EmailBackend"
 )
 
+# Logging
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -194,9 +240,26 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
             "style": "{",
         },
-        "simple": {"format": "{levelname} {message}", "style": "{"},
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
-    "root": {"handlers": ["console"], "level": "INFO"},
-    "loggers": {"django": {"handlers": ["console"], "level": "INFO", "propagate": False}},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
 }
