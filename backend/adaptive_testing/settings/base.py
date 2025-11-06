@@ -20,11 +20,16 @@ from decouple import Csv, config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY", default="django-insecure-default-key-change-in-production")
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default="True", cast=bool)
+DEBUG = config("DEBUG", default="False", cast=bool)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# For production, SECRET_KEY MUST be set via environment variable.
+# The default below is insecure and only provided for development/testing convenience.
+SECRET_KEY = config(
+    "SECRET_KEY",
+    default="django-insecure-CHANGE-THIS-IN-PRODUCTION-OR-SECURITY-WILL-BE-COMPROMISED"
+)
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
