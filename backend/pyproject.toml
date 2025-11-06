@@ -1,14 +1,12 @@
 [project]
-name = "adaptive-testing-backend"
+name = "aztec-assess-backend"
 version = "0.1.0"
-description = "Backend for adaptive testing web application"
+description = "Backend for the Aztec Assess web application"
 authors = [
-    { name = "talberry", email = "52144102+talberry@users.noreply.github.com" }
+    {name = "talberry",email = "52144102+talberry@users.noreply.github.com"}
 ]
 license = "MIT"
 readme = "../README.md"
-
-[tool.poetry]
 package-mode = false
 
 [tool.poetry.dependencies]
@@ -24,17 +22,17 @@ drf-spectacular = "^0.28.0"
 drf-spectacular-sidecar = "^2025.10.1"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.14.0"
+ruff = "^0.14.2"
 mypy = "^1.18.2"
 pre-commit = "^3.4.0"
 django-stubs = "^5.2.7"
-djangorestframework-stubs = "^3.16.4"
+djangorestframework-stubs = "^3.16.5"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.4.2"
 pytest-django = "^4.11.1"
 factory-boy = "^3.3.3"
-coverage = "^7.10.7"
+coverage = "^7.11.0"
 pytest-cov = "^4.1.0"
 
 [build-system]
@@ -67,8 +65,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"*/migrations/*" = ["ALL"]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"*/migrations/*" = ["ALL"]  # Ignore all rules in migrations
 
 [tool.ruff.lint.isort]
 known-first-party = ["adaptive_testing", "apps"]
