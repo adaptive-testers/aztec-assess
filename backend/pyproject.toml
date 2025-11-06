@@ -7,7 +7,6 @@ authors = [
 ]
 license = "MIT"
 readme = "../README.md"
-# (removed: package-mode = false — this belongs under [tool.poetry])
 
 [tool.poetry]
 package-mode = false
