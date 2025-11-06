@@ -1,4 +1,5 @@
 import { privateApi, publicApi } from './axios';
+import { AUTH } from './endpoints';
 
 let isRefreshing = false;
 let failedQueue: { resolve: (value?: unknown) => void; reject: (reason?: unknown) => void }[] = [];
@@ -66,8 +67,8 @@ export const initializeAuthInterceptors = (
         isRefreshing = true;
 
         try {
-          // Attempt to refresh the token using a public endpoint
-          const response = await publicApi.post('/auth/token/refresh');
+          // Attempt to refresh the token using cookie-based refresh
+          const response = await publicApi.post(AUTH.TOKEN_REFRESH);
           const newAccessToken = response.data.tokens.access;
           
           if (authFunctions) {
@@ -80,10 +81,9 @@ export const initializeAuthInterceptors = (
         } catch (refreshError) {
           // If refresh fails, log out the user and clear the queue
           try {
-            await publicApi.post('/auth/logout');
-          } catch (logoutError) {
-            // Optionally log the error, but continue with local logout
-            console.log(logoutError)
+            await publicApi.post(AUTH.LOGOUT);
+          } catch {
+            // Ignore logout errors, continue with local logout
           }
           if (authFunctions) {
             authFunctions.setAccessToken(null);
