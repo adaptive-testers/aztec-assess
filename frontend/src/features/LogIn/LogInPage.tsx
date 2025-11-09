@@ -251,7 +251,7 @@ export default function LogInContainer() {
               </a>
               <span className="mx-1 text-[#ededed]">•</span>
               <Link
-                to="/signup"
+                to="/role-select"
                 className="text-[#EF6262] no-underline hover:underline cursor-pointer"
               >
                 Create an account
