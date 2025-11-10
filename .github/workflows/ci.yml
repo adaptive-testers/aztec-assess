@@ -5,9 +5,9 @@ on:
     branches:
         - main
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
     branches:
-        - main
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,12 +40,12 @@ jobs:
       PY_VERSION: '3.13.7'
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Get branch expiration date (2 weeks from now)
         if: github.event_name == 'pull_request'
         id: get_expiration_date
         run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-      
+
       - name: Create Neon Branch
         if: github.event_name == 'pull_request'
         id: create_neon_branch
@@ -55,16 +55,16 @@ jobs:
           branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           expires_at: ${{ env.EXPIRES_AT }}
-      
+
       - name: Set DATABASE_URL from Neon action
         if: github.event_name == 'pull_request'
         run: |
           echo "DATABASE_URL=${{ steps.create_neon_branch.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
-      
+
       - name: Export per-run test DB suffix
         run: |
           echo "DJANGO_TEST_DB_SUFFIX=${{ github.run_id }}_${{ github.run_attempt }}" >> "$GITHUB_ENV"
-      
+
       - name: Set up Python ${{ env.PY_VERSION }}
         uses: actions/setup-python@v5
         with:
@@ -98,20 +98,6 @@ jobs:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
-
-  delete_neon_branch:
-    name: Delete Neon Branch
-    needs: [setup, backend]
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete Neon Branch
-        uses: neondatabase/delete-branch-action@v3
-        with:
-            project_id: ${{ vars.NEON_PROJECT_ID }}
-            branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
-            api_key: ${{ secrets.NEON_API_KEY }}
-
 
   frontend:
     runs-on: ubuntu-latest
