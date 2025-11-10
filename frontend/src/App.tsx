@@ -7,7 +7,6 @@ import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
 
-
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();
   return null;
@@ -30,4 +29,5 @@ function App() {
     </BrowserRouter>
   );
 }
+
 export default App;
