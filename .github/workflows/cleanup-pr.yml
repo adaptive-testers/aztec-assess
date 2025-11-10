@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
+        continue-on-error: true
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: preview/pr-${{ github.event.number }}-${{ github.event.pull_request.head.ref }}
