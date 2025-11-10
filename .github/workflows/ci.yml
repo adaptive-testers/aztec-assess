@@ -13,19 +13,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  setup:
-    name: Setup
-    outputs: 
-      branch: ${{ steps.branch_name.outputs.current_branch }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get branch name
-        id: branch_name
-        uses: tj-actions/branch-names@v8
-
   backend:
     name: backend
-    needs: setup
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,7 +41,7 @@ jobs:
         uses: neondatabase/create-branch-action@v6.1.1
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ github.event.pull_request.head.ref }}
           api_key: ${{ secrets.NEON_API_KEY }}
           expires_at: ${{ env.EXPIRES_AT }}
 
@@ -79,8 +68,8 @@ jobs:
         id: cached-poetry-dependencies
         uses: actions/cache@v4
         with:
-          path: backend/.venv
-          key: venv-${{ runner.os }}-${{ env.PY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+            path: backend/.venv
+            key: venv-${{ runner.os }}-${{ env.PY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
@@ -126,10 +115,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build backend Docker image
         uses: docker/build-push-action@v5
         with:
@@ -139,7 +128,7 @@ jobs:
           tags: aztec-assess-backend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Build frontend Docker image (development)
         uses: docker/build-push-action@v5
         with:
@@ -150,7 +139,7 @@ jobs:
           tags: aztec-assess-frontend-dev:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Build frontend Docker image (production)
         uses: docker/build-push-action@v5
         with:
@@ -172,22 +161,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       # GitLeaks - Secret scanning
       - name: Run GitLeaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-      
+
       # CodeQL - Static analysis
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: javascript, python
-      
+
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4
-      
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
