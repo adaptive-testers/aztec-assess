@@ -29,7 +29,7 @@ django-stubs = "^5.2.7"
 djangorestframework-stubs = "^3.16.5"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.4.2"
+pytest = "^9.0.0"
 pytest-django = "^4.11.1"
 factory-boy = "^3.3.3"
 coverage = "^7.11.0"
