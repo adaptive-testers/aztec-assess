@@ -88,7 +88,7 @@ export const initializeAuthInterceptors = (
           if (authFunctions) {
             authFunctions.setAccessToken(null);
             processQueue(refreshError instanceof Error ? refreshError : new Error('Token refresh failed'), null);
-            authFunctions.navigate('/login');
+            authFunctions.navigate('/');
           }
           return Promise.reject(refreshError);
         } finally {
