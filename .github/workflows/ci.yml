@@ -51,6 +51,7 @@ jobs:
           echo "DATABASE_URL=${{ steps.create_neon_branch.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
 
       - name: Export per-run test DB suffix
+        if: github.event_name == 'pull_request'
         run: |
           echo "DJANGO_TEST_DB_SUFFIX=${{ github.run_id }}_${{ github.run_attempt }}" >> "$GITHUB_ENV"
 
@@ -87,6 +88,41 @@ jobs:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
+
+      - name: Cleanup stray test databases
+        if: always()
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            # Install PostgreSQL client
+            sudo apt-get update && sudo apt-get install -y postgresql-client
+            
+            # Try to connect to 'postgres' database first (standard PostgreSQL)
+            # If that fails, fall back to the original database (Neon might not have 'postgres' accessible)
+            ADMIN_URL=$(echo "$DATABASE_URL" | sed 's|/[^/]*$|/postgres|')
+            
+            # Test if we can connect to postgres, otherwise use original database
+            if ! psql "$ADMIN_URL" -c "SELECT 1;" > /dev/null 2>&1; then
+              echo "Cannot connect to 'postgres' database, trying original database..."
+              ADMIN_URL="$DATABASE_URL"
+            fi
+            
+            # Drop all test_% databases, terminating active connections first
+            psql "$ADMIN_URL" -v ON_ERROR_STOP=0 <<'SQL' || true
+            DO $$
+            DECLARE r RECORD;
+            BEGIN
+              FOR r IN (SELECT datname FROM pg_database WHERE datname LIKE 'test_%' AND datistemplate = false) LOOP
+                -- Terminate all connections to the database before dropping
+                EXECUTE format('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %L', r.datname);
+                -- Drop the database
+                EXECUTE format('DROP DATABASE IF EXISTS %I', r.datname);
+              END LOOP;
+            END;
+            $$;
+            SQL
+          fi
 
   frontend:
     runs-on: ubuntu-latest
