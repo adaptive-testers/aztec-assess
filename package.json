@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@react-oauth/google": "^0.12.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  }
+}
