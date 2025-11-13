@@ -4,6 +4,7 @@ import { useAuthInterceptors } from "./api/useAuthInterceptors";
 import { AuthProvider } from "./context/AuthContext";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
+import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
 
 function AuthInterceptorsInitializer() {
@@ -18,10 +19,10 @@ function App() {
         <AuthInterceptorsInitializer />
         <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
           <Routes>
-            <Route path="/" element={<LogInPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/login" element={<LogInPage />} />
+            <Route path="/role-select" element={<RoleSelectionPage />} />
+            <Route path="/sign-up" element={<SignUpPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/" element={<LogInPage />} />
           </Routes>
         </div>
       </AuthProvider>
