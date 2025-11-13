@@ -9,6 +9,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { publicApi } from "../../api/axios";
 import { AUTH } from "../../api/endpoints";
+import { useGoogleLogin } from "@react-oauth/google";
 import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
 import { useAuth } from "../../context/AuthContext";
@@ -49,6 +50,34 @@ export default function SignUpContainer() {
     };
 
   const handlePasswordToggle = () => setShowPassword((prev) => !prev);
+
+  const loginWithGoogleCode = useGoogleLogin({
+  flow: "auth-code",
+  onSuccess: async ({ code }) => {
+    try {
+      if (!selectedRole) {
+        navigate("/", { replace: true });
+        return;
+      }
+      const res = await publicApi.post(AUTH.GOOGLE_LOGIN, {
+        code,            
+        role: selectedRole
+      });
+
+      if (res.data?.tokens?.access) {
+        setAccessToken(res.data.tokens.access);
+        navigate("/");
+      } else {
+        setError("root", { message: "Google sign-up failed" });
+      }
+    } catch (e) {
+      console.error(e);
+      setError("root", { message: "Google sign-up failed" });
+    }
+  },
+  onError: () => setError("root", { message: "Google sign-up cancelled or failed" }),
+});
+
 
     const onSubmit: SubmitHandler<FormFields> = async (data) => {
         try {
@@ -178,9 +207,9 @@ export default function SignUpContainer() {
 
                     <div className="flex flex-row gap-4 mt-7">
                         <button
+                            onClick={() => loginWithGoogleCode()}
                             aria-label="Sign up with Google"
-                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-200 cursor-not-allowed opacity-50"
-                            disabled
+                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-300 hover:border-white hover:scale-[1.02] cursor-pointer will-change-transform"
                         >
                             <img src={googleLogo} alt="Google logo" className="h-4 w-4" />
                         </button>

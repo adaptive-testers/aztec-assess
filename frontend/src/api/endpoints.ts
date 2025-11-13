@@ -4,6 +4,7 @@ export const AUTH = {
   LOGOUT: "/auth/logout/",
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
+   GOOGLE_LOGIN: "/auth/google-code",
   // Future endpoints 
 //   PASSWORD_RESET: "/auth/password/reset/",
 //   VERIFY_EMAIL: "/auth/verify-email/",
