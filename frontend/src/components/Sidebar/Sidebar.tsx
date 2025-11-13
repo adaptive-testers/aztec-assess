@@ -1,41 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FaPlusCircle } from "react-icons/fa";
 import { FaBook } from "react-icons/fa";
 import { IoIosArrowUp } from "react-icons/io";
 import { IoMdPerson } from "react-icons/io";
 import { IoMdSettings } from "react-icons/io";
 import { IoHome } from "react-icons/io5";
 import { IoLogOut } from "react-icons/io5";
+import { TbPointFilled } from "react-icons/tb";
 import { NavLink } from "react-router-dom";
 
+import { publicApi } from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
+
+// import { AUTH } from "./endpoints";
+
+interface Course {
+  id: number;
+  name: string;
+  path: string;
+}
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [coursesOpen, setCoursesOpen] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
 
-  const courses = [
-    {
-      id: 1,
-      name: "Mathematics 101",
-      path: "/courses/mathematics-101",
-    },
-    { id: 2, name: "Physics 202", path: "/courses/physics-202" },
-    {
-      id: 3,
-      name: "Computer Science 150",
-      path: "/courses/computer-science-301",
-    },
-    {
-      id: 4,
-      name: "Chemistry 150",
-      path: "/courses/chemistry-150",
-    },
-  ];
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await publicApi.get("AUTH.SIDEBAR");
+        setCourses(res.data);
+      } catch (error) {
+        console.error("Failed to fetch courses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   const handleLogout = () => {
     logout();
   };
+
+  if (loading) return <p className="text-white">Loading courses...</p>;
 
   return (
     <div
@@ -225,7 +235,7 @@ export default function Sidebar() {
                   to="/courses/create"
                   className="group/item relative flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 transition-colors"
                 >
-                  <span className="mr-[12px] grid place-items-center h-[17px] w-[17px] rounded-[3px] border border-[#A1A1AA]" />
+                  <FaPlusCircle className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
                   <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
                     Create Course
                   </span>
@@ -242,7 +252,7 @@ export default function Sidebar() {
                     to={course.path}
                     className="group/item relative mt-[2px] flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 duration-200 transition-colors"
                   >
-                    <span className="mr-[12px] grid place-items-center h-[17px] w-[17px] rounded-[3px] border border-[#A1A1AA]" />
+                    <TbPointFilled className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
                     <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
                       {course.name}
                     </span>
