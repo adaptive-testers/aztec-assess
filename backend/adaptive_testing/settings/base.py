@@ -15,18 +15,23 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-from decouple import config
+from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = config("DEBUG", default="False", cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
+# SECURITY WARNING: keep the secret key used in production secret!
+# For production, SECRET_KEY MUST be set via environment variable.
+# The default below is insecure and only provided for development/testing convenience.
+SECRET_KEY = config(
+    "SECRET_KEY",
+    default="django-insecure-CHANGE-THIS-IN-PRODUCTION-OR-SECURITY-WILL-BE-COMPROMISED"
+)
+
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
 # Application definition
 DJANGO_APPS = [
@@ -42,6 +47,10 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    # drf-spectacular (adds OpenAPI schema & Swagger UI)
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
 ]
 
 LOCAL_APPS = [
@@ -51,6 +60,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -58,7 +68,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "adaptive_testing.urls"
@@ -143,6 +152,31 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "200/hour",        # Anonymous users: 200 requests per hour
+        "user": "2000/hour",       # Authenticated users: 2000 requests per hour
+    },
+    # drf-spectacular: enable OpenAPI schema generation
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# OpenAPI / Swagger (drf-spectacular)
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Aztec Assess API",
+    "DESCRIPTION": "Aztec Assess API — adaptive quizzes and AI-assisted analytics for students and instructors",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+    "SECURITY": [{"bearerAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+        }
+    },
 }
 
 # JWT Settings
@@ -177,12 +211,26 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+_cors_origins = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="http://localhost:5173,http://127.0.0.1:5173",
+)
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(",") if origin.strip()]
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=False, cast=bool)
+_csrf_origins = config("CSRF_TRUSTED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173")
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_origins.split(",") if origin.strip()]
+
+# Cookie Security Settings
+# Controls whether cookies are sent only over HTTPS
+# Defaults to True in production (when DEBUG=False), False in development
+COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
+
+# Controls SameSite attribute for cookies we set (e.g., refresh token)
+# Use "None" when frontend and backend are on different origins
+# Valid values: "Lax", "Strict", "None"
+COOKIE_SAMESITE = config("COOKIE_SAMESITE", default="Lax")
 
 # Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (

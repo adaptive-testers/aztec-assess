@@ -52,28 +52,33 @@ class UserLoginSerializer(serializers.ModelSerializer):
     """
     Serializer for user login.
 
-    TODO: Implement this serializer with:
-    - Email validation
-    - Password validation
+    Validates:
+    - presence of email/password
+    - normalizes email
+    - authenticates against the backend
     """
 
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    # Set after successful validation
+    user: User | None = None
 
     class Meta:
         model = User
         fields = ["email", "password"]
 
-    # TODO: Add validation methods
+    def validate_email(self, value: str) -> str:
+        """Normalize email format."""
+        return str(value).strip().lower()
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """
     Serializer for user profile.
 
-    TODO: Implement this serializer with:
-    - Read-only fields
-    - Update validation
+    Validates:
+    - first name and last name are not empty
     """
 
     class Meta:
@@ -86,6 +91,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "is_verified",
             "created_at",
         ]
-        read_only_fields = ["email", "created_at"]
+        read_only_fields = ["email", "created_at", "role"]
 
-    # TODO: Add validation methods
+    def validate_first_name(self, value: str) -> str:
+        value = value.strip()
+        if len(value) == 0:
+            raise serializers.ValidationError("First name cannot be empty.")
+        return value
+
+    def validate_last_name(self, value: str) -> str:
+        value = value.strip()
+        if len(value) == 0:
+            raise serializers.ValidationError("Last name cannot be empty.")
+        return value

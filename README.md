@@ -1,2 +1,249 @@
-# adaptive-testing
- 
+# Aztec Assess
+
+A modern, full-stack adaptive testing platform built with Django and React. Aztec Assess provides intelligent, personalized testing experiences designed for educational institutions, with initial focus on San Diego State University (SDSU).
+
+## 🚧 Project Status
+
+**Currently in Development** - We are actively working on this project. The basic authentication system is complete with user registration and login. Docker support has been added for consistent development environments. Core features including student/instructor dashboards, course management, and quiz creation are in development.
+
+## ✨ Features
+
+### 🔐 Authentication
+- **Multi-role Support**: Admin, Instructor, and Student roles
+- **Email-based Authentication**: Secure login with email verification
+- **JWT Token Management**: Stateless authentication with refresh tokens stored in HTTP-only cookies
+- **Auto Token Refresh**: Automatic token refresh for seamless user experience
+- **OAuth Integration**: Google and Microsoft authentication (planned)
+
+### 🎯 Planned Core Features
+- **Student Dashboard**: Personalized learning experience with adaptive quizzes
+- **Instructor Dashboard**: Course and quiz management tools with AI assistance
+- **Course Management**: Create, join, and manage educational courses
+- **Adaptive Testing**: Dynamic difficulty adjustment and format adaptation based on learning styles
+- **AI-Powered Features**: Question generation and content assistance (instructor-controlled)
+- **Real-time Analytics**: Performance tracking and learning insights
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Django 5.2** - Web framework
+- **Django REST Framework** - API development
+- **Neon PostgreSQL** - Hosted database service
+- **JWT Authentication** - Secure token-based auth
+- **Poetry** - Dependency management
+
+### Frontend
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **React Router** - Client-side routing
+- **Axios** - HTTP client
+- **Vite** - Build tool
+
+### Development Tools
+- **Docker** - Containerization for development and production
+- **ESLint & Prettier** - Code formatting
+- **Pytest** - Testing framework
+- **MyPy** - Type checking
+- **Ruff** - Python linting
+
+### Deployment (Planned)
+- **Frontend**: Serverless platform (TBD)
+- **Backend**: Cloud hosting platform (TBD)
+- **Database**: Neon PostgreSQL (hosted)
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.11+ (or Docker)
+- Node.js 18+ (or Docker)
+- Poetry (for Python dependencies) - only needed if not using Docker
+- Docker and Docker Compose (recommended for development)
+- Neon PostgreSQL account (for database)
+
+### Quick Start with Docker (Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/adaptive-testers/aztec-assess
+   cd aztec-assess
+   ```
+
+2. **Create a `.env` file in the root directory**
+   ```bash
+   # Database (Neon PostgreSQL)
+   DATABASE_URL=postgresql://username:password@your-neon-host/database_name
+
+   # Django Settings
+   SECRET_KEY=your-secret-key-here
+   DEBUG=True
+   ALLOWED_HOSTS=localhost,127.0.0.1,backend
+   CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+   ```
+
+3. **Start the development environment**
+   ```bash
+   docker-compose up --build frontend-dev backend
+   ```
+
+4. **Run database migrations** (first time only)
+   ```bash
+   docker-compose exec backend /app/.venv/bin/python manage.py migrate
+   docker-compose exec backend /app/.venv/bin/python manage.py createsuperuser
+   ```
+
+The application will be available at:
+- **Frontend**: http://localhost:5173 (Vite dev server with hot reload)
+- **Backend API**: http://localhost:8000
+
+**Docker Commands:**
+- `docker-compose up frontend-dev backend` - Start development services
+- `docker-compose up frontend-prod backend` - Start production services
+- `docker-compose down` - Stop all services
+- `docker-compose logs -f` - View logs
+- `docker-compose exec backend <command>` - Run commands in backend container
+- `docker-compose exec frontend-dev <command>` - Run commands in frontend container
+
+### Manual Setup (Without Docker)
+
+### Backend Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/adaptive-testers/aztec-assess
+   cd aztec-assess
+   ```
+
+2. **Install Python dependencies**
+   ```bash
+   cd backend
+   poetry install
+   poetry shell
+   ```
+
+3. **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Neon database credentials
+   ```
+
+4. **Database Setup**
+   ```bash
+   python manage.py migrate
+   python manage.py createsuperuser
+   ```
+
+5. **Run the development server**
+   ```bash
+   python manage.py runserver
+   ```
+
+### Frontend Setup
+
+1. **Install dependencies**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+
+> [!NOTE]
+> If you're using Docker, follow the Docker setup instructions above instead.
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd backend
+poetry run pytest
+poetry run pytest --cov=apps --cov-report=html
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm run test
+npm run test:coverage
+```
+
+## 📁 Project Structure
+
+```text
+aztec-assess/
+├── backend/                    # Django backend
+│   ├── adaptive_testing/       # Main Django project
+│   │   ├── settings/           # Environment-specific settings
+│   │   └── ...
+│   ├── apps/                   # Django applications
+│   │   └── accounts/           # User management
+│   ├── Dockerfile              # Backend container configuration
+│   ├── .dockerignore           # Files excluded from Docker build
+│   ├── manage.py
+│   └── pyproject.toml
+├── frontend/                   # React frontend
+│   ├── src/
+│   │   ├── features/           # Feature-based components
+│   │   │   ├── LogIn/          # Login page
+│   │   │   └── SignUp/         # Sign up page
+│   │   ├── context/            # React context providers
+│   │   ├── api/                # API client configuration
+│   │   └── types/              # TypeScript type definitions
+│   ├── Dockerfile              # Multi-stage frontend container
+│   ├── .dockerignore           # Files excluded from Docker build
+│   ├── nginx.conf              # Nginx config for production
+│   └── package.json
+├── docker-compose.yml          # Docker Compose configuration
+├── .env                        # Environment variables (create this)
+└── README.md
+```
+
+## 🔧 Development
+
+### Docker Development
+
+The project uses Docker for consistent development environments. The setup includes:
+
+- **Multi-stage builds**: Optimized Docker images for development and production
+- **Hot reload**: Code changes are automatically reflected in development containers
+- **Volume mounting**: Source code is mounted for instant updates
+- **Isolated dependencies**: Node modules and Python virtual environments are containerized
+
+### Code Quality
+- **Python**: Ruff for linting, MyPy for type checking
+- **TypeScript**: ESLint for linting, strict type checking
+- **Pre-commit hooks**: Automated code formatting and linting
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## 📞 Support
+
+If you have any questions or need help, please open an issue in the repository.
+
+---
+
+**Note**: This project is currently in active development and is initially designed for San Diego State University (SDSU). Features and documentation may change as we continue to build and improve the platform.
+
+## 🎓 About Aztec Assess
+
+Aztec Assess is designed to revolutionize how educational institutions conduct assessments by providing adaptive testing capabilities that adjust to individual student learning styles and performance. The platform emphasizes instructor control while leveraging AI as a supportive tool for content generation and analysis.
+
+This project is being developed as part of a capstone project class, demonstrating real-world software development practices and modern web technologies in an educational context.
+
+### Key Principles
+- **Instructor-Centric**: AI serves as an assistant, not a replacement for instructor expertise
+- **Adaptive Learning**: Questions and formats adapt to accommodate different learning styles
+- **Educational Focus**: Built specifically for educational institutions with SDSU as the initial deployment target

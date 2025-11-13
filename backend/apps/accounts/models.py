@@ -27,15 +27,15 @@ class User(AbstractUser):
     username = None
 
     # Set email as the primary identifier
-    email = models.EmailField(
+    email: models.EmailField = models.EmailField(
         unique=True, help_text="User's email address (used as username)"
     )
 
     # Add additional fields for user profiles
-    first_name = models.CharField(max_length=40, help_text="User's first name")
-    last_name = models.CharField(max_length=40, help_text="User's last name")
+    first_name: models.CharField = models.CharField(max_length=40, help_text="User's first name")
+    last_name: models.CharField = models.CharField(max_length=40, help_text="User's last name")
 
-    role = models.CharField(
+    role: models.CharField = models.CharField(
         max_length=20,
         choices=UserRole.choices,
         default=UserRole.STUDENT,
@@ -46,15 +46,15 @@ class User(AbstractUser):
     is_active = models.BooleanField(
         default=True, help_text="Whether the user account is active"
     )
-    is_verified = models.BooleanField(
+    is_verified: models.BooleanField = models.BooleanField(
         default=False, help_text="Whether the user's email has been verified"
     )
 
     # Timestamps
-    created_at = models.DateTimeField(
+    created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="Date and time when the user account was created"
     )
-    updated_at = models.DateTimeField(
+    updated_at: models.DateTimeField = models.DateTimeField(
         auto_now=True, help_text="Date and time when the user account was last updated"
     )
     last_login = models.DateTimeField(
@@ -65,13 +65,13 @@ class User(AbstractUser):
     )
 
     # Oauth fields
-    oauth_provider = models.CharField(
+    oauth_provider: models.CharField = models.CharField(
         max_length=50,
         blank=True,
         default="",
         help_text="The provider of the user's OAuth account",
     )
-    oauth_id = models.CharField(
+    oauth_id: models.CharField = models.CharField(
         max_length=255,
         blank=True,
         default="",
