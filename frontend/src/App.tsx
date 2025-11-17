@@ -1,9 +1,9 @@
 import { Routes, Route } from "react-router-dom";
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
-import { AuthProvider } from "./context/AuthContext";
+import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import LogInPage from "./features/LogIn/LogInPage";
-import ProfilePage from "./features/Profile/ProfilePage";
+import Profile from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
 
@@ -26,6 +26,7 @@ import SignUpPage from "./features/SignUp/SignUpPage";
 
 function App() {
   return (
+<<<<<<< HEAD
 <<<<<<< HEAD
     <BrowserRouter>
       <AuthProvider>
@@ -57,6 +58,21 @@ function App() {
       </div>
     </AuthProvider>
 >>>>>>> 7fe5070 (feat(Dashboard): implement dashboard layout with sidebar and routing; add profile and settings components)
+=======
+    <>
+      <AuthInterceptorsInitializer />
+      <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
+        <Routes>
+          <Route path="/role-select" element={<RoleSelectionPage />} />
+          <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/" element={<LogInPage />} />
+          <Route element={<DashboardLayout />}>
+            <Route path="/profile" element={<Profile />} />
+          </Route>
+        </Routes>
+      </div>
+    </>
+>>>>>>> ce06d5c (refactor(Profile): restructure profile component, enhance data fetching and error handling; update tests for improved coverage)
   );
 }
 

@@ -1,20 +1,32 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { Mock } from "vitest";
 
 // Mock the API module used by the component
 vi.mock("../api/axios", () => ({
-  publicApi: {
+  privateApi: {
     get: vi.fn(),
     put: vi.fn(),
   },
 }));
 
-// SUT
-import { publicApi } from "../api/axios";
-import Profile from "../features/Dashboard/Profile.tsx";
+// Mock AuthContext so we have a token (otherwise component shows "Loading session…")
+vi.mock("../context/AuthContext", () => {
+  return {
+    useAuth: vi.fn(() => ({
+      accessToken: "test-token",
+      setAccessToken: vi.fn(),
+    })),
+  };
+});
 
-const api = vi.mocked(publicApi, true);
+// SUT (import AFTER mocks)
+import { privateApi } from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import Profile from "../features/Profile/ProfilePage.tsx";
+
+const api = vi.mocked(privateApi, true);
 
 const initial = {
   firstName: "James",
@@ -37,13 +49,19 @@ function renderProfile() {
 describe("Profile", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // default auth: token present, so component fetches profile
+    (useAuth as unknown as Mock).mockReturnValue({
+      accessToken: "test-token",
+      setAccessToken: vi.fn(),
+    });
   });
 
   it("loads and displays fetched profile", async () => {
     api.get.mockResolvedValueOnce({ data: initial });
     renderProfile();
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Component shows "Loading profile…" while fetching
+    expect(screen.getByText(/loading profile/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("James")).toBeInTheDocument();
@@ -66,7 +84,7 @@ describe("Profile", () => {
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     expect(screen.getByText("James")).toBeInTheDocument();
-    expect(screen.queryByText("BoB")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bob")).not.toBeInTheDocument();
   });
 
   it("validation: cannot save blank names; error messages show", async () => {
@@ -122,7 +140,7 @@ describe("Profile", () => {
   it('shows "Saving..." while PUT in progress and disables the button', async () => {
     api.get.mockResolvedValueOnce({ data: initial });
 
-    // deferred promise for PUT
+    // deferred PUT promise
     let resolvePut!: (val: { data: typeof saved }) => void;
     const putPromise = new Promise<{ data: typeof saved }>(
       (res) => (resolvePut = res)
@@ -196,5 +214,112 @@ describe("Profile", () => {
     );
 
     expect(screen.getByText(/^J$/)).toBeInTheDocument();
+  });
+
+  it("gates on session: shows 'Loading session…' and does not call API when no token", async () => {
+    (useAuth as unknown as Mock).mockReturnValue({
+      accessToken: null,
+      setAccessToken: vi.fn(),
+    });
+
+    renderProfile();
+
+    expect(screen.getByText(/loading session/i)).toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it("GET 401 -> shows 'Session expired' and clears access token", async () => {
+    const setToken = vi.fn();
+    (useAuth as unknown as Mock).mockReturnValue({
+      accessToken: "test-token",
+      setAccessToken: setToken,
+    });
+
+    // axios.isAxiosError check -> provide isAxiosError + response.status
+    api.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401 },
+    });
+
+    renderProfile();
+
+    // component should surface the error text
+    expect(
+      await screen.findByText(/session expired\. please log in again\./i)
+    ).toBeInTheDocument();
+    expect(setToken).toHaveBeenCalledWith(null);
+  });
+
+  it("PUT 401 on save -> shows 'Session expired' and clears access token", async () => {
+    const setToken = vi.fn();
+    (useAuth as unknown as Mock).mockReturnValue({
+      accessToken: "test-token",
+      setAccessToken: setToken,
+    });
+
+    api.get.mockResolvedValueOnce({ data: initial });
+    api.put.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 401 },
+    });
+
+    renderProfile();
+    await waitFor(() => screen.getByText("James"));
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    // fill with valid values so it attempts PUT
+    const [firstNameInput, lastNameInput] = screen.getAllByRole("textbox");
+    await user.clear(firstNameInput);
+    await user.type(firstNameInput, "James");
+    await user.clear(lastNameInput);
+    await user.type(lastNameInput, "Duong");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(
+      await screen.findByText(/session expired\. please log in again\./i)
+    ).toBeInTheDocument();
+    expect(setToken).toHaveBeenCalledWith(null);
+  });
+
+  it("GET non-401 error -> shows 'Failed to load profile.'", async () => {
+    api.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 500 },
+    });
+
+    renderProfile();
+
+    expect(
+      await screen.findByText(/failed to load profile\./i)
+    ).toBeInTheDocument();
+  });
+
+  it("PUT non-401 error -> shows 'Failed to save profile.'", async () => {
+    api.get.mockResolvedValueOnce({ data: initial });
+    api.put.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 500 },
+    });
+
+    renderProfile();
+    await waitFor(() => screen.getByText("James"));
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    const [firstNameInput, lastNameInput] = screen.getAllByRole("textbox");
+    await user.clear(firstNameInput);
+    await user.type(firstNameInput, "James");
+    await user.clear(lastNameInput);
+    await user.type(lastNameInput, "Duong");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(
+      await screen.findByText(/failed to save profile\./i)
+    ).toBeInTheDocument();
   });
 });
