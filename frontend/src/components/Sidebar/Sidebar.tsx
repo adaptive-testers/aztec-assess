@@ -9,10 +9,9 @@ import { IoLogOut } from "react-icons/io5";
 import { TbPointFilled } from "react-icons/tb";
 import { NavLink } from "react-router-dom";
 
-import { publicApi } from "../../api/axios";
+import { privateApi } from "../../api/axios";
+import { AUTH } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
-
-// import { AUTH } from "./endpoints";
 
 interface Course {
   id: number;
@@ -30,7 +29,7 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await publicApi.get("AUTH.SIDEBAR");
+        const res = await privateApi.get(AUTH.SIDEBAR);
         setCourses(res.data);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
