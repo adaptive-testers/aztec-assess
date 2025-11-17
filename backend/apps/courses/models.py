@@ -35,8 +35,8 @@ class Course(models.Model):
     # Enrollment
     join_code = models.CharField(
         max_length=16,
-        null=True,
         blank=True,
+        default="",
         db_index=True,
     )
     join_code_enabled = models.BooleanField(default=False)

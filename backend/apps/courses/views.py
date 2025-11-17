@@ -94,7 +94,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="activate",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def activate(self, request, pk=None):
+    def activate(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         if course.status == Course.CourseStatus.ARCHIVED:
             return Response(
@@ -116,7 +116,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="archive",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def archive(self, request, pk=None):
+    def archive(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         course.status = Course.CourseStatus.ARCHIVED
         course.join_code_enabled = False
@@ -129,7 +129,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="rotate-join-code",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def rotate_join_code(self, request, pk=None):
+    def rotate_join_code(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         if course.status == Course.CourseStatus.ARCHIVED:
             return Response(
@@ -146,7 +146,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="join-code/enable",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def enable_join_code(self, request, pk=None):
+    def enable_join_code(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         if course.status != Course.CourseStatus.ACTIVE:
             return Response(
@@ -171,7 +171,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="join-code/disable",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def disable_join_code(self, request, pk=None):
+    def disable_join_code(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         course.join_code_enabled = False
         course.save(update_fields=["join_code_enabled"])
@@ -188,7 +188,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="members",
         permission_classes=[IsAuthenticated, IsCourseStaff],
     )
-    def members(self, request, pk=None):
+    def members(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         qs = CourseMembership.objects.filter(course=course).select_related("user")
         serializer = CourseMembershipSerializer(qs, many=True)
@@ -200,7 +200,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="members/add",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def add_member(self, request, pk=None):
+    def add_member(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         user_id = request.data.get("user_id")
         role = request.data.get("role", CourseRole.STUDENT)
@@ -241,7 +241,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         url_path="members/remove",
         permission_classes=[IsAuthenticated, IsCourseOwnerOrInstructor],
     )
-    def remove_member(self, request, pk=None):
+    def remove_member(self, request, pk=None): # noqa: ARG002
         course = self.get_object()
         user_id = request.data.get("user_id")
 

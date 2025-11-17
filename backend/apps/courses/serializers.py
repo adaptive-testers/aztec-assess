@@ -1,6 +1,5 @@
 # DRF serializers for Course + Membership + join flow.
 
-from django.db.models import Count
 from rest_framework import serializers
 
 from .models import Course, CourseMembership, CourseRole

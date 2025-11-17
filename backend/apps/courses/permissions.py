@@ -17,17 +17,17 @@ def user_role(user, course):
 
 class IsCourseStaff(BasePermission):
     # OWNER, INSTRUCTOR, or TA.
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, obj): # noqa: ARG002
         role = user_role(request.user, obj)
         return role in {CourseRole.OWNER, CourseRole.INSTRUCTOR, CourseRole.TA}
 
 
 class IsCourseOwnerOrInstructor(BasePermission):
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, obj): # noqa: ARG002
         role = user_role(request.user, obj)
         return role in {CourseRole.OWNER, CourseRole.INSTRUCTOR}
 
 
 class IsCourseMember(BasePermission):
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, obj): # noqa: ARG002
         return user_role(request.user, obj) is not None
