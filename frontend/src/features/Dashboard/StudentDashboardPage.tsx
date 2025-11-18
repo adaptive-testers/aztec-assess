@@ -1,3 +1,6 @@
+import { Progress } from '@mantine/core';
+
+
 export default function StudentDashboardPage() {
  return <>
  <div className="grid grid-rows-[auto_auto_1fr_1fr] grid-cols-2 min-h-screen w-full gap-4 px-6 py-6 geist-font">
@@ -18,7 +21,7 @@ export default function StudentDashboardPage() {
             Performance Overview
         </div>
         
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
         
             <div className="flex flex-row justify-between">
                 <div className="text-secondary-text"> 
@@ -31,11 +34,11 @@ export default function StudentDashboardPage() {
              </div>
 
             <div className="text-primary-text">
-             Progress bar placeholder
+                <Progress value={80} color="green" size="md" bg="#1a1a1a" className="w-full" />
             </div>
         </div>
 
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
         
             <div className="flex flex-row justify-between">
                 <div className="text-secondary-text"> 
@@ -48,12 +51,12 @@ export default function StudentDashboardPage() {
              </div>
 
             <div className="text-primary-text">
-             Progress bar placeholder
+                <Progress value={80} color="red" size="md" bg="#1a1a1a" className="w-full" />
             </div>
         </div>
 
 
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
         
             <div className="flex flex-row justify-between">
                 <div className="text-secondary-text"> 
@@ -66,7 +69,7 @@ export default function StudentDashboardPage() {
              </div>
 
             <div className="text-primary-text">
-             Progress bar placeholder
+                <Progress value={60} color="grape" size="md" bg="#1a1a1a" className="w-full" />
             </div>
         </div>
     </div>

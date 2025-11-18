@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { MantineProvider } from '@mantine/core';
+import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
 import { AuthProvider } from "./context/AuthContext";
@@ -8,6 +11,7 @@ import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
 import StudentDashBoardPage from "./features/Dashboard/StudentDashboardPage";
 
+
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();
   return null;
@@ -15,6 +19,7 @@ function AuthInterceptorsInitializer() {
 
 function App() {
   return (
+    <MantineProvider>
     <BrowserRouter>
       <AuthProvider>
         <AuthInterceptorsInitializer />
@@ -29,6 +34,7 @@ function App() {
         </div>
       </AuthProvider>
     </BrowserRouter>
+    </MantineProvider>
   );
 }
 
