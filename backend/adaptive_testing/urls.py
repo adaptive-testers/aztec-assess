@@ -28,5 +28,5 @@ urlpatterns = [
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 
     # Courses API routes (when implementing Courses backend).
-    path("api/", include("apps.courses.urls")),
+    path("api/", include("backend.apps.courses.urls")),
 ]
