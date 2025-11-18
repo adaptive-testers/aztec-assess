@@ -1,6 +1,6 @@
 export default function StudentDashboardPage() {
  return <>
- <div className="grid grid-rows-[auto_auto_1fr_1fr] grid-cols-2 min-h-screen w-full gap-4 px-6 py-6">
+ <div className="grid grid-rows-[auto_auto_1fr_1fr] grid-cols-2 min-h-screen w-full gap-4 px-6 py-6 geist-font">
 
     <div className="row-span-1 col-span-2 text-primary-text">
         Welcome back student!
@@ -73,17 +73,64 @@ export default function StudentDashboardPage() {
 
  
     <div className="row-span-2 col-span-1 bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl p-6">
-        <div className="text-primary-text"> 
-            Upcoming Quizzes
+        <div className="flex flex-col gap-7">
+        <div className="flex flex-row justify-between">
+            <div className="text-primary-text"> 
+                Upcoming Quizzes
+            </div>
+            <div className="text-primary-text"> 
+                day placeholder
+            </div>
+        </div>
+        <div className="bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl">
+            <div className="flex flex-col gap-3 p-4">
+                <div className="text-primary-text">
+                    Quiz Name
+                </div>
+                <div className="text-secondary-text">
+                    Quiz Class
+                </div>
+                <div className=" p-2 text-primary-text bg-secondary-background w-full h-full border-2 border-primary-border rounded-md">
+                    Due 01/01/2001
+                </div>
+            </div>
+        </div>
         </div>
     </div>
 
    
     <div className="row-span-1 col-span-2 bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl p-6">
-        <div className="text-primary-text"> 
-            Recent Quiz History
+        <div className="flex flex-col gap-7">
+            <div className="text-primary-text"> 
+                Recent Quiz History
+            </div>
+        <div className="bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl">
+            <div className="flex justify-between p-4 align-center">
+            <div className="flex flex-col gap-1 p-2">
+                <div className="text-primary-text">
+                    Quiz Name
+                </div>
+                <div className="text-secondary-text">
+                    Quiz Class
+                </div>
+                <div className="text-secondary-text">
+                    Completed 01/01/2001
+                </div>
+            </div>
+            <div className="flex flex-col justify-center items-end gap-2">
+                <div className="text-green-500 text-2xl">
+                    85%
+                </div>
+                <div className="bg-secondary-background border-2 border-primary-border rounded-md text-primary-text text-xs px-4 py-1 tracking-wider font-semibold">
+                    Excellent
+                </div>
+            </div>
+            </div>
+        </div>
         </div>
     </div>
+
+
  </div>
  </>
 }
