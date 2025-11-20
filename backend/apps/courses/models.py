@@ -1,6 +1,7 @@
 # Core data model for Courses app (Course, CourseRole, CourseMembership).
 
 import uuid
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -33,10 +34,10 @@ class Course(models.Model):
     )
 
     # Enrollment
-    join_code = models.CharField(
+    join_code = models.CharField( # noqa: DJ001 - intentionally nullable for lazy generation
         max_length=16,
+        null=True,
         blank=True,
-        default="",
         db_index=True,
     )
     join_code_enabled = models.BooleanField(default=False)
@@ -48,9 +49,9 @@ class Course(models.Model):
     @property
     def is_archived(self) -> bool:
         # Helper for views/permissions; archived courses are read-only.
-        return self.status == self.CourseStatus.ARCHIVED
+        return bool(self.status == self.CourseStatus.ARCHIVED)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """
         Ensure we always have a unique slug based on title.
 
@@ -109,4 +110,4 @@ class CourseMembership(models.Model):
         ]
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"{self.user_id} in {self.course_id} as {self.role}"
+        return f"{self.user.id} in {self.course.id} as {self.role}"
