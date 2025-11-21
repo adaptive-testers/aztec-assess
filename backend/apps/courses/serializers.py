@@ -1,5 +1,7 @@
 # DRF serializers for Course + Membership + join flow.
 
+from typing import Any
+
 from rest_framework import serializers
 
 from .models import Course, CourseMembership, CourseRole
@@ -7,7 +9,11 @@ from .models import Course, CourseMembership, CourseRole
 
 class CourseSerializer(serializers.ModelSerializer):
     owner_id = serializers.UUIDField(source="owner.id", read_only=True)
-    member_count = serializers.IntegerField(read_only=True)
+    member_count = serializers.SerializerMethodField()
+
+    def get_member_count(self, obj: Course) -> int:
+        """Return the number of members in the course."""
+        return int(obj.memberships.count())  # type: ignore[attr-defined]
 
     class Meta:
         model = Course
@@ -38,7 +44,7 @@ class CourseCreateSerializer(serializers.ModelSerializer):
         model = Course
         fields = ["title"]
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> Course:
         user = self.context["request"].user
         course = Course.objects.create(
             owner=user,
