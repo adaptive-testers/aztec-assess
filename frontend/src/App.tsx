@@ -6,6 +6,7 @@ import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
+import CoursesDemoPage from "./features/CoursesDemo/CoursesDemoPage";
 
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();
@@ -22,6 +23,7 @@ function App() {
             <Route path="/role-select" element={<RoleSelectionPage />} />
             <Route path="/sign-up" element={<SignUpPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/courses-demo" element={<CoursesDemoPage />} />
             <Route path="/" element={<LogInPage />} />
           </Routes>
         </div>
