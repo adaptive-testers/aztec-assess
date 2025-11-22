@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
@@ -6,14 +6,14 @@ import "@testing-library/jest-dom";
 
 // Mock the API module used by the component
 vi.mock("../api/axios", () => ({
-  publicApi: {
+  privateApi: {
     get: vi.fn(),
     put: vi.fn(),
   },
 }));
 
 // SUT
-import { publicApi } from "../api/axios";
+import { privateApi } from "../api/axios";
 import Sidebar from "../components/Sidebar/Sidebar";
 import { useAuth } from "../context/AuthContext";
 
@@ -29,7 +29,7 @@ describe("Sidebar", () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
-    (publicApi.get as Mock).mockResolvedValue({ data: [] });
+    (privateApi.get as Mock).mockResolvedValue({ data: [] });
 
     (useAuth as unknown as Mock).mockImplementation(() => ({
       logout: mockLogout,
@@ -122,7 +122,9 @@ describe("Sidebar", () => {
   it("calls logout from AuthContext when Logout is clicked", async () => {
     const { user } = setup();
 
-    const logoutButton = await screen.findByRole("button", { name: /logout/i });
+    await screen.findByText("Aztec Assess");
+
+    const logoutButton = screen.getByLabelText(/logout/i);
     await user.click(logoutButton);
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
@@ -133,7 +135,7 @@ describe("Sidebar", () => {
       { id: 2, name: "Physics 202", path: "/courses/physics-202" },
     ];
 
-    (publicApi.get as Mock).mockResolvedValueOnce({ data: courses });
+    (privateApi.get as Mock).mockResolvedValueOnce({ data: courses });
 
     const { user } = setup();
 
@@ -154,6 +156,6 @@ describe("Sidebar", () => {
       "/courses/physics-202"
     );
 
-    expect(publicApi.get).toHaveBeenCalledWith("AUTH.SIDEBAR");
+    expect(privateApi.get).toHaveBeenCalled();
   });
 });

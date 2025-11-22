@@ -277,11 +277,13 @@ export default function Sidebar() {
           />
 
           {!collapsed && (
-            <span
+            <button
+              type="button"
+              onClick={handleLogout}
               className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out opacity-100 translate-x-0 text-[rgba(241,245,249,0.7)] group-hover:text-white`}
             >
               Logout
-            </span>
+            </button>
           )}
         </button>
       </div>
