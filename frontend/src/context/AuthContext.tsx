@@ -1,21 +1,16 @@
-// src/context/AuthContext.tsx
-
-import { createContext, useState, useContext, useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
+import { useNavigate } from "react-router-dom";
 
 import { publicApi } from "../api/axios";
 import { AUTH } from "../api/endpoints";
-<<<<<<< HEAD
-=======
-=======
-import { createContext, useState, useContext, type ReactNode } from "react";
-<<<<<<< HEAD
->>>>>>> 14bfadc (feat: Implement routing and login functionality with react-router-dom)
-=======
-import { useNavigate } from "react-router-dom";
->>>>>>> 7fe5070 (feat(Dashboard): implement dashboard layout with sidebar and routing; add profile and settings components)
->>>>>>> 7db0cc6 (feat(Dashboard): implement dashboard layout with sidebar and routing; add profile and settings components)
 
-import { publicApi } from "../api/axios";
 // Define the shape of our context state
 interface AuthContextType {
   accessToken: string | null;
@@ -40,20 +35,9 @@ let refreshInFlight: Promise<string | null> | null = null;
 // Provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
-<<<<<<< HEAD
   const [checkingRefresh, setCheckingRefresh] = useState(true);
   const didAttemptRefresh = useRef(false);
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-  const [checkingRefresh, setCheckingRefresh] = useState(true);
-  const didAttemptRefresh = useRef(false);
-=======
->>>>>>> 14bfadc (feat: Implement routing and login functionality with react-router-dom)
-=======
   const navigate = useNavigate();
->>>>>>> 7fe5070 (feat(Dashboard): implement dashboard layout with sidebar and routing; add profile and settings components)
->>>>>>> 7db0cc6 (feat(Dashboard): implement dashboard layout with sidebar and routing; add profile and settings components)
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);

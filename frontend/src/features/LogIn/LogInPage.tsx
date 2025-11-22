@@ -45,7 +45,7 @@ export default function LogInContainer() {
       });
 
       if (res?.tokens?.access) setAccessToken(res.tokens.access);
-      navigate("/");
+      navigate("/profile");
     } catch (error) {
       if (axios.isAxiosError(error)) {
         // Extract error message from backend response
