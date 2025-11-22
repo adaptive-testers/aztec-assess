@@ -7,7 +7,7 @@ import type { Mock } from "vitest";
 vi.mock("../api/axios", () => ({
   privateApi: {
     get: vi.fn(),
-    put: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -17,6 +17,7 @@ vi.mock("../context/AuthContext", () => {
     useAuth: vi.fn(() => ({
       accessToken: "test-token",
       setAccessToken: vi.fn(),
+      logout: vi.fn(),
     })),
   };
 });
@@ -28,18 +29,17 @@ import Profile from "../features/Profile/ProfilePage.tsx";
 
 const api = vi.mocked(privateApi, true);
 
-const initial = {
-  firstName: "James",
-  lastName: "Duong",
+const PROFILE = {
+  first_name: "James",
+  last_name: "Duong",
   id: "828225756",
   email: "instructor@gmail.com",
 };
 
-const saved = {
-  firstName: "James",
-  lastName: "Duong",
-  id: "828225756",
-  email: "instructor@gmail.com",
+const PROFILE_UPDATED = {
+  ...PROFILE,
+  first_name: "Bob",
+  last_name: "Smith",
 };
 
 function renderProfile() {
@@ -53,15 +53,16 @@ describe("Profile", () => {
     (useAuth as unknown as Mock).mockReturnValue({
       accessToken: "test-token",
       setAccessToken: vi.fn(),
+      logout: vi.fn(),
     });
   });
 
   it("loads and displays fetched profile", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
     renderProfile();
 
     // Component shows "Loading profile…" while fetching
-    expect(screen.getByText(/loading profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("James")).toBeInTheDocument();
@@ -71,7 +72,7 @@ describe("Profile", () => {
   });
 
   it("enter edit, change then cancel -> reverts to baseline (initial fetch)", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
     renderProfile();
     await waitFor(() => screen.getByText("James"));
 
@@ -88,7 +89,7 @@ describe("Profile", () => {
   });
 
   it("validation: cannot save blank names; error messages show", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
     renderProfile();
     await waitFor(() => screen.getByText("James"));
 
@@ -110,8 +111,8 @@ describe("Profile", () => {
   });
 
   it("save updates baseline; later cancel reverts to the NEW saved values", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
-    api.put.mockResolvedValueOnce({ data: saved });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
+    api.patch.mockResolvedValueOnce({ data: PROFILE });
 
     renderProfile();
     await waitFor(() => screen.getByText("James"));
@@ -137,15 +138,15 @@ describe("Profile", () => {
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
   });
 
-  it('shows "Saving..." while PUT in progress and disables the button', async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+  it('shows "Saving..." while PATCH in progress and disables the button', async () => {
+    api.get.mockResolvedValueOnce({ data: PROFILE });
 
-    // deferred PUT promise
-    let resolvePut!: (val: { data: typeof saved }) => void;
-    const putPromise = new Promise<{ data: typeof saved }>(
-      (res) => (resolvePut = res)
+    // deferred PATCH promise
+    let resolvePatch!: (val: { data: typeof PROFILE_UPDATED }) => void;
+    const patchPromise = new Promise<{ data: typeof PROFILE_UPDATED }>(
+      (res) => (resolvePatch = res)
     );
-    api.put.mockReturnValueOnce(putPromise);
+    api.patch.mockReturnValueOnce(patchPromise);
 
     renderProfile();
     await waitFor(() => screen.getByText("James"));
@@ -159,17 +160,21 @@ describe("Profile", () => {
     await user.click(saveBtn);
 
     // while saving
-    expect(screen.getByRole("button", { name: /saving/i })).toBeDisabled();
+    const savingBtn = screen.getByRole("button", { name: /saving/i });
+    expect(savingBtn).toBeDisabled();
 
-    // finish PUT
-    resolvePut({ data: saved });
+    // finish PATCH
+    resolvePatch({ data: PROFILE_UPDATED });
     await waitFor(() => {
-      expect(screen.getByText("James")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /saving/i })
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
     });
   });
 
   it("Cancel clears validation errors", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
     renderProfile();
     await waitFor(() => screen.getByText("James"));
 
@@ -195,7 +200,7 @@ describe("Profile", () => {
   });
 
   it("renders avatar initials from fetched names", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
+    api.get.mockResolvedValueOnce({ data: PROFILE });
     renderProfile();
 
     await waitFor(() =>
@@ -206,7 +211,7 @@ describe("Profile", () => {
   });
 
   it("renders single initial when last name is missing", async () => {
-    api.get.mockResolvedValueOnce({ data: { ...initial, lastName: "" } });
+    api.get.mockResolvedValueOnce({ data: { ...PROFILE, last_name: "" } });
     renderProfile();
 
     await waitFor(() =>
@@ -220,11 +225,12 @@ describe("Profile", () => {
     (useAuth as unknown as Mock).mockReturnValue({
       accessToken: null,
       setAccessToken: vi.fn(),
+      logout: vi.fn(),
     });
 
     renderProfile();
 
-    expect(screen.getByText(/loading session/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalled();
   });
 
@@ -233,6 +239,7 @@ describe("Profile", () => {
     (useAuth as unknown as Mock).mockReturnValue({
       accessToken: "test-token",
       setAccessToken: setToken,
+      logout: vi.fn(),
     });
 
     // axios.isAxiosError check -> provide isAxiosError + response.status
@@ -250,15 +257,16 @@ describe("Profile", () => {
     expect(setToken).toHaveBeenCalledWith(null);
   });
 
-  it("PUT 401 on save -> shows 'Session expired' and clears access token", async () => {
+  it("PATCH 401 on save -> shows 'Session expired' and clears access token", async () => {
     const setToken = vi.fn();
     (useAuth as unknown as Mock).mockReturnValue({
       accessToken: "test-token",
       setAccessToken: setToken,
+      logout: vi.fn(),
     });
 
-    api.get.mockResolvedValueOnce({ data: initial });
-    api.put.mockRejectedValueOnce({
+    api.get.mockResolvedValueOnce({ data: PROFILE });
+    api.patch.mockRejectedValueOnce({
       isAxiosError: true,
       response: { status: 401 },
     });
@@ -269,7 +277,7 @@ describe("Profile", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /edit/i }));
 
-    // fill with valid values so it attempts PUT
+    // fill with valid values so it attempts PATCH
     const [firstNameInput, lastNameInput] = screen.getAllByRole("textbox");
     await user.clear(firstNameInput);
     await user.type(firstNameInput, "James");
@@ -297,9 +305,9 @@ describe("Profile", () => {
     ).toBeInTheDocument();
   });
 
-  it("PUT non-401 error -> shows 'Failed to save profile.'", async () => {
-    api.get.mockResolvedValueOnce({ data: initial });
-    api.put.mockRejectedValueOnce({
+  it("PATCH non-401 error -> shows 'Failed to save profile.'", async () => {
+    api.get.mockResolvedValueOnce({ data: PROFILE });
+    api.patch.mockRejectedValueOnce({
       isAxiosError: true,
       response: { status: 500 },
     });

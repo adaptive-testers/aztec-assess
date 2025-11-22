@@ -6,8 +6,8 @@ import { AUTH } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
 interface User {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   id: string;
   email: string;
 }
@@ -22,22 +22,22 @@ export default function ProfileSection() {
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const [userData, setUserData] = useState({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     id: "",
     email: "",
   });
 
   const [originalUserData, setOriginalUserData] = useState({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     id: "",
     email: "",
   });
 
   const [errors, setErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
+    first_name?: string;
+    last_name?: string;
   }>({});
 
   // Fetch profile data from backend
@@ -79,11 +79,11 @@ export default function ProfileSection() {
   // Handle save click (send to backend)
 
   const handleSave = async () => {
-    const newErrors: { firstName?: string; lastName?: string } = {};
-    if (!userData.firstName.trim())
-      newErrors.firstName = "First name is required.";
-    if (!userData.lastName.trim())
-      newErrors.lastName = "Last name is required.";
+    const newErrors: { first_name?: string; last_name?: string } = {};
+    if (!userData.first_name.trim())
+      newErrors.first_name = "First name is required.";
+    if (!userData.last_name.trim())
+      newErrors.last_name = "Last name is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -94,7 +94,7 @@ export default function ProfileSection() {
     setSaving(true);
 
     try {
-      const res = await privateApi.put("AUTH.PROFILE", userData);
+      const res = await privateApi.patch(AUTH.PROFILE, userData);
       const saved: User = res.data;
 
       setUserData(saved);
@@ -183,8 +183,8 @@ export default function ProfileSection() {
                 <div className="flex items-center justify-center w-[140px] h-[140px] bg-[#262626] rounded-full">
                   {/* avatar initials */}
                   <span className="text-[26px] leading-[35px]">
-                    {`${userData.firstName?.[0] || ""}${
-                      userData.lastName?.[0] || ""
+                    {`${userData.first_name?.[0] || ""}${
+                      userData.last_name?.[0] || ""
                     }`.toUpperCase()}
                   </span>
                 </div>
@@ -196,14 +196,14 @@ export default function ProfileSection() {
               <div className="absolute left-0 top-0 w-[377px] h-[76px] flex flex-col gap-[9px]">
                 <div className="flex justify-between">
                   <label
-                    htmlFor="firstName"
+                    htmlFor="first_name"
                     className="text-[15px] leading-[15px]"
                   >
                     First Name
                   </label>
-                  {errors.firstName && (
+                  {errors.first_name && (
                     <p className="text-[#EF6262] text-[15px] leading-[15px]">
-                      {errors.firstName}
+                      {errors.first_name}
                     </p>
                   )}
                 </div>
@@ -216,15 +216,15 @@ export default function ProfileSection() {
                 >
                   {edit ? (
                     <input
-                      name="firstName"
+                      name="first_name"
                       type="text"
-                      value={userData.firstName}
+                      value={userData.first_name}
                       onChange={handleChange}
                       className="bg-transparent text-[17px] text-white outline-none w-full"
                     />
                   ) : (
                     <span className="text-[17px] leading-[26px] text-[#F1F5F9]">
-                      {userData.firstName}
+                      {userData.first_name}
                     </span>
                   )}
                 </div>
@@ -234,14 +234,14 @@ export default function ProfileSection() {
               <div className="absolute left-[403px] top-0 w-[377px] h-[76px] flex flex-col gap-[9px]">
                 <div className="flex justify-between">
                   <label
-                    htmlFor="lastName"
+                    htmlFor="last_name"
                     className="text-[15px] leading-[15px]"
                   >
                     Last Name
                   </label>
-                  {errors.lastName && (
+                  {errors.last_name && (
                     <p className="text-[#EF6262] text-[15px] leading-[15px]">
-                      {errors.lastName}
+                      {errors.last_name}
                     </p>
                   )}
                 </div>
@@ -254,15 +254,15 @@ export default function ProfileSection() {
                 >
                   {edit ? (
                     <input
-                      name="lastName"
+                      name="last_name"
                       type="text"
-                      value={userData.lastName}
+                      value={userData.last_name}
                       onChange={handleChange}
                       className="bg-transparent text-[17px] text-white outline-none w-full"
                     />
                   ) : (
                     <span className="text-[17px] text-[#F1F5F9]">
-                      {userData.lastName}
+                      {userData.last_name}
                     </span>
                   )}
                 </div>
