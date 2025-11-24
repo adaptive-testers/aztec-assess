@@ -13,6 +13,9 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj: Course) -> int:
         """Return the number of members in the course."""
+        annotated_value = getattr(obj, "member_count", None)
+        if annotated_value is not None:
+            return int(annotated_value)
         return int(obj.memberships.count())  # type: ignore[attr-defined]
 
     class Meta:

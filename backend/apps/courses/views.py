@@ -217,7 +217,15 @@ class CourseViewSet(viewsets.ModelViewSet):
     def add_member(self, request: Request, pk: Any = None) -> Response:  # noqa: ARG002
         _ = pk
         course = self.get_object()
-        role = request.data.get("role", CourseRole.STUDENT)
+        role_value = request.data.get("role", CourseRole.STUDENT)
+        if isinstance(role_value, str):
+            role_value = role_value.upper()
+        if role_value not in CourseRole.values:
+            return Response(
+                {"detail": "Invalid role supplied."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        role = role_value
         email = request.data.get("email")
         user_id = request.data.get("user_id")
 
@@ -274,8 +282,21 @@ class CourseViewSet(viewsets.ModelViewSet):
                 {"detail": "user_id required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        CourseMembership.objects.filter(course=course, user_id=user_id).delete()
+        membership = CourseMembership.objects.filter(
+            course=course,
+            user_id=user_id,
+        ).first()
+        if not membership:
+            return Response(
+                {"detail": "membership not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if membership.role == CourseRole.OWNER:
+            return Response(
+                {"detail": "Owner membership cannot be removed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
