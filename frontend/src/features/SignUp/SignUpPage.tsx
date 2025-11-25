@@ -1,3 +1,4 @@
+import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
@@ -9,7 +10,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { publicApi } from "../../api/axios";
 import { AUTH } from "../../api/endpoints";
-import { useGoogleLogin } from "@react-oauth/google";
 import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
 import { useAuth } from "../../context/AuthContext";
@@ -59,7 +59,7 @@ export default function SignUpContainer() {
         navigate("/", { replace: true });
         return;
       }
-      const res = await publicApi.post(AUTH.GOOGLE_LOGIN, {
+      const res = await publicApi.post(AUTH.OAUTH_GOOGLE, {
         code,            
         role: selectedRole
       });
