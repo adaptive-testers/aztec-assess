@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await publicApi.post("/auth/logout", {}, { withCredentials: true });
+      await publicApi.post(AUTH.LOGOUT, {}, { withCredentials: true });
       // Backend clears the refresh cookie
     } catch (error) {
       console.error("Logout error:", error);

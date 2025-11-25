@@ -21,15 +21,24 @@ interface Course {
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [coursesOpen, setCoursesOpen] = useState(false);
+  const [coursesOpen, setCoursesOpen] = useState(true);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
 
+  const toggleSidebar = () => {
+    setCollapsed((prev) => !prev);
+
+    // If collapsing and courses are open -> close them
+    if (!collapsed && coursesOpen) {
+      setCoursesOpen(false);
+    }
+  };
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await privateApi.get(AUTH.SIDEBAR);
+        const res = await privateApi.get(AUTH.COURSES);
         setCourses(res.data);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
@@ -44,12 +53,14 @@ export default function Sidebar() {
     logout();
   };
 
-  if (loading) return <p className="text-white">Loading courses...</p>;
-
   return (
-    <div
-      className={`absolute left-0 top-0 flex h-[985px] flex-col items-start bg-[#0F0F0F] border-r border-[#404040] shadow-[0_3px_3px_rgba(0,0,0,0.25)] overflow-hidden transition-[width] duration-300
-      ${collapsed ? "w-[78px]" : "w-[280px]"}`}
+    <aside
+      className={`flex h-screen flex-col items-start bg-[#0F0F0F] border-r border-[#404040] shadow-[0_3px_3px_rgba(0,0,0,0.25)] overflow-hidden transition-[width] duration-300 shrink-0
+      ${
+        collapsed
+          ? "w-[78px]"
+          : "w-[210px] sm:w-[230px] md:w-[240px] lg:w-[250px]"
+      }`}
     >
       {/* Header */}
       <div className="flex h-[70px] w-full items-center justify-between px-[19px] border-b border-[#404040]">
@@ -63,11 +74,8 @@ export default function Sidebar() {
           </h2>
         </div>
         <button
-          onClick={() => {
-            setCollapsed(!collapsed);
-            if (coursesOpen) setCoursesOpen((v) => !v);
-          }}
-          className="ml-auto flex h-[35px] w-[39px] items-center justify-center rounded-[7px]"
+          onClick={toggleSidebar}
+          className="ml-auto flex h-[35px] w-[39px] items-center justify-center rounded-[7px] cursor-pointer"
         >
           <IoIosArrowUp
             className={`h-[17px] w-[17px] text-[rgba(241, 245, 249, 0.7)] transition-transform duration-300 ${
@@ -78,13 +86,13 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex h-[878px] w-[278px] flex-col items-start gap-[9px] px-[17px] pt-[17px]">
+      <nav className="flex flex-col flex-1 w-full overflow-y-auto items-start gap-[9px] px-[17px] pt-[17px]">
         {/* Dashboard */}
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
             `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
-            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${collapsed ? "w-[43px]" : "w-full"}
             ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
@@ -121,7 +129,7 @@ export default function Sidebar() {
           to="/profile"
           className={({ isActive }) =>
             `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
-            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${collapsed ? "w-[43px]" : "w-full"}
             ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
@@ -158,7 +166,7 @@ export default function Sidebar() {
           to="/settings"
           className={({ isActive }) =>
             `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
-            ${collapsed ? "w-[43px]" : "w-[243px]"}
+            ${collapsed ? "w-[43px]" : "w-full"}
             ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
           }
         >
@@ -202,7 +210,7 @@ export default function Sidebar() {
           aria-expanded={coursesOpen}
           aria-controls="courses-menu"
           className={() => `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 hover:bg-[#F87171]
-            ${collapsed ? "w-[43px]" : "w-[243px]"}`}
+            ${collapsed ? "w-[43px]" : "w-full"}`}
         >
           <FaBook className="ml-[13px] h-[17px] w-[17px] text-[rgba(241,245,249,0.7)] transition-colors duration-200 group-hover:text-white" />
 
@@ -219,7 +227,7 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        <div className={`${collapsed ? "hidden" : "block"} mt-[6px]`}>
+        <div className={`${collapsed ? "hidden" : "block"} mt-[6px] w-full`}>
           <div
             id="courses-menu"
             className={`grid transition-[grid-template-rows,transform] duration-200 ${
@@ -229,7 +237,7 @@ export default function Sidebar() {
             }`}
           >
             <div className="overflow-hidden">
-              <div className="w-[244px] rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[5px]">
+              <div className="w-full rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[5px]">
                 <NavLink
                   to="/courses/create"
                   className="group/item relative flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 transition-colors"
@@ -241,22 +249,33 @@ export default function Sidebar() {
                 </NavLink>
 
                 {/* Divider */}
-                {courses.length > 1 && (
+                {(loading || courses.length > 1) && (
                   <div className="mx-[5.45px] my-[6px] h-px bg-[#404040] rounded" />
                 )}
-
-                {courses.map((course) => (
-                  <NavLink
-                    key={course.id}
-                    to={course.path}
-                    className="group/item relative mt-[2px] flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 duration-200 transition-colors"
-                  >
-                    <TbPointFilled className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
-                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
-                      {course.name}
-                    </span>
-                  </NavLink>
-                ))}
+                {loading ? (
+                  // skeleton loader for course items
+                  <>
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`skeleton-shimmer mt-[2px] h-[35px] rounded-[4px] bg-[#2A2A2A] px-[8px] flex items-center`}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  courses.map((course) => (
+                    <NavLink
+                      key={course.id}
+                      to={course.path}
+                      className="group/item relative mt-[2px] flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 duration-200 transition-colors"
+                    >
+                      <TbPointFilled className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
+                      <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
+                        {course.name}
+                      </span>
+                    </NavLink>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -268,8 +287,8 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className={`group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 hover:bg-[#F87171] focus:outline-none
-          ${collapsed ? "w-[43px]" : "w-[243px]"}`}
+          className={`group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 hover:bg-[#F87171] focus:outline-none cursor-pointer
+          ${collapsed ? "w-[43px]" : "w-full"}`}
           aria-label="Logout"
         >
           <IoLogOut
@@ -277,16 +296,14 @@ export default function Sidebar() {
           />
 
           {!collapsed && (
-            <button
-              type="button"
-              onClick={handleLogout}
+            <span
               className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out opacity-100 translate-x-0 text-[rgba(241,245,249,0.7)] group-hover:text-white`}
             >
               Logout
-            </button>
+            </span>
           )}
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

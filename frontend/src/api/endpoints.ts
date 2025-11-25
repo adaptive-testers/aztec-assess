@@ -4,7 +4,7 @@ export const AUTH = {
   LOGOUT: "/auth/logout/",
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
-  SIDEBAR: "/auth/sidebar/",
+  COURSES: "/courses/",
   // Future endpoints
   //   PASSWORD_RESET: "/auth/password/reset/",
   //   VERIFY_EMAIL: "/auth/verify-email/",

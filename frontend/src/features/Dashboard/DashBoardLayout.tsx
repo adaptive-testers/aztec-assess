@@ -4,12 +4,13 @@ import Sidebar from "../../components/Sidebar/Sidebar";
 
 const DashboardLayout = () => {
   return (
-    <div className="flex min-h-screen bg-[#0A0A0A] text-white">
-      <div className="w-[260px] flex-shrink-0">
-        <Sidebar />
-      </div>
-      <main className="flex-1 flex justify-center items-start py-10">
-        <Outlet />
+    <div className="flex min-h-screen w-full bg-[#0A0A0A] text-white">
+      <Sidebar />
+
+      <main className="flex-1 px-4 py-6 lg:px-8 lg:py-10">
+        <div className="w-full max-w-5xl mx-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

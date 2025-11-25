@@ -1,7 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
-import { AuthProvider } from "./context/AuthContext";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
@@ -15,7 +14,7 @@ function AuthInterceptorsInitializer() {
 
 function App() {
   return (
-    <AuthProvider>
+    <>
       <AuthInterceptorsInitializer />
       <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
         <Routes>
@@ -28,7 +27,7 @@ function App() {
           </Route>
         </Routes>
       </div>
-    </AuthProvider>
+    </>
   );
 }
 

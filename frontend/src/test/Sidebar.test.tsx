@@ -69,13 +69,16 @@ describe("Sidebar", () => {
     const { user, container } = setup();
 
     const coursesLink = await screen.findByRole("link", { name: /courses/i });
-    expect(coursesLink).toHaveAttribute("aria-expanded", "false");
 
-    await user.click(coursesLink);
+    // In the current Sidebar implementation, the submenu starts OPEN
     expect(coursesLink).toHaveAttribute("aria-expanded", "true");
-
     const menu = container.querySelector("#courses-menu") as HTMLElement;
     expect(menu.className).toContain("grid-rows-[1fr]");
+
+    // Click once -> should CLOSE
+    await user.click(coursesLink);
+    expect(coursesLink).toHaveAttribute("aria-expanded", "false");
+    expect(menu.className).toContain("grid-rows-[0fr]");
   });
 
   it("collapse button shrinks the sidebar and hides text labels", async () => {
@@ -112,11 +115,13 @@ describe("Sidebar", () => {
     expect(coursesLink).toBeTruthy();
     expect(coursesLink).toHaveAttribute("aria-expanded", "false");
 
+    // click while collapsed -> should expand sidebar AND open submenu
     await user.click(coursesLink);
     expect(coursesLink).toHaveAttribute("aria-expanded", "true");
 
     const sidebarRoot = container.firstElementChild as HTMLElement;
-    expect(sidebarRoot.className).toContain("w-[280px]");
+    // In your current Sidebar, expanded width uses w-[210px] + responsive classes
+    expect(sidebarRoot.className).toContain("w-[210px]");
   });
 
   it("calls logout from AuthContext when Logout is clicked", async () => {
