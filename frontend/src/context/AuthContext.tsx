@@ -1,6 +1,12 @@
-// src/context/AuthContext.tsx
-
-import { createContext, useState, useContext, useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
+import { useNavigate } from "react-router-dom";
 
 import { publicApi } from "../api/axios";
 import { AUTH } from "../api/endpoints";
@@ -9,6 +15,7 @@ import { AUTH } from "../api/endpoints";
 interface AuthContextType {
   accessToken: string | null;
   setAccessToken: (token: string | null) => void;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [checkingRefresh, setCheckingRefresh] = useState(true);
   const didAttemptRefresh = useRef(false);
+  const navigate = useNavigate();
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);
@@ -70,8 +78,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return <div className="p-8 text-center text-white">Loading session…</div>;
   }
 
+  const logout = async () => {
+    try {
+      await publicApi.post(AUTH.LOGOUT, {}, { withCredentials: true });
+      // Backend clears the refresh cookie
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setAccessToken(null);
+      navigate("/login");
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ accessToken, setAccessToken }}>
+    <AuthContext.Provider value={{ accessToken, setAccessToken, logout }}>
       {children}
     </AuthContext.Provider>
   );

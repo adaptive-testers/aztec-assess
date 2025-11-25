@@ -1,7 +1,7 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
-import { AuthProvider } from "./context/AuthContext";
+import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
@@ -14,19 +14,20 @@ function AuthInterceptorsInitializer() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AuthInterceptorsInitializer />
-        <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
-          <Routes>
-            <Route path="/role-select" element={<RoleSelectionPage />} />
-            <Route path="/sign-up" element={<SignUpPage />} />
+    <>
+      <AuthInterceptorsInitializer />
+      <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
+        <Routes>
+          <Route path="/" element={<LogInPage />} />
+          <Route path="/login" element={<LogInPage />} />
+          <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/role-select" element={<RoleSelectionPage />} />
+          <Route element={<DashboardLayout />}>
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/" element={<LogInPage />} />
-          </Routes>
-        </div>
-      </AuthProvider>
-    </BrowserRouter>
+          </Route>
+        </Routes>
+      </div>
+    </>
   );
 }
 

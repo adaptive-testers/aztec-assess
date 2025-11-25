@@ -47,7 +47,8 @@ describe("SignUpContainer", () => {
         
         vi.mocked(useAuth).mockReturnValue({
             setAccessToken: mockSetAccessToken,
-            accessToken: null
+            accessToken: null,
+            logout: vi.fn(),
         })
         
         vi.mocked(useNavigate).mockReturnValue(mockNavigate)

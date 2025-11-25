@@ -110,9 +110,11 @@ describe("LogInContainer", () => {
     // Fill email but leave password empty
     await userEvent.type(email, "user@example.com");
     fireEvent.submit(pwd.closest("form")!);
-    
+
     // Should show "Password is required" error
-    expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/password is required/i)
+    ).toBeInTheDocument();
   });
 
   it("submits successfully (pressing Enter on the password form), shows loading, sets token, and navigates", async () => {
@@ -128,7 +130,10 @@ describe("LogInContainer", () => {
     postMock.mockImplementationOnce(
       () =>
         new Promise((resolve) =>
-          setTimeout(() => resolve({ data: { tokens: { access: "test-token" } } }), 50)
+          setTimeout(
+            () => resolve({ data: { tokens: { access: "test-token" } } }),
+            50
+          )
         )
     );
 
@@ -140,7 +145,7 @@ describe("LogInContainer", () => {
 
     await waitFor(() => {
       expect(setAccessTokenMock).toHaveBeenCalledWith("test-token");
-      expect(navigateMock).toHaveBeenCalledWith("/");
+      expect(navigateMock).toHaveBeenCalledWith("/profile");
     });
   });
 
