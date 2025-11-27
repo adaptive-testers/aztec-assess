@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { publicApi } from "../../api/axios";
-import { AUTH } from "../../api/endpoints";
+import axios from "axios";
+import { privateApi } from "../../api/axios";
+import { COURSES } from "../../api/endpoints";
 
 interface FormFields {
-  courseName: string;
+  title: string;
   description: string;
 }
 
@@ -19,12 +20,23 @@ export default function CourseCreationPage() {
 
     const onSubmit: SubmitHandler<FormFields> = async (data) => {
         try {
-            const response = await publicApi.post(AUTH.REGISTER, data);
-            console.log(data);
+            const response = await privateApi.post(COURSES.CREATE, {
+                title: data.title,
+            });
+            console.log("Course created:", response.data);
+            // Navigate to the course page or courses list after successful creation
+            navigate("/");
         }
         catch (error) {
-            setError("root", { message: "An unexpected error occurred" });
-            console.log(error);
+            if (axios.isAxiosError(error)) {
+                const backendMessage = error.response?.data?.detail || error.response?.data?.message;
+                setError("root", {
+                    message: backendMessage || "Failed to create course. Please try again.",
+                });
+            } else {
+                setError("root", { message: "An unexpected error occurred" });
+            }
+            console.error(error);
         }
     };
 
@@ -33,29 +45,47 @@ export default function CourseCreationPage() {
             <div className="w-full max-w-4xl">
                 <div className="mb-8">
                     <h1 className="text-primary-text text-4xl font-medium mb-2">Create New Course</h1>
-                    <p className="text-secondary-text text-base">Add a new course to your college.</p>
+                    <p className="text-secondary-text text-base">Enter your course details</p>
                 </div>
 
                 <div className="bg-secondary-background border-2 border-primary-border rounded-2xl p-8">
                     <h2 className="text-primary-text text-xl font-medium mb-6">Course Information</h2>
                     
+                    {/* Error message banner */}
+                    {errors.root && (
+                        <div
+                            className="w-full px-4 py-2 mb-6 bg-[#2A1414] border border-[#EF6262] rounded-lg text-[#EF6262] text-sm text-center"
+                            role="alert"
+                            aria-live="polite"
+                            aria-atomic="true"
+                        >
+                            {errors.root.message}
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
                         <div className="relative">
-                            <label htmlFor="courseName-input" className="block text-secondary-text text-sm mb-2">
-                                Course Name
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label htmlFor="title-input" className="block text-secondary-text text-sm">
+                                    Course Name
+                                </label>
+                                {errors.title && (
+                                    <p className="tracking-wider text-primary-accent text-xs">
+                                        {errors.title.message}
+                                    </p>
+                                )}
+                            </div>
                             <input
-                                {...register("courseName", { required: "Course name is required" })}
-                                id="courseName-input"
+                                {...register("title", { 
+                                    required: "Course name is required",
+                                    maxLength: { value: 200, message: "Course name must be 200 characters or less" }
+                                })}
+                                id="title-input"
                                 type="text"
                                 placeholder="e.g., Introduction to Psychology"
-                                className="text-primary-text text-sm px-4 py-3 w-full bg-black border-2 border-primary-border rounded-lg focus:border-primary-accent focus:outline-none placeholder:text-secondary-text placeholder:opacity-50"
+                                maxLength={200}
+                                className="text-primary-text text-sm px-4 py-3 w-full bg-secondary-background border-2 border-primary-border rounded-lg focus:border-primary-accent focus:outline-none placeholder:text-secondary-text placeholder:opacity-50"
                             />
-                            {errors.courseName && (
-                                <p className="absolute left-0 -bottom-5 tracking-wider text-error-text text-xs">
-                                    {errors.courseName.message}
-                                </p>
-                            )}
                         </div>
 
                         <div className="relative">
@@ -63,11 +93,14 @@ export default function CourseCreationPage() {
                                 Description (Optional)
                             </label>
                             <textarea
-                                {...register("description")}
+                                {...register("description", {
+                                    maxLength: { value: 200, message: "Description must be 200 characters or less" }
+                                })}
                                 id="description-input"
                                 placeholder="Add a brief description of the course..."
                                 rows={4}
-                                className="text-primary-text text-sm px-4 py-3 w-full bg-black border-2 border-primary-border rounded-lg focus:border-primary-accent focus:outline-none placeholder:text-secondary-text placeholder:opacity-50 resize-none"
+                                maxLength={200}
+                                className="text-primary-text text-sm px-4 py-3 w-full bg-secondary-background border-2 border-primary-border rounded-lg focus:border-primary-accent focus:outline-none placeholder:text-secondary-text placeholder:opacity-50 resize-none"
                             />
                         </div>
 
@@ -86,14 +119,6 @@ export default function CourseCreationPage() {
                             >
                                 {isSubmitting ? "Creating..." : "Create Course"}
                             </button>
-                        </div>
-
-                        <div className="h-6 mt-2" role="alert">
-                            {errors.root && (
-                                <p className="tracking-wider text-error-text text-xs text-center" aria-live="polite">
-                                    {errors.root.message}
-                                </p>
-                            )}
                         </div>
                     </form>
                 </div>
