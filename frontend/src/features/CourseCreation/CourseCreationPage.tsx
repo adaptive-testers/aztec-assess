@@ -22,6 +22,7 @@ export default function CourseCreationPage() {
         try {
             const response = await privateApi.post(COURSES.CREATE, {
                 title: data.title,
+                description: data.description,
             });
             console.log("Course created:", response.data);
             // Navigate to the course page or courses list after successful creation
