@@ -90,9 +90,16 @@ export default function CourseCreationPage() {
                         </div>
 
                         <div className="relative">
-                            <label htmlFor="description-input" className="block text-secondary-text text-sm mb-2">
-                                Description (Optional)
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label htmlFor="description-input" className="block text-secondary-text text-sm">
+                                    Description (Optional)
+                                </label>
+                                {errors.description && (
+                                    <p className="tracking-wider text-primary-accent text-xs">
+                                        {errors.description.message}
+                                    </p>
+                                )}
+                            </div>
                             <textarea
                                 {...register("description", {
                                     maxLength: { value: 200, message: "Description must be 200 characters or less" }
