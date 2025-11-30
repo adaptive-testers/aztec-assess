@@ -17,7 +17,7 @@ function App() {
   return (
     <>
       <AuthInterceptorsInitializer />
-        <Routes>
+      <Routes>
         <Route
           path="/"
           element={
@@ -57,9 +57,9 @@ function App() {
             </ProtectedRoute>
           }
         >
-            <Route path="/profile" element={<ProfilePage />} />
-          </Route>
-        </Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+      </Routes>
     </>
   );
 }
