@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
+import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
@@ -16,17 +17,49 @@ function App() {
   return (
     <>
       <AuthInterceptorsInitializer />
-      <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
         <Routes>
-          <Route path="/" element={<LogInPage />} />
-          <Route path="/login" element={<LogInPage />} />
-          <Route path="/sign-up" element={<SignUpPage />} />
-          <Route path="/role-select" element={<RoleSelectionPage />} />
-          <Route element={<DashboardLayout />}>
+        <Route
+          path="/"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <LogInPage />
+            </div>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <LogInPage />
+            </div>
+          }
+        />
+        <Route
+          path="/sign-up"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <SignUpPage />
+            </div>
+          }
+        />
+        <Route
+          path="/role-select"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <RoleSelectionPage />
+            </div>
+          }
+        />
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Routes>
-      </div>
     </>
   );
 }
