@@ -70,7 +70,7 @@ export default function SignUpContainer() {
 
             if (response.data.tokens?.access) {
                 setAccessToken(response.data.tokens.access);
-                navigate("/");
+                navigate("/profile");
             }
         }
         catch (error) {
@@ -83,10 +83,10 @@ export default function SignUpContainer() {
         <>
             <div className="
                 bg-secondary-background
-                w-[410px] min-h-[580px]
+                w-full max-w-[410px]
                 border-[2px] border-primary-border rounded-[15px]
                 flex flex-col items-center gap-5
-                p-5 transition-all duration-300 ease-out">
+                p-4 sm:p-5 transition-all duration-300 ease-out">
 
                 <div>
                     <p className="text-primary-text geist-font text-[27px] font-[415] mt-3">Complete Your Account!</p>

@@ -61,10 +61,10 @@ export default function LogInContainer() {
   };
 
   return (
-    <div className="Log-In w-[1280px] h-[832px] bg-[#000000] flex items-center justify-center">
-      <div className="Sign-Up-Box flex flex-col justify-center items-center p-[40px] gap-[10px] w-[482px] min-h-[631px] bg-[#0A0A0A] border border-[#282828] rounded-[15px] transition-all duration-300 ease-out">
-        <div className="Frame-25 flex flex-col items-start gap-[40px] w-[402px]">
-          <div className="Frame-19 flex flex-col items-center w-[402px]">
+    <div className="Log-In w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4">
+      <div className="Sign-Up-Box flex flex-col justify-center items-center p-4 sm:p-6 md:p-[40px] gap-2 sm:gap-[10px] w-full max-w-[482px] bg-[#0A0A0A] border border-[#282828] rounded-[15px] transition-all duration-300 ease-out">
+        <div className="Frame-25 flex flex-col items-start gap-3 sm:gap-4 md:gap-[40px] w-full max-w-[402px]">
+          <div className="Frame-19 flex flex-col items-center w-full max-w-[402px]">
             <h1 className="Log-In w-[120px] h-[31px] mb-[32px] flex items-center justify-center font-geist font-medium text-[32px] leading-[42px] text-center tracking-[0.5px] text-[#ffffff]">
               Log In
             </h1>
@@ -82,17 +82,17 @@ export default function LogInContainer() {
             )}
 
             <form
-              className="Frame-18 flex flex-col items-start gap-[32px] w-[402px]"
+              className="Frame-18 flex flex-col items-start gap-4 sm:gap-6 md:gap-[32px] w-full max-w-[402px]"
               onSubmit={handleSubmit(onSubmit)}
               noValidate
             >
-              <div className="Frame-17 flex flex-col items-start gap-[24px] w-[402px] h-[192px]">
+              <div className="Frame-17 flex flex-col items-start gap-3 sm:gap-4 md:gap-[24px] w-full">
                 {/* Email */}
-                <div className="Frame-13 flex flex-col items-start gap-[8px] w-[402px] h-[64px]">
+                <div className="Frame-13 flex flex-col items-start gap-2 sm:gap-[8px] w-full">
                   <div className="flex justify-between items-center w-full">
                     <label
                       htmlFor="email-input"
-                      className="Email w-[38px] h-[16px] font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                      className="Email font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
                     >
                       Email
                     </label>
@@ -102,7 +102,7 @@ export default function LogInContainer() {
                       </div>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-[12px] w-[402px] h-[40px] px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
                     <input
                       id="email-input"
                       type="email"
@@ -121,11 +121,11 @@ export default function LogInContainer() {
                 </div>
 
                 {/* Password */}
-                <div className="Frame-14 flex flex-col items-start gap-[8px] w-[402px] h-[64px]">
+                <div className="Frame-14 flex flex-col items-start gap-2 sm:gap-[8px] w-full">
                   <div className="flex justify-between items-center w-full">
                     <label
                       htmlFor="password-input"
-                      className="Password w-[67px] h-[16px] font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                      className="Password font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
                     >
                       Password
                     </label>
@@ -135,7 +135,7 @@ export default function LogInContainer() {
                       </span>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-[12px] w-[402px] h-[40px] px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
                     <input
                       id="password-input"
                       type={showPassword ? "text" : "password"}
@@ -207,14 +207,14 @@ export default function LogInContainer() {
                 disabled={isSubmitting}
                 aria-busy={isSubmitting}
                 aria-disabled={isSubmitting}
-                className="flex justify-center items-center w-[402px] h-[40px] gap-2 bg-[#EF6262] rounded-[8px] hover:border hover:border-white hover:scale-101 duration-300 font-geist text-[14px] tracking-[0.5px] text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex justify-center items-center w-full max-w-[402px] h-[40px] gap-2 bg-[#EF6262] rounded-[8px] hover:border hover:border-white hover:scale-101 duration-300 font-geist text-[14px] tracking-[0.5px] text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Logging in..." : "Log In"}
               </button>
             </form>
           </div>
 
-          <div className="Frame-26 flex justify-center items-center gap-[10px] w-[402px] h-[16px]">
+          <div className="Frame-26 flex justify-center items-center gap-[10px] w-full max-w-[402px] h-[16px]">
             <div className="Rectangle-2 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
             <p className="OR w-[18px] h-[16px] font-geist font-semibold text-[12px] leading-[16px] flex items-center text-center tracking-[0.5px] text-[#8E8E8E]">
               OR
@@ -222,8 +222,8 @@ export default function LogInContainer() {
             <div className="Rectangle-1 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
           </div>
 
-          <div className="Frame-24 flex flex-col items-center gap-[40px] w-[402px] h-[25px]">
-            <div className="Frame-27 flex justify-between items-center gap-[24px] w-[402px] h-[40px]">
+          <div className="Frame-24 flex flex-col items-center gap-6 sm:gap-[40px] w-full max-w-[402px]">
+            <div className="Frame-27 flex justify-between items-center gap-4 sm:gap-[24px] w-full max-w-[402px] h-[40px]">
               <button className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
                 <img
                   src={googleLogo}
@@ -241,7 +241,7 @@ export default function LogInContainer() {
             </div>
           </div>
 
-          <div className="Frame-7 flex flex-col justify-center items-center gap-[21px] w-[402px] h-[40px]">
+          <div className="Frame-7 flex flex-col justify-center items-center gap-4 sm:gap-[21px] w-full max-w-[402px]">
             <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px]">
               <a
                 href="/forgot-password"
