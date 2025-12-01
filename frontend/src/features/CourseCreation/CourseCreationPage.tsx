@@ -64,7 +64,7 @@ export default function CourseCreationPage() {
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+                    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
                         <div className="relative">
                             <div className="flex justify-between items-center mb-2">
                                 <label htmlFor="title-input" className="block text-secondary-text text-sm">
