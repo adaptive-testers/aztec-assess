@@ -20,6 +20,8 @@ import { useAuth } from "../context/AuthContext";
 vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(() => ({
     logout: vi.fn(),
+    accessToken: "mock-token",
+    checkingRefresh: false,
   })),
 }));
 
@@ -33,6 +35,8 @@ describe("Sidebar", () => {
 
     (useAuth as unknown as Mock).mockImplementation(() => ({
       logout: mockLogout,
+      accessToken: "mock-token",
+      checkingRefresh: false,
     }));
   });
 
@@ -136,8 +140,8 @@ describe("Sidebar", () => {
 
   it("fetches courses from API and renders them in the Courses dropdown", async () => {
     const courses = [
-      { id: 1, name: "Mathematics 101", path: "/courses/mathematics-101" },
-      { id: 2, name: "Physics 202", path: "/courses/physics-202" },
+      { id: 1, title: "Mathematics 101", slug: "mathematics-101" },
+      { id: 2, title: "Physics 202", slug: "physics-202" },
     ];
 
     (privateApi.get as Mock).mockResolvedValueOnce({ data: courses });
@@ -146,6 +150,9 @@ describe("Sidebar", () => {
 
     const coursesLink = await screen.findByRole("link", { name: /courses/i });
     await user.click(coursesLink);
+
+    // Wait for courses to load
+    await screen.findByText("Mathematics 101");
 
     // static "Create Course" + the fetched items
     expect(screen.getByText(/create course/i)).toBeInTheDocument();

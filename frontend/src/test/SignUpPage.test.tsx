@@ -446,7 +446,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
             })
         })
 
@@ -803,7 +803,7 @@ describe("SignUpContainer", () => {
             
             await waitFor(() => {
                 expect(mockSetAccessToken).toHaveBeenCalledWith("mock-access-token")
-                expect(mockNavigate).toHaveBeenCalledWith("/")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
             })
         })
     })
