@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { FaPlusCircle } from "react-icons/fa";
 import { FaBook } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa6";
 import { IoIosArrowUp } from "react-icons/io";
 import { IoMdPerson } from "react-icons/io";
 import { IoMdSettings } from "react-icons/io";
 import { IoHome } from "react-icons/io5";
 import { IoLogOut } from "react-icons/io5";
-import { TbPointFilled } from "react-icons/tb";
 import { NavLink } from "react-router-dom";
 
 import { privateApi } from "../../api/axios";
@@ -14,7 +13,7 @@ import { AUTH } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
 interface Course {
-  id: number;
+  id: string | number;
   name: string;
   path: string;
 }
@@ -24,7 +23,7 @@ export default function Sidebar() {
   const [coursesOpen, setCoursesOpen] = useState(true);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const { logout } = useAuth();
+  const { logout, checkingRefresh, accessToken } = useAuth();
 
   const toggleSidebar = () => {
     setCollapsed((prev) => !prev);
@@ -36,18 +35,64 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
+    if (checkingRefresh) {
+      setLoading(true);
+      return;
+    }
+
+    if (!accessToken) {
+      setLoading(false);
+      setCourses([]);
+      return;
+    }
+
+    let mounted = true;
     const fetchCourses = async () => {
+      if (!mounted) return;
       try {
         const res = await privateApi.get(AUTH.COURSES);
-        setCourses(res.data);
+        if (!mounted) return;
+
+        interface BackendCourse {
+          id: string | number;
+          title?: string;
+          name?: string;
+          slug?: string;
+        }
+
+        let coursesArray: BackendCourse[] = [];
+
+        if (Array.isArray(res.data)) {
+          coursesArray = res.data;
+        } else if (res.data?.results && Array.isArray(res.data.results)) {
+          coursesArray = res.data.results;
+        } else if (res.data?.courses && Array.isArray(res.data.courses)) {
+          coursesArray = res.data.courses;
+        }
+
+        if (coursesArray.length > 0) {
+          const mappedCourses = coursesArray.map((course: BackendCourse) => ({
+            id: course.id,
+            name: course.title || course.name || "Untitled Course",
+            path: `/courses/${course.slug || course.id}`,
+          }));
+          setCourses(mappedCourses);
+        } else {
+          setCourses([]);
+        }
       } catch (error) {
+        if (!mounted) return;
         console.error("Failed to fetch courses:", error);
+        setCourses([]);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     fetchCourses();
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [checkingRefresh, accessToken]);
 
   const handleLogout = () => {
     logout();
@@ -237,45 +282,45 @@ export default function Sidebar() {
             }`}
           >
             <div className="overflow-hidden">
-              <div className="w-full rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[5px]">
+              <div className="w-full rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[6px]">
                 <NavLink
                   to="/courses/create"
-                  className="group/item relative flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 transition-colors"
+                  className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
                 >
-                  <FaPlusCircle className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
-                  <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
+                  <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
+                  <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
                     Create Course
                   </span>
                 </NavLink>
 
-                {/* Divider */}
-                {(loading || courses.length > 1) && (
-                  <div className="mx-[5.45px] my-[6px] h-px bg-[#404040] rounded" />
-                )}
                 {loading ? (
-                  // skeleton loader for course items
-                  <>
+                  <div className="mt-[6px] space-y-[4px]">
                     {Array.from({ length: 3 }).map((_, i) => (
                       <div
                         key={i}
-                        className={`skeleton-shimmer mt-[2px] h-[35px] rounded-[4px] bg-[#2A2A2A] px-[8px] flex items-center`}
+                        className="skeleton-shimmer h-[40px] rounded-[5px] bg-[#2A2A2A]"
                       />
                     ))}
+                  </div>
+                ) : courses.length > 0 ? (
+                  <>
+                    <div className="mx-[2px] my-[6px] h-px bg-[#404040] rounded" />
+                    <div className="space-y-[4px]">
+                      {courses.map((course) => (
+                        <NavLink
+                          key={course.id}
+                          to={course.path}
+                          className="group/item relative flex h-[40px] items-center rounded-[5px] px-[10px] bg-[#1A1A1A] hover:bg-[#F87171]/80 transition-colors duration-200"
+                        >
+                          <FaBook className="mr-[10px] h-[16px] w-[16px] text-[#F1F5F9] shrink-0" />
+                          <span className="font-inter text-[14px] leading-[20px] text-[#F1F5F9] truncate flex-1 min-w-0">
+                            {course.name}
+                          </span>
+                        </NavLink>
+                      ))}
+                    </div>
                   </>
-                ) : (
-                  courses.map((course) => (
-                    <NavLink
-                      key={course.id}
-                      to={course.path}
-                      className="group/item relative mt-[2px] flex h-[35px] items-center rounded-[4px] px-[8px] hover:bg-[#F87171]/80 duration-200 transition-colors"
-                    >
-                      <TbPointFilled className="mr-[12px] grid place-items-center h-[17px] w-[17px] text-[#A1A1AA]" />
-                      <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9]">
-                        {course.name}
-                      </span>
-                    </NavLink>
-                  ))
-                )}
+                ) : null}
               </div>
             </div>
           </div>
