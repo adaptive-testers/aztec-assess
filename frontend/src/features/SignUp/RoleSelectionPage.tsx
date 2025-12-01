@@ -19,7 +19,7 @@ export default function RoleSelectionPage() {
     }
 
      return (
-        <div className="bg-[var(--color-secondary-background)] w-[650px] h-[430px] border-[2px] border-[var(--color-primary-border)] rounded-[15px] flex flex-col items-center justify-center p-7">
+        <div className="bg-[var(--color-secondary-background)] w-full max-w-[650px] border-[2px] border-[var(--color-primary-border)] rounded-[15px] flex flex-col items-center justify-center p-4 sm:p-7">
                 {/* Title */}
                 <h1 className="text-[var(--color-primary-text)] geist-font text-[30px] font-[480] mb-7 text-center">
                     Select Your Role
