@@ -85,6 +85,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
+            "id",
             "email",
             "first_name",
             "last_name",
@@ -92,7 +93,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "is_verified",
             "created_at",
         ]
-        read_only_fields = ["email", "created_at", "role"]
+        read_only_fields = ["id", "email", "created_at", "role"]
 
     def validate_first_name(self, value: str) -> str:
         value = value.strip()
