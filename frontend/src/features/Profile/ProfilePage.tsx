@@ -13,10 +13,11 @@ interface User {
 }
 
 export default function ProfilePage() {
-  const { accessToken, setAccessToken } = useAuth();
+  const { accessToken, setAccessToken, checkingRefresh } = useAuth();
   const [edit, setEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState({
     first_name: "",
     last_name: "",
@@ -35,38 +36,67 @@ export default function ProfilePage() {
     last_name?: string;
   }>({});
 
-  // Fetch profile data from backend
   useEffect(() => {
-    if (!accessToken) return;
+    if (checkingRefresh) {
+      setLoading(true);
+      setError(null);
+      return;
+    }
+
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
-    async function fetchUser() {
+    setError(null);
+    setLoading(true);
+
+    const fetchUser = async () => {
+      if (!mounted) return;
+
       try {
         const res = await privateApi.get(AUTH.PROFILE);
         if (!mounted) return;
 
-        setUserData(res.data);
-        setOriginalUserData(res.data);
+        if (!res.data || typeof res.data !== "object") {
+          throw new Error("Invalid response format");
+        }
+
+        const profileData = {
+          first_name: res.data.first_name || "",
+          last_name: res.data.last_name || "",
+          id: res.data.id ? String(res.data.id) : "",
+          email: res.data.email || "",
+        };
+
+        setUserData(profileData);
+        setOriginalUserData(profileData);
+        setError(null);
       } catch (err: unknown) {
+        if (!mounted) return;
         if (axios.isAxiosError(err) && err.response?.status === 401) {
           setAccessToken(null);
+          setError("Session expired. Please log in again.");
+        } else {
+          setError("Failed to load profile. Please try again.");
         }
       } finally {
         if (mounted) setLoading(false);
       }
-    }
+    };
+
     fetchUser();
     return () => {
       mounted = false;
     };
-  }, [accessToken, setAccessToken]);
+  }, [accessToken, checkingRefresh, setAccessToken]);
 
-  // Handle input change (live updates while editing)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setUserData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle save click (send to backend)
   const handleSave = async () => {
     const newErrors: { first_name?: string; last_name?: string } = {};
     if (!userData.first_name.trim())
@@ -98,16 +128,28 @@ export default function ProfilePage() {
     }
   };
 
-  // Handle cancel (restore original data)
   const handleCancel = () => {
     setUserData({ ...originalUserData });
     setErrors({});
     setEdit(false);
   };
 
+  if (error && !loading && !checkingRefresh) {
+    return (
+      <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-6 md:py-10">
+        <div className="flex w-full max-w-[887px] flex-col gap-[26px]">
+          <div className="rounded-[13px] border border-red-500/50 bg-red-900/20 p-6">
+            <h2 className="text-lg font-medium text-red-400 mb-2">Error</h2>
+            <p className="text-red-300">{error}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="flex min-h-screen w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-6 md:py-10">
-      <div className="flex w-full max-w-[887px] flex-col gap-[26px]">
+    <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-4 md:py-6">
+      <div className="flex w-full max-w-[887px] flex-col gap-4 md:gap-[26px]">
         {/* Page header */}
         <div className="flex flex-col items-start gap-[4px]">
           <h1 className="font-medium text-[26px] leading-[39px] tracking-[0px]">
@@ -121,7 +163,7 @@ export default function ProfilePage() {
         {/* Card */}
         <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
           {/* Card header */}
-          <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#404040] px-[26px] py-[22px]">
+          <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
             <h2 className="text-[17px] leading-[17px] tracking-[0px]">
               Personal Information
             </h2>
@@ -153,11 +195,11 @@ export default function ProfilePage() {
           </div>
 
           {/* Card content */}
-          <div className="flex flex-col gap-[26px] px-[26px] py-[26px]">
+          <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
             {/* Avatar */}
-            <div className="flex w-full justify-center border-b border-[#404040] pb-[26px]">
-              <div className="flex h-[140px] w-[140px] items-center justify-center rounded-full bg-[#262626]">
-                <span className="text-[26px] leading-[35px]">
+            <div className="flex w-full justify-center border-b border-[#404040] pb-4 md:pb-[26px]">
+              <div className="flex h-[120px] w-[120px] md:h-[140px] md:w-[140px] items-center justify-center rounded-full bg-[#262626]">
+                <span className="text-[22px] md:text-[26px] leading-[35px]">
                   {`${userData.first_name?.[0] || ""}${
                     userData.last_name?.[0] || ""
                   }`.toUpperCase()}
@@ -165,7 +207,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-[26px] md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:gap-[26px] md:grid-cols-2">
               {/* First Name */}
               <div className="flex flex-col gap-[9px]">
                 <div className="flex justify-between">
@@ -182,7 +224,6 @@ export default function ProfilePage() {
                   )}
                 </div>
                 {loading ? (
-                  // skeleton loader
                   <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A] pl-[13px] flex items-center" />
                 ) : (
                   <div
@@ -226,7 +267,6 @@ export default function ProfilePage() {
                   )}
                 </div>
                 {loading ? (
-                  // skeleton loader
                   <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A] pl-[13px] flex items-center" />
                 ) : (
                   <div
@@ -260,12 +300,11 @@ export default function ProfilePage() {
                   ID
                 </div>
                 {loading ? (
-                  // skeleton loader
                   <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A]" />
                 ) : (
                   <div className="flex h-[52px] w-full items-center gap-[13px] rounded-[7px] bg-[#262626] pl-[13px]">
                     <span className="text-[17px] leading-[26px] tracking-[0px] text-[#F1F5F9]">
-                      {userData.id || "Loading..."}
+                      {userData.id || "—"}
                     </span>
                   </div>
                 )}
@@ -277,12 +316,11 @@ export default function ProfilePage() {
                   Email
                 </div>
                 {loading ? (
-                  // skeleton loader
                   <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A]" />
                 ) : (
                   <div className="flex h-[52px] w-full items-center gap-[13px] rounded-[7px] bg-[#262626] pl-[13px]">
                     <span className="text-[17px] leading-[26px] tracking-[0px] text-[#F1F5F9]">
-                      {userData.email || "Loading..."}
+                      {userData.email || "—"}
                     </span>
                   </div>
                 )}
