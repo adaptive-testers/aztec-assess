@@ -60,6 +60,14 @@ function App() {
         >
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
+        <Route
+          path="/create-course"
+          element={
+            <ProtectedRoute>
+              <CourseCreationPage />
+            </ProtectedRoute>
+          }
+        />
         </Routes>
     </>
   );
