@@ -4,12 +4,13 @@ export const AUTH = {
   LOGOUT: "/auth/logout/",
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
-  // Future endpoints 
-//   PASSWORD_RESET: "/auth/password/reset/",
-//   VERIFY_EMAIL: "/auth/verify-email/",
-//   OAUTH_GOOGLE: "/auth/oauth/google/",
-//   OAUTH_MICROSOFT: "/auth/oauth/microsoft/",
-//   OAUTH_CALLBACK: "/auth/oauth/callback/",
+  COURSES: "/courses/",
+  // Future endpoints
+  //   PASSWORD_RESET: "/auth/password/reset/",
+  //   VERIFY_EMAIL: "/auth/verify-email/",
+  //   OAUTH_GOOGLE: "/auth/oauth/google/",
+  //   OAUTH_MICROSOFT: "/auth/oauth/microsoft/",
+  //   OAUTH_CALLBACK: "/auth/oauth/callback/",
 } as const;
 
 export const COURSES = {

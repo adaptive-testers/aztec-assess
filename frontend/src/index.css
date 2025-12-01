@@ -1,15 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Geist:wght@100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Geist:wght@100..900&display=swap");
 @import "tailwindcss";
 
 @theme {
   --color-primary-background: #000000;
-  --color-secondary-background: #0A0A0A;
-  --color-primary-border: #2E2E2E;
-  --color-primary-text: #FFFFFF;
+  --color-secondary-background: #0a0a0a;
+  --color-primary-border: #2e2e2e;
+  --color-primary-text: #ffffff;
   --color-error-text: #fb2c36;
-  --color-secondary-text: #8E8E8E;
-  --color-primary-accent: #EF6262;
-  --color-primary-accent-hover: #F49191;
-  --color-secondary-accent-hover: #171717;  
+  --color-secondary-text: #8e8e8e;
+  --color-primary-accent: #ef6262;
+  --color-primary-accent-hover: #f49191;
+  --color-secondary-accent-hover: #171717;
+}
 
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #2a2a2a;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  height: 100%;
+  width: 150%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.3s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(150%);
+  }
 }

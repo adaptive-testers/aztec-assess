@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
-import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
@@ -15,20 +16,52 @@ function AuthInterceptorsInitializer() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AuthInterceptorsInitializer />
-        <div className="bg-black min-h-screen flex flex-col items-center justify-center gap-10">
-          <Routes>
-            <Route path="/role-select" element={<RoleSelectionPage />} />
-            <Route path="/sign-up" element={<SignUpPage />} />
+    <>
+      <AuthInterceptorsInitializer />
+        <Routes>
+        <Route
+          path="/"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <LogInPage />
+            </div>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <LogInPage />
+            </div>
+          }
+        />
+        <Route
+          path="/sign-up"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <SignUpPage />
+            </div>
+          }
+        />
+        <Route
+          path="/role-select"
+          element={
+            <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+              <RoleSelectionPage />
+            </div>
+          }
+        />
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/" element={<LogInPage />} />
-            <Route path="/create-course" element={<CourseCreationPage />} />
-          </Routes>
-        </div>
-      </AuthProvider>
-    </BrowserRouter>
+          </Route>
+        </Routes>
+    </>
   );
 }
 
