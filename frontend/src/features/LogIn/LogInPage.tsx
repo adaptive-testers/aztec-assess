@@ -55,9 +55,19 @@ export default function LogInContainer() {
       } catch (e) {
         if (axios.isAxiosError(e)) {
           const backendMessage = e.response?.data?.detail || e.response?.data?.message;
-          setError("root", {
-            message: backendMessage || "Google login failed",
-          });
+          // If user doesn't exist and role is required, show helpful message
+          if (
+            e.response?.status === 400 &&
+            backendMessage?.includes("Role is required")
+          ) {
+            setError("root", {
+              message: "Account not found. Please create an account first.",
+            });
+          } else {
+            setError("root", {
+              message: backendMessage || "Google login failed",
+            });
+          }
         } else {
           setError("root", { message: "Google login failed" });
         }
