@@ -8,7 +8,7 @@ export default {
       extend: {
         colors: {
           'primary-background': '#000000',
-          'secondary-background': '#0A0A0A',
+          'secondary-background': '#0F0F0F',
           'primary-text': '#FFFFFF',
           'secondary-text': '#8E8E8E',
           'error-text': '#fb2c36',

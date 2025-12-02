@@ -20,7 +20,7 @@ function AuthInterceptorsInitializer() {
 
 function App() {
   return (
-    <>
+    <MantineProvider>
       <AuthInterceptorsInitializer />
         <Routes>
         <Route
@@ -62,10 +62,11 @@ function App() {
             </ProtectedRoute>
           }
         >
+            <Route path="/dashboard" element={<StudentDashBoardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Routes>
-    </>
+    </MantineProvider>
   );
 }
 
