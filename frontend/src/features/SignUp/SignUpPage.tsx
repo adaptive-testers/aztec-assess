@@ -66,7 +66,7 @@ export default function SignUpContainer() {
 
       if (res.data?.tokens?.access) {
         setAccessToken(res.data.tokens.access);
-        navigate("/");
+        navigate("/profile");
       } else {
         setError("root", { message: "Google sign-up failed" });
       }
