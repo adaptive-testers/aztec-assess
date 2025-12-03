@@ -5,11 +5,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
+import CourseEditPage from "./features/InstructorCourseView/CourseEditPage";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
-import CourseEditPage from "./features/InstructorCourseView/CourseEditPage";
 
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();

@@ -1,10 +1,11 @@
 import axios from 'axios';
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
-import { FiEye, FiEyeOff, FiCopy, FiRefreshCw } from 'react-icons/fi';
 import { FaTrash } from 'react-icons/fa';
+import { FiCopy, FiEye, FiEyeOff, FiRefreshCw } from 'react-icons/fi';
+import { useParams } from 'react-router-dom';
+
 import { privateApi } from '../../api/axios';
 import { Toast } from '../../components/Toast';
 
@@ -50,13 +51,49 @@ export default function CourseEditPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    if (courseId) {
-      fetchCourseData();
-      fetchMembers();
-    }
-  }, [courseId]);
+    if (!courseId) return;
 
-  const fetchCourseData = async () => {
+    const fetchCourseData = async () => {
+      try {
+        const response = await privateApi.get(`/courses/${courseId}/`);
+        const courseData: Course = response.data;
+        setCourse(courseData);
+        setValue('title', courseData.title);
+      } catch (error) {
+        console.error('Failed to fetch course:', error);
+        setToast({ message: 'Failed to load course data', type: 'error' });
+      }
+    };
+
+    const fetchMembers = async () => {
+      try {
+        const response = await privateApi.get(`/courses/${courseId}/members/`);
+        const membersData: Member[] = response.data;
+        setMembers(membersData);
+        
+        // Fetch user details for each member
+        const userDetailsMap: Record<string, UserDetails> = {};
+        for (const member of membersData) {
+          try {
+            const userResponse = await privateApi.get(`/auth/users/${member.user_id}/`);
+            userDetailsMap[member.user_id] = userResponse.data;
+          } catch (error) {
+            console.error(`Failed to fetch user details for ${member.user_id}:`, error);
+          }
+        }
+        setUserDetails(userDetailsMap);
+      } catch (error) {
+        console.error('Failed to fetch members:', error);
+        setToast({ message: 'Failed to load members', type: 'error' });
+      }
+    };
+
+    void fetchCourseData();
+    void fetchMembers();
+  }, [courseId, setValue]);
+
+  const refreshCourseData = async () => {
+    if (!courseId) return;
     try {
       const response = await privateApi.get(`/courses/${courseId}/`);
       const courseData: Course = response.data;
@@ -68,7 +105,8 @@ export default function CourseEditPage() {
     }
   };
 
-  const fetchMembers = async () => {
+  const refreshMembers = async () => {
+    if (!courseId) return;
     try {
       const response = await privateApi.get(`/courses/${courseId}/members/`);
       const membersData: Member[] = response.data;
@@ -98,7 +136,7 @@ export default function CourseEditPage() {
       await privateApi.patch(`/courses/${courseId}/`, {
         title: data.title,
       });
-      await fetchCourseData();
+      await refreshCourseData();
       setToast({ message: 'Course updated successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to update course:', error);
@@ -119,7 +157,7 @@ export default function CourseEditPage() {
     
     try {
       await privateApi.post(`/courses/${courseId}/activate/`);
-      await fetchCourseData();
+      await refreshCourseData();
       setToast({ message: 'Course activated successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to activate course:', error);
@@ -186,7 +224,7 @@ export default function CourseEditPage() {
       await privateApi.post(`/courses/${courseId}/members/remove/`, {
         user_id: userId
       });
-      await fetchMembers();
+      await refreshMembers();
       setToast({ message: 'Member removed successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to remove member:', error);
@@ -204,7 +242,7 @@ export default function CourseEditPage() {
         email,
         role: 'STUDENT'
       });
-      await fetchMembers();
+      await refreshMembers();
       setToast({ message: 'Member added successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to add member:', error);
@@ -355,12 +393,20 @@ export default function CourseEditPage() {
           </div>
 
           {/* Join Code */}
-          <div className="bg-secondary-background border-2 border-primary-border rounded-2xl p-6">
-            <h2 className="text-primary-text text-lg font-semibold tracking-wide mb-2">Join Code</h2>
-            <p className="text-secondary-text text-sm mb-4">
-              Allow students to join using a course code
-            </p>
-            <div className="flex items-center gap-4 mb-4">
+          <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+              <div>
+                <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
+                  Join Code
+                </h2>
+                <p className="text-[#94A3B8] text-[13px] mt-1">
+                  Allow students to join using a course code
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={handleToggleJoinCode}
@@ -424,6 +470,7 @@ export default function CourseEditPage() {
             </p>
             </>
             )}
+            </div>
           </div>
         </div>
       ) : (
