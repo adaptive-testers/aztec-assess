@@ -36,6 +36,27 @@ vi.mock("../components/Toast", () => ({
   Toast: ({ message }: { message: string }) => <div data-testid="toast">{message}</div>,
 }));
 
+// Mock axios.isAxiosError
+vi.mock("axios", async () => {
+  const actual = await vi.importActual<typeof import("axios")>("axios");
+  const isAxiosErrorMock = (error: unknown): error is import("axios").AxiosError => {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: unknown }).response === "object"
+    );
+  };
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      isAxiosError: isAxiosErrorMock,
+    },
+    isAxiosError: isAxiosErrorMock,
+  };
+});
+
 // Mock window.location.reload
 const mockReload = vi.fn();
 Object.defineProperty(window, "location", {
@@ -100,29 +121,30 @@ describe("JoinCoursePage", () => {
   it("validates course code maximum length", async () => {
     const { user } = setup();
 
-    const input = screen.getByLabelText("Course Code");
-    await user.type(input, "ABCDEFGHIJKLMNOPQ"); // 17 characters
+    const input = screen.getByLabelText("Course Code") as HTMLInputElement;
+    // Input has maxLength={16}, so we can only type 16 characters
+    // The browser prevents typing more, so we test that 16 chars is the limit
+    await user.type(input, "ABCDEFGHIJKLMNOP"); // 16 characters
 
-    const searchButton = screen.getByRole("button", { name: /search/i });
-    await user.click(searchButton);
-
-    expect(
-      await screen.findByText("Course code must be no more than 16 characters.")
-    ).toBeInTheDocument();
+    expect(input.value.length).toBe(16);
+    expect(input.maxLength).toBe(16);
+    
+    // Try to type one more character - it should be prevented by maxLength
+    await user.type(input, "Q");
+    expect(input.value.length).toBe(16);
+    expect(input.value).toBe("ABCDEFGHIJKLMNOP");
   });
 
-  it("validates course code is alphanumeric only", async () => {
+  it("filters out invalid characters from input", async () => {
     const { user } = setup();
 
-    const input = screen.getByLabelText("Course Code");
+    const input = screen.getByLabelText("Course Code") as HTMLInputElement;
+    // Input filters out invalid characters in onChange, so "ABC-123" becomes "ABC123"
     await user.type(input, "ABC-123");
 
-    const searchButton = screen.getByRole("button", { name: /search/i });
-    await user.click(searchButton);
-
-    expect(
-      await screen.findByText("Course code can only contain letters and numbers.")
-    ).toBeInTheDocument();
+    // The input filters invalid chars, so we get "ABC123"
+    expect(input.value).toBe("ABC123");
+    expect(/^[A-Z0-9]+$/.test(input.value)).toBe(true);
   });
 
   it("converts course code to uppercase", async () => {
