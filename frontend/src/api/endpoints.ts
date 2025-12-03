@@ -13,4 +13,14 @@ export const AUTH = {
   //   OAUTH_CALLBACK: "/auth/oauth/callback/",
 } as const;
 
-export type AuthEndpoint = (typeof AUTH)[keyof typeof AUTH];
+export const COURSES = {
+  LIST: "/courses/",
+  CREATE: "/courses/",
+  DETAIL: (id: string) => `/courses/${id}/`,
+  UPDATE: (id: string) => `/courses/${id}/`,
+  DELETE: (id: string) => `/courses/${id}/`,
+} as const;
+
+export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
+
+
