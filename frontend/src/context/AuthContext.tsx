@@ -38,6 +38,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);
+    // If a token is explicitly set (e.g., from OAuth), stop checking refresh
+    if (token) {
+      setCheckingRefresh(false);
+    }
   };
 
   useEffect(() => {

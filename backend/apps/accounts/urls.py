@@ -10,6 +10,7 @@ urlpatterns = [
     path("logout/", views.user_logout_view, name="logout"),
     path("token/refresh/", views.token_refresh_cookie_view, name="token_refresh"),
     path("profile/", views.user_profile_view, name="profile"),
+    path("oauth/google/", views.google_oauth_view, name="oauth_google"),
 ]
 
 # TODO: Add these endpoints for implementing authentication
@@ -20,6 +21,5 @@ urlpatterns = [
 # path('verify-email/', views.EmailVerificationView.as_view(), name='verify_email'),
 
 # OAuth Endpoints
-# path('oauth/google/', views.GoogleOAuthView.as_view(), name='oauth_google'),
 # path('oauth/microsoft/', views.MicrosoftOAuthView.as_view(), name='oauth_microsoft'),
 # path('oauth/callback/', views.OAuthCallbackView.as_view(), name='oauth_callback'),
