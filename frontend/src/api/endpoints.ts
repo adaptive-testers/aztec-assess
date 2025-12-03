@@ -5,6 +5,8 @@ export const AUTH = {
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
   COURSES: "/courses/",
+  ENROLLMENT_JOIN: "/enrollment/join/",
+  ENROLLMENT_PREVIEW: "/enrollment/preview/",
   // Future endpoints
   //   PASSWORD_RESET: "/auth/password/reset/",
   //   VERIFY_EMAIL: "/auth/verify-email/",
@@ -13,4 +15,14 @@ export const AUTH = {
   //   OAUTH_CALLBACK: "/auth/oauth/callback/",
 } as const;
 
-export type AuthEndpoint = (typeof AUTH)[keyof typeof AUTH];
+export const COURSES = {
+  LIST: "/courses/",
+  CREATE: "/courses/",
+  DETAIL: (id: string) => `/courses/${id}/`,
+  UPDATE: (id: string) => `/courses/${id}/`,
+  DELETE: (id: string) => `/courses/${id}/`,
+} as const;
+
+export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
+
+

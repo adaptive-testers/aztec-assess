@@ -303,11 +303,49 @@ class CourseViewSet(viewsets.ModelViewSet):
 class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     """
     /api/enrollment/join/ endpoint for joining via join_code.
+    /api/enrollment/preview/ endpoint for previewing course details by join_code.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = JoinCourseSerializer
     queryset = Course.objects.none()
+
+    @action(detail=False, methods=["post"], url_path="preview")
+    def preview(self, request: Request) -> Response:
+        """
+        Preview course details by join_code without joining.
+        Returns course information if the code is valid and enabled.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data["join_code"].strip().upper()
+
+        course = Course.objects.filter(
+            join_code=code,
+            status=Course.CourseStatus.ACTIVE,
+            join_code_enabled=True,
+        ).annotate(member_count=Count("memberships")).first()
+
+        if not course:
+            return Response(
+                {"detail": "Invalid or disabled join code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if user is already a member
+        is_member = CourseMembership.objects.filter(
+            course=course, user=request.user
+        ).exists()
+
+        serializer = CourseSerializer(course)
+        return Response(
+            {
+                **serializer.data,
+                "is_member": is_member,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"], url_path="join")
     def join(self, request: Request) -> Response:
@@ -337,6 +375,7 @@ class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         return Response(
             {
                 "course_id": str(course.id),
+                "course_slug": course.slug,
                 "role": membership.role,
                 "created": created,
             },
