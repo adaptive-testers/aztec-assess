@@ -102,12 +102,11 @@ export default function LogInContainer() {
                       </div>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
                     <input
                       id="email-input"
                       type="email"
-                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-[rgba(174,58,58,0.4)] focus:outline-none"
-                      placeholder="Enter your email"
+                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
                       {...register("userEmail", {
                         required: "Email is required",
                         pattern: {
@@ -135,12 +134,11 @@ export default function LogInContainer() {
                       </span>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
                     <input
                       id="password-input"
                       type={showPassword ? "text" : "password"}
-                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-[rgba(174,58,58,0.4)] focus:outline-none"
-                      placeholder="Enter your password"
+                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
                       {...register("userPassword", {
                         required: "Password is required",
                       })}
@@ -215,11 +213,11 @@ export default function LogInContainer() {
           </div>
 
           <div className="Frame-26 flex justify-center items-center gap-[10px] w-full max-w-[402px] h-[16px]">
-            <div className="Rectangle-2 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
+            <div className="Rectangle-2 w-[182px] h-px bg-[#232323] grow"></div>
             <p className="OR w-[18px] h-[16px] font-geist font-semibold text-[12px] leading-[16px] flex items-center text-center tracking-[0.5px] text-[#8E8E8E]">
               OR
             </p>
-            <div className="Rectangle-1 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
+            <div className="Rectangle-1 w-[182px] h-px bg-[#232323] grow"></div>
           </div>
 
           <div className="Frame-24 flex flex-col items-center gap-6 sm:gap-[40px] w-full max-w-[402px]">
