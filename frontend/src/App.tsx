@@ -7,6 +7,7 @@ import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
+import CourseEditPage from "./features/InstructorCourseView/CourseEditPage";
 
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();
@@ -59,6 +60,14 @@ function App() {
         >
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
+        <Route
+          path="/edit-course"
+          element={
+            <ProtectedRoute>
+              <CourseEditPage />
+            </ProtectedRoute>
+          }
+        />
         </Routes>
     </>
   );
