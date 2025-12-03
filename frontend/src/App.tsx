@@ -71,6 +71,7 @@ function App() {
           <Route path="/dashboard" element={<div className="text-primary-text">Dashboard</div>} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
+          <Route path="/courses/:courseId" element={<CourseEditPage />} />
         </Route>
         </Routes>
     </>

@@ -74,7 +74,7 @@ export default function Sidebar() {
           const mappedCourses = coursesArray.map((course: BackendCourse) => ({
             id: course.id,
             name: course.title || course.name || "Untitled Course",
-            path: `/courses/${course.slug || course.id}`,
+            path: `/courses/${course.id}`,
           }));
           setCourses(mappedCourses);
         } else {

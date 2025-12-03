@@ -1,8 +1,12 @@
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import type { SubmitHandler } from 'react-hook-form';
 import { FiEye, FiEyeOff, FiCopy, FiRefreshCw } from 'react-icons/fi';
 import { FaTrash } from 'react-icons/fa';
 import { privateApi } from '../../api/axios';
+import { Toast } from '../../components/Toast';
 
 interface Course {
   id: string;
@@ -21,26 +25,29 @@ interface Member {
   user_id: string;
   role: 'OWNER' | 'INSTRUCTOR' | 'TA' | 'STUDENT';
   joined_at: string;
-  // TODO: Add user details when available from API
+}
+
+interface UserDetails {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface FormFields {
+  title: string;
 }
 
 export default function CourseEditPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormFields>();
+  
   const [activeTab, setActiveTab] = useState<'details' | 'members'>('details');
   const [showJoinCode, setShowJoinCode] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  
-  // Form state - TODO: Expand when backend supports additional fields
-  const [courseData, setCourseData] = useState({
-    title: '',
-    // Placeholder fields for future implementation
-    courseCode: '',
-    instructorName: '',
-    duration: '',
-    maxStudents: '',
-    description: ''
-  });
+  const [userDetails, setUserDetails] = useState<Record<string, UserDetails>>({});
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (courseId) {
@@ -54,37 +61,56 @@ export default function CourseEditPage() {
       const response = await privateApi.get(`/courses/${courseId}/`);
       const courseData: Course = response.data;
       setCourse(courseData);
-      setCourseData(prev => ({
-        ...prev,
-        title: courseData.title,
-      }));
+      setValue('title', courseData.title);
     } catch (error) {
       console.error('Failed to fetch course:', error);
+      setToast({ message: 'Failed to load course data', type: 'error' });
     }
   };
 
   const fetchMembers = async () => {
     try {
       const response = await privateApi.get(`/courses/${courseId}/members/`);
-      setMembers(response.data);
+      const membersData: Member[] = response.data;
+      setMembers(membersData);
+      
+      // Fetch user details for each member
+      const userDetailsMap: Record<string, UserDetails> = {};
+      for (const member of membersData) {
+        try {
+          const userResponse = await privateApi.get(`/auth/users/${member.user_id}/`);
+          userDetailsMap[member.user_id] = userResponse.data;
+        } catch (error) {
+          console.error(`Failed to fetch user details for ${member.user_id}:`, error);
+        }
+      }
+      setUserDetails(userDetailsMap);
     } catch (error) {
       console.error('Failed to fetch members:', error);
+      setToast({ message: 'Failed to load members', type: 'error' });
     }
   };
 
-  const handleSaveCourse = async () => {
+  const onSubmit: SubmitHandler<FormFields> = async (data) => {
     if (!courseId) return;
     
     try {
       await privateApi.patch(`/courses/${courseId}/`, {
-        title: courseData.title,
-        // TODO: Add other fields when backend supports them
+        title: data.title,
       });
-      fetchCourseData();
-      alert('Course updated successfully');
+      await fetchCourseData();
+      setToast({ message: 'Course updated successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to update course:', error);
-      alert('Failed to update course');
+      if (axios.isAxiosError(error)) {
+        const backendMessage = error.response?.data?.detail || error.response?.data?.message;
+        setToast({ 
+          message: backendMessage || 'Failed to update course', 
+          type: 'error' 
+        });
+      } else {
+        setToast({ message: 'An unexpected error occurred', type: 'error' });
+      }
     }
   };
 
@@ -93,22 +119,26 @@ export default function CourseEditPage() {
     
     try {
       await privateApi.post(`/courses/${courseId}/activate/`);
-      fetchCourseData();
-      alert('Course activated successfully');
+      await fetchCourseData();
+      setToast({ message: 'Course activated successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to activate course:', error);
-      alert('Failed to activate course');
+      if (axios.isAxiosError(error)) {
+        const backendMessage = error.response?.data?.detail || error.response?.data?.message;
+        setToast({ 
+          message: backendMessage || 'Failed to activate course', 
+          type: 'error' 
+        });
+      } else {
+        setToast({ message: 'Failed to activate course', type: 'error' });
+      }
     }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setCourseData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleCopyCode = () => {
     if (course?.join_code) {
       navigator.clipboard.writeText(course.join_code);
-      alert('Join code copied to clipboard');
+      setToast({ message: 'Join code copied to clipboard', type: 'success' });
     }
   };
 
@@ -118,10 +148,10 @@ export default function CourseEditPage() {
     try {
       const response = await privateApi.post(`/courses/${courseId}/rotate-join-code/`);
       setCourse(prev => prev ? { ...prev, join_code: response.data.join_code } : null);
-      alert('Join code rotated successfully');
+      setToast({ message: 'Join code rotated successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to rotate join code:', error);
-      alert('Failed to rotate join code');
+      setToast({ message: 'Failed to rotate join code', type: 'error' });
     }
   };
 
@@ -139,9 +169,13 @@ export default function CourseEditPage() {
         join_code_enabled: response.data.join_code_enabled,
         join_code: response.data.join_code || prev.join_code
       } : null);
+      setToast({ 
+        message: `Join code ${response.data.join_code_enabled ? 'enabled' : 'disabled'}`, 
+        type: 'success' 
+      });
     } catch (error) {
       console.error('Failed to toggle join code:', error);
-      alert('Failed to toggle join code');
+      setToast({ message: 'Failed to toggle join code', type: 'error' });
     }
   };
 
@@ -152,11 +186,11 @@ export default function CourseEditPage() {
       await privateApi.post(`/courses/${courseId}/members/remove/`, {
         user_id: userId
       });
-      fetchMembers();
-      alert('Member removed successfully');
+      await fetchMembers();
+      setToast({ message: 'Member removed successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to remove member:', error);
-      alert('Failed to remove member');
+      setToast({ message: 'Failed to remove member', type: 'error' });
     }
   };
 
@@ -170,19 +204,34 @@ export default function CourseEditPage() {
         email,
         role: 'STUDENT'
       });
-      fetchMembers();
-      alert('Member added successfully');
+      await fetchMembers();
+      setToast({ message: 'Member added successfully', type: 'success' });
     } catch (error) {
       console.error('Failed to add member:', error);
-      alert('Failed to add member');
+      if (axios.isAxiosError(error)) {
+        const backendMessage = error.response?.data?.detail || error.response?.data?.message;
+        setToast({ 
+          message: backendMessage || 'Failed to add member', 
+          type: 'error' 
+        });
+      } else {
+        setToast({ message: 'Failed to add member', type: 'error' });
+      }
     }
   };
 
   const isActive = course?.status === 'ACTIVE';
-  const isDraft = course?.status === 'DRAFT';
 
   return (
-    <div className="min-h-screen w-full p-6 geist-font bg-primary-background">
+    <>
+      <div className="min-h-screen w-full p-6 geist-font bg-primary-background">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -191,46 +240,30 @@ export default function CourseEditPage() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={handleSaveCourse}
-            className="px-6 py-2 bg-secondary-background border-2 border-primary-border rounded-lg text-primary-text text-sm font-medium tracking-wide hover:bg-secondary-accent-hover transition-colors"
+            type="submit"
+            form="course-edit-form"
+            disabled={isSubmitting}
+            className={`px-6 py-2 rounded-lg text-sm font-medium tracking-wide transition-colors ${
+              isSubmitting
+                ? 'bg-secondary-background border-2 border-primary-border text-primary-text opacity-70 cursor-not-allowed'
+                : 'bg-secondary-background border-2 border-primary-border text-primary-text hover:bg-secondary-accent-hover cursor-pointer'
+            }`}
           >
-            Save Changes
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
           <button 
             onClick={handleActivateCourse}
+            disabled={isActive}
             className={`px-6 py-2 rounded-lg text-primary-text text-sm font-medium tracking-wide transition-colors ${
               isActive 
-                ? 'bg-primary-accent hover:bg-primary-accent-hover' 
-                : 'bg-secondary-background border-2 border-primary-border hover:bg-secondary-accent-hover opacity-50 cursor-not-allowed'
+                ? 'bg-primary-accent opacity-50 cursor-not-allowed' 
+                : 'bg-primary-accent hover:bg-primary-accent-hover cursor-pointer'
             }`}
-            disabled={isActive}
           >
-            Activate Course
+            {isActive ? 'Course Active' : 'Activate Course'}
           </button>
         </div>
       </div>
-
-      {/* Requirements Alert */}
-      {isDraft && (
-        <div className="bg-secondary-background border-2 border-primary-border rounded-2xl p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <div className="text-yellow-500 text-xl mt-0.5">⚠</div>
-            <div>
-              <h3 className="text-primary-text font-semibold text-sm mb-2">Requirements before activation:</h3>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
-                  <span className="text-secondary-text text-sm">Complete all basic course information</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
-                  <span className="text-secondary-text text-sm">Add at least one module</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Status Badge */}
       {course && (
@@ -281,66 +314,44 @@ export default function CourseEditPage() {
       {activeTab === 'details' ? (
         <div className="space-y-6">
           {/* Basic Information */}
-          <div className="bg-secondary-background border-2 border-primary-border rounded-2xl p-6">
-            <h2 className="text-primary-text text-lg font-semibold tracking-wide mb-4">Basic Information</h2>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-secondary-text text-sm font-medium mb-2">Course Code</label>
-                <input
-                  type="text"
-                  value={courseData.courseCode}
-                  onChange={(e) => handleInputChange('courseCode', e.target.value)}
-                  className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-secondary-text text-sm font-medium mb-2">Course Title</label>
-                <input
-                  type="text"
-                  value={courseData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-secondary-text text-sm font-medium mb-2">Instructor Name</label>
-                <input
-                  type="text"
-                  value={courseData.instructorName}
-                  onChange={(e) => handleInputChange('instructorName', e.target.value)}
-                  className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-secondary-text text-sm font-medium mb-2">Duration (weeks)</label>
-                  <input
-                    type="text"
-                    value={courseData.duration}
-                    onChange={(e) => handleInputChange('duration', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors"
-                  />
+          <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+              <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
+                Course Information
+              </h2>
+            </div>
+            
+            <form id="course-edit-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
+              {/* Course Title */}
+              <div className="flex flex-col gap-[9px]">
+                <div className="flex justify-between">
+                  <label
+                    htmlFor="title-input"
+                    className="text-[15px] leading-[15px] text-[#F1F5F9]"
+                  >
+                    Course Title
+                  </label>
+                  {errors.title && (
+                    <p className="text-[15px] leading-[15px] text-[#EF6262]">
+                      {errors.title.message}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-secondary-text text-sm font-medium mb-2">Max Students</label>
+                <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040] focus-within:border-[#F87171] transition-all duration-200">
                   <input
+                    {...register("title", { 
+                      required: "Course title is required",
+                      maxLength: { value: 200, message: "Course title must be 200 characters or less" }
+                    })}
+                    id="title-input"
                     type="text"
-                    value={courseData.maxStudents}
-                    onChange={(e) => handleInputChange('maxStudents', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors"
+                    placeholder="e.g., Introduction to Psychology"
+                    maxLength={200}
+                    className="w-full bg-transparent text-[17px] text-[#F1F5F9] outline-none placeholder:text-[#8E8E8E]"
                   />
                 </div>
               </div>
-            </div>
-            <div className="mt-6">
-              <label className="block text-secondary-text text-sm font-medium mb-2">Course Description</label>
-              <textarea
-                value={courseData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2.5 bg-primary-background border-2 border-primary-border rounded-lg text-primary-text text-sm focus:border-primary-accent focus:outline-none transition-colors resize-none"
-              />
-            </div>
+            </form>
           </div>
 
           {/* Join Code */}
@@ -351,16 +362,22 @@ export default function CourseEditPage() {
             </p>
             <div className="flex items-center gap-4 mb-4">
               <button
+                type="button"
                 onClick={handleToggleJoinCode}
                 disabled={!isActive}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   course?.join_code_enabled
-                    ? 'bg-primary-accent hover:bg-primary-accent-hover text-primary-text'
-                    : 'bg-secondary-background border-2 border-primary-border text-secondary-text hover:bg-secondary-accent-hover'
-                } ${!isActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    ? 'bg-primary-accent hover:bg-primary-accent-hover text-primary-text cursor-pointer'
+                    : isActive
+                      ? 'bg-secondary-background border-2 border-primary-border text-secondary-text hover:bg-secondary-accent-hover cursor-pointer'
+                      : 'bg-secondary-background border-2 border-primary-border text-secondary-text opacity-50 cursor-not-allowed'
+                }`}
               >
                 {course?.join_code_enabled ? 'Disable' : 'Enable'} Join Code
               </button>
+              {!isActive && (
+                <p className="text-secondary-text text-xs">Course must be active to enable join code</p>
+              )}
             </div>
             {course?.join_code_enabled && course?.join_code && (
             <>
@@ -373,29 +390,32 @@ export default function CourseEditPage() {
                   {showJoinCode ? course?.join_code : '••••••'}
                 </span>
                 <button
+                  type="button"
                   onClick={() => setShowJoinCode(!showJoinCode)}
-                  className="p-1.5 hover:bg-secondary-background rounded transition-colors"
+                  className="p-1.5 hover:bg-secondary-background rounded transition-colors cursor-pointer"
                   aria-label={showJoinCode ? 'Hide code' : 'Show code'}
                 >
                   {showJoinCode ? (
-                    <FiEyeOff className="text-secondary-text text-base" />
+                    <FiEyeOff className="text-secondary-text text-base hover:text-primary-text transition-colors" />
                   ) : (
-                    <FiEye className="text-secondary-text text-base" />
+                    <FiEye className="text-secondary-text text-base hover:text-primary-text transition-colors" />
                   )}
                 </button>
                 <button
+                  type="button"
                   onClick={handleCopyCode}
-                  className="p-1.5 hover:bg-secondary-background rounded transition-colors"
+                  className="p-1.5 hover:bg-secondary-background rounded transition-colors cursor-pointer"
                   aria-label="Copy code"
                 >
-                  <FiCopy className="text-secondary-text text-base" />
+                  <FiCopy className="text-secondary-text text-base hover:text-primary-text transition-colors" />
                 </button>
                 <button
+                  type="button"
                   onClick={handleRotateCode}
-                  className="p-1.5 hover:bg-secondary-background rounded transition-colors"
+                  className="p-1.5 hover:bg-secondary-background rounded transition-colors cursor-pointer"
                   aria-label="Rotate code"
                 >
-                  <FiRefreshCw className="text-secondary-text text-base" />
+                  <FiRefreshCw className="text-secondary-text text-base hover:text-primary-text transition-colors" />
                 </button>
               </div>
             </div>
@@ -424,7 +444,16 @@ export default function CourseEditPage() {
 
           {/* Members List */}
           <div className="space-y-4">
-            {members.map((member) => (
+            {members.map((member) => {
+              const user = userDetails[member.user_id];
+              const displayName = user 
+                ? (user.first_name && user.last_name 
+                    ? `${user.first_name} ${user.last_name}`
+                    : user.email)
+                : `User ${member.user_id.substring(0, 8)}`;
+              const avatarLetter = user?.first_name?.[0] || user?.email?.[0] || member.user_id[0];
+              
+              return (
               <div
                 key={member.id}
                 className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg hover:border-primary-accent/50 transition-colors"
@@ -432,12 +461,12 @@ export default function CourseEditPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-primary-accent flex items-center justify-center">
                     <span className="text-primary-text font-semibold text-sm">
-                      {member.user_id.substring(0, 1).toUpperCase()}
+                      {avatarLetter.toUpperCase()}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-primary-text font-semibold text-sm">User {member.user_id.substring(0, 8)}</h3>
-                    <p className="text-secondary-text text-xs">TODO: Fetch user details</p>
+                    <h3 className="text-primary-text font-semibold text-sm">{displayName}</h3>
+                    <p className="text-secondary-text text-xs">{user?.email || 'Loading...'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
@@ -459,10 +488,12 @@ export default function CourseEditPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
     </div>
+    </>
   );
 }
