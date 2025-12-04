@@ -18,11 +18,16 @@ interface Course {
   path: string;
 }
 
+interface UserProfile {
+  role: "student" | "instructor" | "admin";
+}
+
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [coursesOpen, setCoursesOpen] = useState(true);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserProfile["role"] | null>(null);
   const { logout, checkingRefresh, accessToken } = useAuth();
 
   const toggleSidebar = () => {
@@ -43,10 +48,22 @@ export default function Sidebar() {
     if (!accessToken) {
       setLoading(false);
       setCourses([]);
+      setUserRole(null);
       return;
     }
 
     let mounted = true;
+    const fetchUserProfile = async () => {
+      try {
+        const res = await privateApi.get<UserProfile>(AUTH.PROFILE);
+        if (!mounted) return;
+        setUserRole(res.data.role);
+      } catch (error) {
+        if (!mounted) return;
+        console.error("Failed to fetch user profile:", error);
+      }
+    };
+
     const fetchCourses = async () => {
       if (!mounted) return;
       try {
@@ -88,6 +105,8 @@ export default function Sidebar() {
         if (mounted) setLoading(false);
       }
     };
+
+    fetchUserProfile();
     fetchCourses();
     return () => {
       mounted = false;
@@ -124,7 +143,7 @@ export default function Sidebar() {
         >
           <IoIosArrowUp
             className={`h-[17px] w-[17px] text-[rgba(241, 245, 249, 0.7)] transition-transform duration-300 ${
-              collapsed ? "rotate-90" : "rotate-[270deg]"
+              collapsed ? "rotate-90" : "-rotate-90"
             }`}
           />
         </button>
@@ -283,15 +302,27 @@ export default function Sidebar() {
           >
             <div className="overflow-hidden">
               <div className="w-full rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[6px]">
-                <NavLink
-                  to="/courses/create"
-                  className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
-                >
-                  <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
-                  <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
-                    Create Course
-                  </span>
-                </NavLink>
+                {userRole === "instructor" || userRole === "admin" ? (
+                  <NavLink
+                    to="/courses/create"
+                    className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
+                  >
+                    <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
+                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
+                      Create Course
+                    </span>
+                  </NavLink>
+                ) : (
+                  <NavLink
+                    to="/join-course"
+                    className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
+                  >
+                    <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
+                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
+                      Join Course
+                    </span>
+                  </NavLink>
+                )}
 
                 {loading ? (
                   <div className="mt-[6px] space-y-[4px]">

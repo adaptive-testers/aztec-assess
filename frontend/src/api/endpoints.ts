@@ -5,6 +5,8 @@ export const AUTH = {
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
   COURSES: "/courses/",
+  ENROLLMENT_JOIN: "/enrollment/join/",
+  ENROLLMENT_PREVIEW: "/enrollment/preview/",
   OAUTH_GOOGLE: "/auth/oauth/google/",
   // Future endpoints
   //   PASSWORD_RESET: "/auth/password/reset/",
