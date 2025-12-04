@@ -1,3 +1,4 @@
+import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { useState } from "react";
 import { useForm, type SubmitHandler, useWatch } from "react-hook-form";
@@ -35,6 +36,45 @@ export default function LogInContainer() {
   });
 
   const keepSignedIn = useWatch({ control, name: "keepSignedIn" }) ?? false;
+
+  const loginWithGoogleCode = useGoogleLogin({
+    flow: "auth-code",
+    onSuccess: async ({ code }) => {
+      try {
+        const res = await publicApi.post(AUTH.OAUTH_GOOGLE, {
+          code,
+          // No role needed for login - user already exists
+        });
+
+        if (res.data?.tokens?.access) {
+          setAccessToken(res.data.tokens.access);
+          navigate("/profile");
+        } else {
+          setError("root", { message: "Google login failed" });
+        }
+      } catch (e) {
+        if (axios.isAxiosError(e)) {
+          const backendMessage = e.response?.data?.detail || e.response?.data?.message;
+          // If user doesn't exist and role is required, show helpful message
+          if (
+            e.response?.status === 400 &&
+            backendMessage?.includes("Role is required")
+          ) {
+            setError("root", {
+              message: "Account not found. Please create an account first.",
+            });
+          } else {
+            setError("root", {
+              message: backendMessage || "Google login failed",
+            });
+          }
+        } else {
+          setError("root", { message: "Google login failed" });
+        }
+      }
+    },
+    onError: () => setError("root", { message: "Google login cancelled or failed" }),
+  });
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
@@ -222,14 +262,22 @@ export default function LogInContainer() {
 
           <div className="Frame-24 flex flex-col items-center gap-6 sm:gap-[40px] w-full max-w-[402px]">
             <div className="Frame-27 flex justify-between items-center gap-4 sm:gap-[24px] w-full max-w-[402px] h-[40px]">
-              <button className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
+              <button
+                onClick={() => loginWithGoogleCode()}
+                aria-label="Sign in with Google"
+                className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer"
+              >
                 <img
                   src={googleLogo}
                   alt="Google logo"
                   className="h-5 w-5 object-contain"
                 />
               </button>
-              <button className="Frame-24 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
+              <button
+                aria-label="Sign in with Microsoft"
+                className="Frame-24 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-not-allowed opacity-50"
+                disabled
+              >
                 <img
                   src={microsoftLogo}
                   alt="Microsoft logo"

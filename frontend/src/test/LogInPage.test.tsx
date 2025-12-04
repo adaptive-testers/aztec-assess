@@ -10,6 +10,18 @@ import { MemoryRouter } from "react-router-dom";
 
 // Mocks
 
+// Mock Google OAuth
+let mockOAuthConfig: { onSuccess?: (data: { code: string }) => void; onError?: () => void } | null = null;
+const mockGoogleLogin = vi.fn();
+
+vi.mock("@react-oauth/google", () => ({
+  useGoogleLogin: vi.fn((config) => {
+    mockOAuthConfig = config;
+    return mockGoogleLogin;
+  }),
+  GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Mock the API module used by the component
 const postMock = vi.fn();
 vi.mock("../api/axios", () => ({
@@ -19,7 +31,7 @@ vi.mock("../api/axios", () => ({
 // Capture setAccessToken calls from AuthContext
 const setAccessTokenMock = vi.fn();
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ setAccessToken: setAccessTokenMock }),
+  useAuth: () => ({ setAccessToken: setAccessTokenMock, checkingRefresh: false }),
 }));
 
 // Provide a stable useNavigate mock
@@ -44,6 +56,7 @@ function renderWithRouter(ui: React.ReactElement) {
 describe("LogInContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockOAuthConfig = null;
   });
 
   it("renders the basics: heading, inputs, main button", () => {
@@ -185,6 +198,114 @@ describe("LogInContainer", () => {
 
     await waitFor(() => {
       expect(navigateMock).not.toHaveBeenCalled();
+    });
+  });
+
+  // OAuth Tests
+  describe("Google OAuth Login", () => {
+
+    it("calls Google login when Google button is clicked", async () => {
+      renderWithRouter(<LogInContainer />);
+
+      const googleButton = screen.getByLabelText("Sign in with Google");
+      await userEvent.click(googleButton);
+
+      expect(mockGoogleLogin).toHaveBeenCalled();
+    });
+
+    it("handles successful OAuth login for existing user", async () => {
+      postMock.mockResolvedValueOnce({
+        data: {
+          email: "user@gmail.com",
+          first_name: "Test",
+          last_name: "User",
+          role: "student",
+          tokens: { access: "mock_access_token" },
+        },
+      });
+
+      renderWithRouter(<LogInContainer />);
+
+      const googleButton = screen.getByLabelText("Sign in with Google");
+      await userEvent.click(googleButton);
+
+      // Trigger the OAuth success callback
+      if (mockOAuthConfig?.onSuccess) {
+        await mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+      }
+
+      await waitFor(() => {
+        expect(postMock).toHaveBeenCalledWith(
+          expect.stringContaining("/auth/oauth/google/"),
+          { code: "mock_oauth_code" }
+        );
+        expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
+        expect(navigateMock).toHaveBeenCalledWith("/profile");
+      });
+    });
+
+    it("handles OAuth login when user doesn't exist (shows helpful error)", async () => {
+      postMock.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 400,
+          data: { detail: "Role is required for new user registration." },
+        },
+      });
+
+      renderWithRouter(<LogInContainer />);
+
+      const googleButton = screen.getByLabelText("Sign in with Google");
+      await userEvent.click(googleButton);
+
+      // Trigger the OAuth success callback
+      if (mockOAuthConfig?.onSuccess) {
+        await mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/Account not found. Please create an account first./i)).toBeInTheDocument();
+      });
+    });
+
+    it("handles OAuth error", async () => {
+      renderWithRouter(<LogInContainer />);
+
+      const googleButton = screen.getByLabelText("Sign in with Google");
+      await userEvent.click(googleButton);
+
+      // Trigger the OAuth error callback
+      if (mockOAuthConfig?.onError) {
+        mockOAuthConfig.onError();
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/Google login cancelled or failed/i)).toBeInTheDocument();
+      });
+    });
+
+    it("handles OAuth API error", async () => {
+      postMock.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 401,
+          data: { detail: "Failed to authenticate with Google." },
+        },
+      });
+
+      renderWithRouter(<LogInContainer />);
+
+      const googleButton = screen.getByLabelText("Sign in with Google");
+      await userEvent.click(googleButton);
+
+      // Trigger the OAuth success callback (which will then fail on API call)
+      if (mockOAuthConfig?.onSuccess) {
+        await mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText(/Failed to authenticate with Google./i)).toBeInTheDocument();
+      });
     });
   });
 });

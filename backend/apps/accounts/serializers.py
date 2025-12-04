@@ -3,7 +3,7 @@ from typing import Any
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import User
+from .models import User, UserRole
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -38,9 +38,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_role(self, value: str) -> str:
         """Validate role is a valid choice."""
-        if value.lower().strip() not in ("admin", "instructor", "student"):
+        value = value.lower().strip()
+        if value not in [role.value.lower() for role in UserRole]:
             raise serializers.ValidationError(
-                "Invalid role. Must be one of: admin, instructor, student."
+                "Invalid role. Must be one of: " + ", ".join([role.value.lower() for role in UserRole])
             )
         return value
 
@@ -104,4 +105,30 @@ class UserProfileSerializer(serializers.ModelSerializer):
         value = value.strip()
         if len(value) == 0:
             raise serializers.ValidationError("Last name cannot be empty.")
+        return value
+
+
+class GoogleOAuthSerializer(serializers.Serializer):
+    """
+    Serializer for Google OAuth authentication.
+
+    Validates:
+    - OAuth code is present
+    - Role is optional (required for sign-up, optional for login)
+    """
+
+    code = serializers.CharField(required=True, help_text="OAuth authorization code from Google")
+    role = serializers.CharField(
+        required=False, allow_blank=True, help_text="User role: admin, instructor, or student (required for sign-up)"
+    )
+
+    def validate_role(self, value: str) -> str | None:
+        """Validate role is a valid choice if provided."""
+        if not value or not value.strip():
+            return None
+        value = value.lower().strip()
+        if value not in [role.value.lower() for role in UserRole]:
+            raise serializers.ValidationError(
+                "Invalid role. Must be one of: " + ", ".join([role.value.lower() for role in UserRole])
+            )
         return value
