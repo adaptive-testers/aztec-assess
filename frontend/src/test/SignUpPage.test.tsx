@@ -38,12 +38,25 @@ vi.mock('react-router-dom', async (importOriginal) => {
     }
 })
 
+// Mock Google OAuth
+let mockOAuthConfig: { onSuccess?: (data: { code: string }) => void; onError?: () => void } | null = null;
+const mockGoogleLoginFunction = vi.fn();
+
+vi.mock('@react-oauth/google', () => ({
+    useGoogleLogin: vi.fn((config) => {
+        mockOAuthConfig = config;
+        return mockGoogleLoginFunction;
+    }),
+    GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+}))
+
 describe("SignUpContainer", () => {
     const mockSetAccessToken = vi.fn()
     const mockNavigate = vi.fn()
     
     beforeEach(() => {
         vi.clearAllMocks()
+        mockOAuthConfig = null;
         
         vi.mocked(useAuth).mockReturnValue({
             setAccessToken: mockSetAccessToken,
@@ -84,14 +97,148 @@ describe("SignUpContainer", () => {
             expect(screen.getByText("Create Account")).toBeInTheDocument()
         })
 
-        it("renders social login buttons as disabled", () => {
+        it("renders social login buttons", () => {
             render(<SignUpContainer />)
             
             const googleButton = screen.getByLabelText("Sign up with Google")
             const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
             
-            expect(googleButton).toBeDisabled()
-            expect(microsoftButton).toBeDisabled()
+            expect(googleButton).toBeInTheDocument()
+            expect(microsoftButton).toBeInTheDocument()
+            expect(microsoftButton).toBeDisabled() // Microsoft not implemented yet
+        })
+    })
+
+    // OAuth Tests
+    describe("Google OAuth Sign-Up", () => {
+        it("calls Google login when Google button is clicked", async () => {
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            expect(mockGoogleLoginFunction).toHaveBeenCalled()
+        })
+
+        it("handles successful OAuth sign-up for new user", async () => {
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: {
+                    email: "newuser@gmail.com",
+                    first_name: "New",
+                    last_name: "User",
+                    role: "student",
+                    tokens: { access: "mock_access_token" }
+                }
+            })
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_GOOGLE,
+                    { code: "mock_oauth_code", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles OAuth sign-up when user already exists (account linking)", async () => {
+            // Backend returns tokens even when user exists (account linking)
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: {
+                    email: "existing@gmail.com",
+                    first_name: "Existing",
+                    last_name: "User",
+                    role: "student",
+                    tokens: { access: "mock_access_token" }
+                }
+            })
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_GOOGLE,
+                    { code: "mock_oauth_code", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles OAuth error", async () => {
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth error callback
+            if (mockOAuthConfig?.onError) {
+                mockOAuthConfig.onError();
+            }
+            
+            await waitFor(() => {
+                expect(screen.getByText(/Google sign-up cancelled or failed/i)).toBeInTheDocument()
+            })
+        })
+
+        it("handles OAuth API error", async () => {
+            vi.mocked(publicApi.post).mockRejectedValueOnce(new Error("OAuth failed"))
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback (which will then fail on API call)
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(screen.getByText(/Google sign-up failed/i)).toBeInTheDocument()
+            })
+        })
+
+        it("redirects to role selection if no role is provided", async () => {
+            vi.mocked(useLocation).mockReturnValue({
+                state: null, // No role provided
+                pathname: '/sign-up',
+                search: '',
+                hash: '',
+                key: 'default'
+            })
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback (but should redirect due to no role)
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            })
         })
 
         it("renders OR divider", () => {
