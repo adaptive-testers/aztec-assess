@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
+import CourseEditPage from "./features/InstructorCourseView/CourseEditPage";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
@@ -70,6 +71,7 @@ function App() {
           <Route path="/dashboard" element={<div className="text-primary-text">Dashboard</div>} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
+          <Route path="/courses/:courseId" element={<CourseEditPage />} />
         </Route>
         </Routes>
     </>
