@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
+import JoinCoursePage from "./features/Course/JoinCoursePage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import CourseEditPage from "./features/InstructorCourseView/CourseEditPage";
@@ -20,7 +21,7 @@ function App() {
   return (
     <>
       <AuthInterceptorsInitializer />
-        <Routes>
+      <Routes>
         <Route
           path="/"
           element={
@@ -72,8 +73,9 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
           <Route path="/courses/:courseId" element={<CourseEditPage />} />
+          <Route path="/join-course" element={<JoinCoursePage />} />
         </Route>
-        </Routes>
+      </Routes>
     </>
   );
 }

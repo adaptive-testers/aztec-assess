@@ -472,6 +472,7 @@ class TestEnrollmentViewSet:
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["course_id"] == str(active_course.id)
+        assert response.data["course_slug"] == active_course.slug
         assert response.data["role"] == CourseRole.STUDENT
         assert response.data["created"] is True
         assert CourseMembership.objects.filter(course=active_course, user=student).exists()
@@ -533,3 +534,86 @@ class TestEnrollmentViewSet:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["created"] is False
+
+    # --- Preview endpoint tests ------------------------------------------------
+
+    def test_preview_course_with_valid_code(self, student, active_course):
+        """Test previewing a course with valid join code."""
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "ABC12345"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(active_course.id)
+        assert response.data["title"] == active_course.title
+        assert response.data["join_code"] == active_course.join_code
+        assert response.data["member_count"] == 1  # Only owner
+        assert response.data["is_member"] is False
+
+    def test_preview_course_case_insensitive(self, student, active_course):  # noqa: ARG002
+        """Test that preview join code is case-insensitive."""
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "abc12345"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_preview_course_invalid_code(self, student):
+        """Test previewing with invalid join code."""
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "INVALID"}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid or disabled join code" in response.data["detail"]
+
+    def test_preview_course_disabled_code(self, student, active_course):
+        """Test previewing with disabled join code."""
+        active_course.join_code_enabled = False
+        active_course.save()
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "ABC12345"}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_preview_course_draft_status_forbidden(self, student, course):
+        """Test that draft courses cannot be previewed."""
+        course.status = Course.CourseStatus.DRAFT
+        course.join_code = "DRAFT123"
+        course.join_code_enabled = True
+        course.save()
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "DRAFT123"}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_preview_course_already_member(self, student, active_course):
+        """Test previewing when already a member shows is_member=True."""
+        CourseMembership.objects.create(
+            course=active_course, user=student, role=CourseRole.STUDENT
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "ABC12345"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_member"] is True
+
+    def test_preview_course_unauthenticated(self):
+        """Test that unauthenticated users cannot preview courses."""
+        client = APIClient()
+        url = reverse("enrollment-preview")
+        response = client.post(url, {"join_code": "ABC12345"}, format="json")
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

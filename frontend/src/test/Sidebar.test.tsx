@@ -8,6 +8,7 @@ import "@testing-library/jest-dom";
 vi.mock("../api/axios", () => ({
   privateApi: {
     get: vi.fn(),
+    post: vi.fn(),
     put: vi.fn(),
   },
 }));
@@ -144,7 +145,10 @@ describe("Sidebar", () => {
       { id: 2, title: "Physics 202", slug: "physics-202" },
     ];
 
-    (privateApi.get as Mock).mockResolvedValueOnce({ data: courses });
+    // Mock profile API to return instructor role (so "Create Course" shows)
+    (privateApi.get as Mock)
+      .mockResolvedValueOnce({ data: { role: "instructor" } }) // Profile call
+      .mockResolvedValueOnce({ data: courses }); // Courses call
 
     const { user } = setup();
 
@@ -169,5 +173,33 @@ describe("Sidebar", () => {
     );
 
     expect(privateApi.get).toHaveBeenCalled();
+  });
+
+  it("shows Join Course for students", async () => {
+    (privateApi.get as Mock)
+      .mockResolvedValueOnce({ data: { role: "student" } })
+      .mockResolvedValueOnce({ data: [] });
+
+    const { user } = setup();
+
+    const coursesLink = await screen.findByRole("link", { name: /courses/i });
+    await user.click(coursesLink);
+
+    expect(screen.getByText(/join course/i)).toBeInTheDocument();
+    expect(screen.queryByText(/create course/i)).not.toBeInTheDocument();
+  });
+
+  it("shows Create Course for instructors", async () => {
+    (privateApi.get as Mock)
+      .mockResolvedValueOnce({ data: { role: "instructor" } })
+      .mockResolvedValueOnce({ data: [] });
+
+    const { user } = setup();
+
+    const coursesLink = await screen.findByRole("link", { name: /courses/i });
+    await user.click(coursesLink);
+
+    expect(screen.getByText(/create course/i)).toBeInTheDocument();
+    expect(screen.queryByText(/join course/i)).not.toBeInTheDocument();
   });
 });
