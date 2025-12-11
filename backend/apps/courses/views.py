@@ -60,19 +60,21 @@ class CourseViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(status=status_param)
             else:
                 qs = qs.exclude(status=Course.CourseStatus.ARCHIVED)
-                # Exclude DRAFT courses for non-staff members (students/TA can't see drafts)
-                from .models import CourseMembership, CourseRole
 
-                # Get all memberships for this user to check roles efficiently
-                user_memberships = CourseMembership.objects.filter(user=user).select_related('course')
-                draft_course_ids_to_exclude = []
+            # Always exclude DRAFT courses for non-staff members (students/TA can't see drafts)
+            # This applies regardless of status parameter to prevent bypassing security
+            from .models import CourseMembership, CourseRole
 
-                for membership in user_memberships:
-                    if membership.course.status == Course.CourseStatus.DRAFT and membership.role not in {CourseRole.OWNER, CourseRole.INSTRUCTOR}:
-                        draft_course_ids_to_exclude.append(membership.course.id)
+            # Get all memberships for this user to check roles efficiently
+            user_memberships = CourseMembership.objects.filter(user=user).select_related('course')
+            draft_course_ids_to_exclude = []
 
-                if draft_course_ids_to_exclude:
-                    qs = qs.exclude(id__in=draft_course_ids_to_exclude)
+            for membership in user_memberships:
+                if membership.course.status == Course.CourseStatus.DRAFT and membership.role not in {CourseRole.OWNER, CourseRole.INSTRUCTOR}:
+                    draft_course_ids_to_exclude.append(membership.course.id)
+
+            if draft_course_ids_to_exclude:
+                qs = qs.exclude(id__in=draft_course_ids_to_exclude)
             return qs
 
         status_param = self.request.query_params.get("status")

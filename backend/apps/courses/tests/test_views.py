@@ -247,6 +247,68 @@ class TestCourseViewSetCRUD:
         assert response.data["count"] == 1
         assert response.data["results"][0]["title"] == "Draft Course"
 
+    def test_list_excludes_draft_courses_with_status_param_for_students(self, owner, student):
+        """Test that students cannot see DRAFT courses even with ?status=DRAFT parameter."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+        assert len(response.data["results"]) == 0
+
+    def test_list_excludes_draft_courses_with_status_param_for_ta(self, owner):
+        """Test that TAs cannot see DRAFT courses even with ?status=DRAFT parameter."""
+        ta = UserModel.objects.create_user(
+            email="ta2@example.com",
+            first_name="TA",
+            last_name="User",
+            password="testpass123",
+            role="instructor",
+        )
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=ta, role=CourseRole.TA)
+
+        client = APIClient()
+        client.force_authenticate(user=ta)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+        assert len(response.data["results"]) == 0
+
+    def test_list_includes_draft_courses_with_status_param_for_owners(self, owner):
+        """Test that owners can see DRAFT courses with ?status=DRAFT parameter."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=owner, role=CourseRole.OWNER)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Draft Course"
+        assert response.data["results"][0]["status"] == Course.CourseStatus.DRAFT
+
     def test_create_course(self, owner):
         """Test that authenticated user can create a course."""
         client = APIClient()
