@@ -4,7 +4,6 @@ export const AUTH = {
   LOGOUT: "/auth/logout/",
   TOKEN_REFRESH: "/auth/token/refresh/",
   PROFILE: "/auth/profile/",
-  COURSES: "/courses/",
   ENROLLMENT_JOIN: "/enrollment/join/",
   ENROLLMENT_PREVIEW: "/enrollment/preview/",
   OAUTH_GOOGLE: "/auth/oauth/google/",
@@ -21,6 +20,14 @@ export const COURSES = {
   DETAIL: (id: string) => `/courses/${id}/`,
   UPDATE: (id: string) => `/courses/${id}/`,
   DELETE: (id: string) => `/courses/${id}/`,
+  ACTIVATE: (id: string) => `/courses/${id}/activate/`,
+  ARCHIVE: (id: string) => `/courses/${id}/archive/`,
+  ROTATE_JOIN_CODE: (id: string) => `/courses/${id}/rotate-join-code/`,
+  ENABLE_JOIN_CODE: (id: string) => `/courses/${id}/join-code/enable/`,
+  DISABLE_JOIN_CODE: (id: string) => `/courses/${id}/join-code/disable/`,
+  MEMBERS: (id: string) => `/courses/${id}/members/`,
+  ADD_MEMBER: (id: string) => `/courses/${id}/members/add/`,
+  REMOVE_MEMBER: (id: string) => `/courses/${id}/members/remove/`,
 } as const;
 
 export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];

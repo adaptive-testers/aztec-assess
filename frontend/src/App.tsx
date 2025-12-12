@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { useAuthInterceptors } from "./api/useAuthInterceptors";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
+import CourseDetailPage from "./features/Course/CourseDetailPage";
 import JoinCoursePage from "./features/Course/JoinCoursePage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
@@ -71,6 +72,7 @@ function App() {
           <Route path="/dashboard" element={<div className="text-primary-text">Dashboard</div>} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
+          <Route path="/courses/:courseId" element={<CourseDetailPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
         </Route>
       </Routes>

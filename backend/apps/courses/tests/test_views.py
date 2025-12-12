@@ -100,9 +100,17 @@ class TestCourseViewSetCRUD:
 
     def test_list_courses_shows_only_member_courses(self, owner, student):
         """Test that list only shows courses user is a member of."""
-        # Create courses
-        course1 = Course.objects.create(title="Course 1", owner=owner)
-        Course.objects.create(title="Course 2", owner=owner)
+        # Create courses - make them ACTIVE so students can see them
+        course1 = Course.objects.create(
+            title="Course 1",
+            owner=owner,
+            status=Course.CourseStatus.ACTIVE,
+        )
+        Course.objects.create(
+            title="Course 2",
+            owner=owner,
+            status=Course.CourseStatus.ACTIVE,
+        )
         CourseMembership.objects.create(course=course1, user=student, role=CourseRole.STUDENT)
         # course2 has no membership for student
 
@@ -144,6 +152,163 @@ class TestCourseViewSetCRUD:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] == 1
 
+    def test_list_excludes_draft_courses_for_students(self, owner, student):
+        """Test that students cannot see DRAFT courses in list."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        active_course = Course.objects.create(
+            title="Active Course",
+            owner=owner,
+            status=Course.CourseStatus.ACTIVE,
+        )
+        # Add student as member to both courses
+        CourseMembership.objects.create(course=draft_course, user=student, role=CourseRole.STUDENT)
+        CourseMembership.objects.create(course=active_course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-list")
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Active Course"
+        assert response.data["results"][0]["status"] == Course.CourseStatus.ACTIVE
+
+    def test_list_excludes_draft_courses_for_ta(self, owner):
+        """Test that TAs cannot see DRAFT courses in list."""
+        ta = UserModel.objects.create_user(
+            email="ta@example.com",
+            first_name="TA",
+            last_name="User",
+            password="testpass123",
+            role="instructor",
+        )
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        active_course = Course.objects.create(
+            title="Active Course",
+            owner=owner,
+            status=Course.CourseStatus.ACTIVE,
+        )
+        # Add TA as member to both courses
+        CourseMembership.objects.create(course=draft_course, user=ta, role=CourseRole.TA)
+        CourseMembership.objects.create(course=active_course, user=ta, role=CourseRole.TA)
+
+        client = APIClient()
+        client.force_authenticate(user=ta)
+        url = reverse("course-list")
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Active Course"
+
+    def test_list_includes_draft_courses_for_owners(self, owner):
+        """Test that owners can see DRAFT courses in list."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=owner, role=CourseRole.OWNER)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-list")
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Draft Course"
+        assert response.data["results"][0]["status"] == Course.CourseStatus.DRAFT
+
+    def test_list_includes_draft_courses_for_instructors(self, owner, instructor):
+        """Test that instructors can see DRAFT courses in list."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=instructor, role=CourseRole.INSTRUCTOR)
+
+        client = APIClient()
+        client.force_authenticate(user=instructor)
+        url = reverse("course-list")
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Draft Course"
+
+    def test_list_excludes_draft_courses_with_status_param_for_students(self, owner, student):
+        """Test that students cannot see DRAFT courses even with ?status=DRAFT parameter."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+        assert len(response.data["results"]) == 0
+
+    def test_list_excludes_draft_courses_with_status_param_for_ta(self, owner):
+        """Test that TAs cannot see DRAFT courses even with ?status=DRAFT parameter."""
+        ta = UserModel.objects.create_user(
+            email="ta2@example.com",
+            first_name="TA",
+            last_name="User",
+            password="testpass123",
+            role="instructor",
+        )
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=ta, role=CourseRole.TA)
+
+        client = APIClient()
+        client.force_authenticate(user=ta)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 0
+        assert len(response.data["results"]) == 0
+
+    def test_list_includes_draft_courses_with_status_param_for_owners(self, owner):
+        """Test that owners can see DRAFT courses with ?status=DRAFT parameter."""
+        draft_course = Course.objects.create(
+            title="Draft Course",
+            owner=owner,
+            status=Course.CourseStatus.DRAFT,
+        )
+        CourseMembership.objects.create(course=draft_course, user=owner, role=CourseRole.OWNER)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-list")
+        response = client.get(url, {"status": "DRAFT"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 1
+        assert response.data["results"][0]["title"] == "Draft Course"
+        assert response.data["results"][0]["status"] == Course.CourseStatus.DRAFT
+
     def test_create_course(self, owner):
         """Test that authenticated user can create a course."""
         client = APIClient()
@@ -180,6 +345,99 @@ class TestCourseViewSetCRUD:
 
         # Expect 404 because get_queryset usually filters, or 403 if found but forbidden
         assert response.status_code in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
+
+    def test_retrieve_draft_course_as_student_forbidden(self, student, course):
+        """Test that students cannot retrieve DRAFT course details."""
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        # course is already DRAFT by default
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-detail", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Draft courses are only accessible" in response.data["detail"]
+
+    def test_retrieve_draft_course_as_ta_forbidden(self, course):
+        """Test that TAs cannot retrieve DRAFT course details."""
+        ta = UserModel.objects.create_user(
+            email="ta@example.com",
+            first_name="TA",
+            last_name="User",
+            password="testpass123",
+            role="instructor",
+        )
+        CourseMembership.objects.create(course=course, user=ta, role=CourseRole.TA)
+
+        client = APIClient()
+        client.force_authenticate(user=ta)
+        url = reverse("course-detail", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Draft courses are only accessible" in response.data["detail"]
+
+    def test_retrieve_draft_course_as_owner_allowed(self, owner, course):
+        """Test that owners can retrieve DRAFT course details."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-detail", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["title"] == course.title
+        assert response.data["status"] == Course.CourseStatus.DRAFT
+
+    def test_retrieve_draft_course_as_instructor_allowed(self, instructor, course):
+        """Test that instructors can retrieve DRAFT course details."""
+        CourseMembership.objects.create(course=course, user=instructor, role=CourseRole.INSTRUCTOR)
+
+        client = APIClient()
+        client.force_authenticate(user=instructor)
+        url = reverse("course-detail", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["title"] == course.title
+
+    def test_retrieve_active_course_as_student_allowed(self, owner, student):
+        """Test that students can retrieve ACTIVE course details."""
+        active_course = Course.objects.create(
+            title="Active Course",
+            owner=owner,
+            status=Course.CourseStatus.ACTIVE,
+        )
+        CourseMembership.objects.create(course=active_course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-detail", kwargs={"pk": active_course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["title"] == active_course.title
+        assert response.data["status"] == Course.CourseStatus.ACTIVE
+
+    def test_retrieve_archived_course_as_student_allowed(self, owner, student):
+        """Test that students can retrieve ARCHIVED course details."""
+        archived_course = Course.objects.create(
+            title="Archived Course",
+            owner=owner,
+            status=Course.CourseStatus.ARCHIVED,
+        )
+        CourseMembership.objects.create(course=archived_course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-detail", kwargs={"pk": archived_course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["title"] == archived_course.title
+        assert response.data["status"] == Course.CourseStatus.ARCHIVED
 
     def test_update_course_as_owner(self, owner, course):
         """Test that owner can update course."""
@@ -354,8 +612,9 @@ class TestCourseViewSetMembership:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 3
 
-    def test_list_members_as_student_forbidden(self, student, course):
-        """Test that students cannot list members."""
+    def test_list_members_as_student_allowed(self, owner, student, course):
+        """Test that students can list members."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
         CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
 
         client = APIClient()
@@ -363,7 +622,8 @@ class TestCourseViewSetMembership:
         url = reverse("course-members", kwargs={"pk": course.id})
         response = client.get(url)
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
 
     def test_add_member_by_email(self, owner, student, course):
         """Test adding a member to course by email."""

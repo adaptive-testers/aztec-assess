@@ -67,11 +67,14 @@ class CourseCreateSerializer(serializers.ModelSerializer):
 
 class CourseMembershipSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source="user.id", read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    user_first_name = serializers.CharField(source="user.first_name", read_only=True)
+    user_last_name = serializers.CharField(source="user.last_name", read_only=True)
 
     class Meta:
         model = CourseMembership
-        fields = ["id", "user_id", "role", "joined_at"]
-        read_only_fields = ["id", "user_id", "joined_at"]
+        fields = ["id", "user_id", "user_email", "user_first_name", "user_last_name", "role", "joined_at"]
+        read_only_fields = ["id", "user_id", "user_email", "user_first_name", "user_last_name", "joined_at"]
 
 
 class JoinCourseSerializer(serializers.Serializer):

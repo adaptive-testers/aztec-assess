@@ -35,7 +35,7 @@ export default function CourseCreationPage() {
             if (courseSlug) {
                 setTimeout(() => {
                     navigate(`/courses/${courseSlug}`);
-                }, 1500);
+                }, 1000);
             } else {
                 // Fallback to dashboard if slug is unexpectedly missing
                 setTimeout(() => {
