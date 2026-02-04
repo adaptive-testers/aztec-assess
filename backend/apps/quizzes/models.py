@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+
 class Chapter(models.Model):
     course = models.ForeignKey("courses.Course", null=True, blank=True, on_delete=models.SET_NULL)
     title = models.CharField(max_length=255)

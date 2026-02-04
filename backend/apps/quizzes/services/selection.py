@@ -1,3 +1,4 @@
+
 """
 Adaptive question selection service for quizzes (Phase 1 MVP).
 
@@ -8,15 +9,14 @@ This file contains pure-ish functions that decide:
 Design notes:
  - Difficulty values: "EASY", "MEDIUM", "HARD"
  - Strategy:
-   1. Target = attempt.current_difficulty
-   2. Try unused questions in (chapter, target)
-   3. If none, try adjacent difficulty levels (one step up/down)
-   4. If still none, return any unused in chapter
-   5. If none, return None (attempt should finish)
+     1. Target = attempt.current_difficulty
+     2. Try unused questions in (chapter, target)
+     3. If none, try adjacent difficulty levels (one step up/down)
+     4. If still none, return any unused in chapter
+     5. If none, return None (attempt should finish)
  - Keep this code in a services package so it can be unit-tested independently.
 """
 
-from typing import List, Optional
 from django.db.models import QuerySet
 
 from ..models import Question, QuizAttempt
@@ -44,7 +44,7 @@ def next_difficulty_after(current: str, was_correct: bool) -> str:
     return current
 
 
-def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: List[int]) -> QuerySet:
+def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: list[int]) -> QuerySet:
     """
     Helper: return QuerySet of unused questions in the attempt's chapter with given difficulty,
     excluding any ids in excluded_ids.
@@ -52,7 +52,7 @@ def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: L
     return Question.objects.filter(chapter=attempt.chapter, difficulty=difficulty).exclude(id__in=excluded_ids)
 
 
-def select_next_question(attempt: QuizAttempt, answered_question_ids: List[int]) -> Optional[Question]:
+def select_next_question(attempt: QuizAttempt, answered_question_ids: list[int]) -> Question | None:
     """
     Select the next Question for an attempt, or return None if no unused questions remain.
 
@@ -95,3 +95,5 @@ def select_next_question(attempt: QuizAttempt, answered_question_ids: List[int])
 
     # nothing left
     return None
+
+
