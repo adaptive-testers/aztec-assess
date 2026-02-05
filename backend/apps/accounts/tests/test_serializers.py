@@ -7,7 +7,10 @@ if TYPE_CHECKING:
     from apps.accounts.models import User
 
 from apps.accounts.serializers import (
+    GoogleOAuthSerializer,
+    MicrosoftOAuthSerializer,
     UserLoginSerializer,
+    UserProfileSerializer,
     UserRegistrationSerializer,
 )
 
@@ -127,14 +130,14 @@ class TestUserRegistrationSerializer:
         assert len(user.password) > 20  # Hashed passwords are longer
 
     def test_duplicate_email(self, valid_registration_data):
-        """Test serializer rejects duplicate email."""
+        """Test serializer rejects duplicate email (covers validate_email ValidationError)."""
         # First create a user
         UserModel.objects.create_user(
             email="existing@example.com",
             first_name="Existing",
             last_name="User",
             password="testpass123",
-            role="instructor"
+            role="instructor",
         )
 
         # Now try to create another user with the same email
@@ -186,7 +189,7 @@ class TestUserRegistrationSerializer:
         assert "email" in serializer.errors
 
     def test_invalid_role(self, valid_registration_data):
-        """Test serializer rejects invalid role."""
+        """Test serializer rejects invalid role (covers validate_role ValidationError)."""
         invalid_data = valid_registration_data.copy()
         invalid_data["role"] = "invalid_role"
 
@@ -194,6 +197,9 @@ class TestUserRegistrationSerializer:
 
         assert not serializer.is_valid()
         assert "role" in serializer.errors
+        # ModelSerializer uses ChoiceField so error may be "not a valid choice" or our custom "Invalid role"
+        error_str = str(serializer.errors["role"]).lower()
+        assert "invalid role" in error_str or "not a valid choice" in error_str
 
     def test_weak_password(self, valid_registration_data):
         """Test serializer rejects weak password."""
@@ -231,3 +237,72 @@ class TestUserRegistrationSerializer:
         # But user should have a hashed password
         assert user.password is not None
         assert user.password != valid_registration_data["password"]
+
+
+# ===============================
+# UserProfileSerializer tests
+# ===============================
+class TestUserProfileSerializer:
+    """Test cases for UserProfileSerializer validation (covers empty first/last name)."""
+
+    @pytest.fixture
+    def user(self):
+        """Fixture creating a user for profile tests."""
+        return UserModel.objects.create_user(
+            email="profile@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="Profile",
+            last_name="User",
+            role="student",
+        )
+
+    def test_validate_first_name_rejects_empty(self, user):
+        """Test that empty or whitespace-only first name raises ValidationError."""
+        serializer = UserProfileSerializer(
+            user, data={"first_name": "   "}, partial=True
+        )
+        assert not serializer.is_valid()
+        assert "first_name" in serializer.errors
+        # DRF may return "may not be blank" (field) or our "cannot be empty" (validator)
+        error_str = str(serializer.errors["first_name"]).lower()
+        assert "cannot be empty" in error_str or "blank" in error_str
+
+    def test_validate_last_name_rejects_empty(self, user):
+        """Test that empty or whitespace-only last name raises ValidationError."""
+        serializer = UserProfileSerializer(
+            user, data={"last_name": ""}, partial=True
+        )
+        assert not serializer.is_valid()
+        assert "last_name" in serializer.errors
+        # DRF may return "may not be blank" (field) or our "cannot be empty" (validator)
+        error_str = str(serializer.errors["last_name"]).lower()
+        assert "cannot be empty" in error_str or "blank" in error_str
+
+
+# ===============================
+# GoogleOAuthSerializer / MicrosoftOAuthSerializer tests
+# ===============================
+class TestGoogleOAuthSerializer:
+    """Test Google OAuth serializer validation."""
+
+    def test_validate_role_rejects_invalid(self):
+        """Test that invalid role raises ValidationError."""
+        serializer = GoogleOAuthSerializer(
+            data={"code": "mock_code", "role": "invalid_role"}
+        )
+        assert not serializer.is_valid()
+        assert "role" in serializer.errors
+        assert "Invalid role" in str(serializer.errors["role"])
+
+
+class TestMicrosoftOAuthSerializer:
+    """Test Microsoft OAuth serializer validation."""
+
+    def test_validate_role_rejects_invalid(self):
+        """Test that invalid role raises ValidationError."""
+        serializer = MicrosoftOAuthSerializer(
+            data={"access_token": "mock_token", "role": "invalid_role"}
+        )
+        assert not serializer.is_valid()
+        assert "role" in serializer.errors
+        assert "Invalid role" in str(serializer.errors["role"])

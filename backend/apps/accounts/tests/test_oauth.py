@@ -491,6 +491,52 @@ class TestGoogleOAuthView:
     @patch("apps.accounts.views.config")
     @patch("apps.accounts.views.requests.post")
     @patch("apps.accounts.views.requests.get")
+    def test_oauth_google_updates_empty_names_for_existing_user(self, mock_get, mock_post, mock_config):
+        """Test that Google OAuth updates empty first/last name and is_verified for existing user."""
+        mock_config.side_effect = lambda key, default="": {
+            "GOOGLE_CLIENT_ID": "test_client_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "GOOGLE_REDIRECT_URI": "http://localhost:5173",
+        }.get(key, default)
+
+        existing_user = UserModel.objects.create_user(
+            email="testuser@gmail.com",
+            first_name="",
+            last_name="",
+            role="student",
+            oauth_provider="google",
+            oauth_id="123456789",
+            password=None,
+            is_verified=False,
+        )
+
+        mock_token_response = Mock()
+        mock_token_response.json.return_value = MOCK_GOOGLE_TOKEN_RESPONSE
+        mock_token_response.raise_for_status = Mock()
+        mock_post.return_value = mock_token_response
+
+        mock_user_info_response = Mock()
+        mock_user_info_response.json.return_value = MOCK_GOOGLE_USER_INFO
+        mock_user_info_response.raise_for_status = Mock()
+        mock_get.return_value = mock_user_info_response
+
+        client = APIClient()
+        url = reverse("accounts:oauth_google")
+        response = client.post(
+            url,
+            {"code": "mock_authorization_code"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        existing_user.refresh_from_db()
+        assert existing_user.first_name == "Test"
+        assert existing_user.last_name == "User"
+        assert existing_user.is_verified is True
+
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.requests.get")
     def test_oauth_handles_missing_name_from_google(self, mock_get, mock_post, mock_config):
         """Test that OAuth handles missing name fields from Google."""
         # Mock config
@@ -1191,3 +1237,37 @@ class TestMicrosoftOAuthView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "detail" in response.data
         assert "Microsoft ID not provided" in response.data["detail"]
+
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.get")
+    def test_oauth_microsoft_rejects_inactive_new_user(self, mock_get, mock_config):
+        """Test that Microsoft OAuth returns 403 when newly created user is inactive (defensive branch)."""
+        mock_config.side_effect = lambda key, default="": {
+            "MICROSOFT_CLIENT_ID": "test_client_id",
+        }.get(key, default)
+
+        mock_user_info_response = Mock()
+        mock_user_info_response.json.return_value = MOCK_MICROSOFT_USER_INFO
+        mock_user_info_response.raise_for_status = Mock()
+        mock_get.return_value = mock_user_info_response
+
+        real_create_user = UserModel.objects.create_user
+
+        def create_then_deactivate(**kwargs):
+            user = real_create_user(**kwargs)
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            return user
+
+        with patch.object(UserModel.objects, "create_user", side_effect=create_then_deactivate):
+            client = APIClient()
+            url = reverse("accounts:oauth_microsoft")
+            payload = {
+                "access_token": "mock_access_token_12345",
+                "role": "student",
+            }
+            response = client.post(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "detail" in response.data
+        assert "inactive" in response.data["detail"].lower()

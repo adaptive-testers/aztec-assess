@@ -273,6 +273,33 @@ class TestUserLoginView:
         )
         assert resp.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
 
+    def test_login_rejects_non_user_or_inactive_from_authenticate(self):
+        """Cover defensive branch when authenticate() returns non-User or inactive user."""
+        from unittest.mock import patch
+
+        inactive_user = UserModel.objects.create_user(
+            email="inactiveauth@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="In",
+            last_name="Active",
+            role="student",
+        )
+        inactive_user.is_active = False
+        inactive_user.save(update_fields=["is_active"])
+
+        with patch("apps.accounts.views.authenticate") as mock_authenticate:
+            mock_authenticate.return_value = inactive_user
+            client = APIClient()
+            url = reverse("accounts:login")
+            resp = client.post(
+                url,
+                {"email": "inactiveauth@example.com", "password": "StrongP@ssw0rd!"},
+                format="json",
+            )
+            assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+            assert "detail" in resp.data
+            assert "Invalid credentials" in resp.data["detail"]
+
 
 # =========================
 # Cookie-Based Auth Tests
@@ -374,6 +401,20 @@ class TestCookieBasedAuthentication:
         assert "detail" in response.data
         assert "Missing refresh token" in response.data["detail"]
 
+    def test_token_refresh_with_invalid_cookie_returns_401(self):
+        """Test that token refresh with invalid (malformed) cookie returns 401 with errors."""
+        client = APIClient()
+        url = reverse("accounts:token_refresh")
+        response = client.post(
+            url,
+            {},
+            format="json",
+            HTTP_COOKIE="refresh_token=not-a-valid-jwt-token",
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        # Either detail (blacklisted) or serializer errors
+        assert "detail" in response.data or "refresh" in response.data
+
     def test_logout_blacklists_token(self):
         """Test that logout blacklists the refresh token."""
 
@@ -454,6 +495,23 @@ class TestCookieBasedAuthentication:
         assert "refresh_token" in logout_response.cookies
         cookie = logout_response.cookies["refresh_token"]
         assert cookie.value == ""  # Cookie is cleared
+
+    def test_logout_with_invalid_cookie_still_clears_cookie(self):
+        """Test that logout with invalid refresh cookie still returns 200 and clears cookie."""
+        client = APIClient()
+        logout_url = reverse("accounts:logout")
+        response = client.post(
+            logout_url,
+            {},
+            format="json",
+            HTTP_COOKIE="refresh_token=invalid-or-malformed-token",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "detail" in response.data
+        assert "Logged out" in response.data["detail"]
+        # Cookie should still be cleared
+        assert "refresh_token" in response.cookies
+        assert response.cookies["refresh_token"].value == ""
 
     def test_blacklisted_token_cannot_refresh(self):
         """Test that blacklisted tokens cannot be used for refresh."""
@@ -583,6 +641,8 @@ class TestUserProfileView:
         response = client.patch(url, update_data, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "first_name" in response.data
+        # Explicitly cover return of serializer.errors (line 146)
+        assert isinstance(response.data["first_name"], list)
 
         # Test empty last name
         update_data = {"last_name": ""}
