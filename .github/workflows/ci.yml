@@ -71,28 +71,17 @@ jobs:
         with:
             path: backend/.venv
             key: venv-${{ runner.os }}-${{ env.PY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
-
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
-        working-directory: backend
-
       - name: Run linting
         run: poetry run ruff check .
-        working-directory: backend
-
       - name: Run type checking
         run: poetry run mypy .
-        working-directory: backend
-
       - name: Run migrations
         run: poetry run python manage.py migrate --noinput --settings=adaptive_testing.settings.ci
-        working-directory: backend
-
       - name: Run tests
         run: poetry run pytest --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=html --ds=adaptive_testing.settings.ci
-        working-directory: backend
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
