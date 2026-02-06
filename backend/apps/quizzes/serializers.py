@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Chapter, Question, QuizAttempt, AttemptAnswer
+
+from .models import AttemptAnswer, Chapter, Question, QuizAttempt
+
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,3 +39,6 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 
     def get_score(self, obj):
         return obj.calculate_score()
+
+
+

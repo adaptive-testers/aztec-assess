@@ -1,10 +1,17 @@
-from rest_framework import viewsets, status
+from django.utils import timezone
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.utils import timezone
-from .models import Chapter, Question, QuizAttempt, AttemptAnswer
-from .serializers import ChapterSerializer, QuestionSerializer, QuestionStudentSerializer, QuizAttemptSerializer
+
+from .models import AttemptAnswer, Chapter, Question, QuizAttempt
+from .serializers import (
+    ChapterSerializer,
+    QuestionSerializer,
+    QuestionStudentSerializer,
+    QuizAttemptSerializer,
+)
 from .services.selection import next_difficulty_after, select_next_question
+
 
 class ChapterViewSet(viewsets.ModelViewSet):
     queryset = Chapter.objects.all()
@@ -28,7 +35,7 @@ class AttemptViewSet(viewsets.ModelViewSet):
         return QuizAttempt.objects.none()
 
     @action(detail=True, methods=["GET"])
-    def current(self, request, pk=None):
+    def current(self, request, pk=None):  # noqa: ARG002
         attempt = self.get_object()
         answered_ids = list(attempt.answers.values_list("question_id", flat=True))
         q = select_next_question(attempt, answered_ids)
@@ -41,7 +48,7 @@ class AttemptViewSet(viewsets.ModelViewSet):
         return Response({"question": serializer.data, "attempt_status": attempt.status})
 
     @action(detail=True, methods=["POST"])
-    def answer(self, request, pk=None):
+    def answer(self, request, pk=None):  # noqa: ARG002
         attempt = self.get_object()
         if attempt.is_finished():
             return Response({"detail": "Attempt already completed"}, status=status.HTTP_400_BAD_REQUEST)
@@ -53,7 +60,7 @@ class AttemptViewSet(viewsets.ModelViewSet):
             return Response({"detail": "question not found"}, status=status.HTTP_400_BAD_REQUEST)
 
         is_correct = (ans == q.correct_choice)
-        aa = AttemptAnswer.objects.create(attempt=attempt, question=q, selected_choice=ans, is_correct=is_correct)
+        AttemptAnswer.objects.create(attempt=attempt, question=q, selected_choice=ans, is_correct=is_correct)
 
         attempt.num_answered += 1
         if is_correct:
@@ -71,4 +78,3 @@ class AttemptViewSet(viewsets.ModelViewSet):
 
         serializer = QuestionStudentSerializer(next_q)
         return Response({"is_correct": is_correct, "score": attempt.calculate_score(), "attempt_status": "IN_PROGRESS", "next_question": serializer.data})
-    
