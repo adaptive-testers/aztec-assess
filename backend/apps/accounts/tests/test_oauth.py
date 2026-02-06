@@ -615,6 +615,45 @@ class TestGoogleOAuthView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "role" in response.data
 
+    @patch("apps.accounts.views.User")
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.requests.get")
+    def test_oauth_google_create_user_exception_returns_500(
+        self, mock_get, mock_post, mock_config, mock_user_model
+    ):
+        """When create_user raises in Google OAuth flow, view returns 500."""
+        mock_config.side_effect = lambda key, default="": {
+            "GOOGLE_CLIENT_ID": "test_client_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "GOOGLE_REDIRECT_URI": "http://localhost:5173",
+        }.get(key, default)
+
+        mock_token_response = Mock()
+        mock_token_response.json.return_value = MOCK_GOOGLE_TOKEN_RESPONSE
+        mock_token_response.raise_for_status = Mock()
+        mock_post.return_value = mock_token_response
+
+        mock_user_info_response = Mock()
+        mock_user_info_response.json.return_value = MOCK_GOOGLE_USER_INFO
+        mock_user_info_response.raise_for_status = Mock()
+        mock_get.return_value = mock_user_info_response
+
+        mock_user_model.objects.filter.return_value.first.return_value = None
+        mock_user_model.objects.create_user.side_effect = Exception("db error")
+
+        client = APIClient()
+        url = reverse("accounts:oauth_google")
+        response = client.post(
+            url,
+            {"code": "mock_authorization_code", "role": "student"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "detail" in response.data
+        assert "Failed to create user account" in response.data["detail"]
+
     @patch("apps.accounts.views.config")
     @patch("apps.accounts.views.requests.post")
     def test_oauth_handles_google_api_failure(self, mock_post, mock_config):
@@ -1271,3 +1310,34 @@ class TestMicrosoftOAuthView:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "detail" in response.data
         assert "inactive" in response.data["detail"].lower()
+
+    @patch("apps.accounts.views.User")
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.get")
+    def test_oauth_microsoft_create_user_exception_returns_500(
+        self, mock_get, mock_config, mock_user_model
+    ):
+        """When create_user raises in Microsoft OAuth flow, view returns 500."""
+        mock_config.side_effect = lambda key, default="": {
+            "MICROSOFT_CLIENT_ID": "test_client_id",
+        }.get(key, default)
+
+        mock_user_info_response = Mock()
+        mock_user_info_response.json.return_value = MOCK_MICROSOFT_USER_INFO
+        mock_user_info_response.raise_for_status = Mock()
+        mock_get.return_value = mock_user_info_response
+
+        mock_user_model.objects.filter.return_value.first.return_value = None
+        mock_user_model.objects.create_user.side_effect = Exception("db error")
+
+        client = APIClient()
+        url = reverse("accounts:oauth_microsoft")
+        response = client.post(
+            url,
+            {"access_token": "mock_access_token_12345", "role": "student"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "detail" in response.data
+        assert "Failed to create user account" in response.data["detail"]

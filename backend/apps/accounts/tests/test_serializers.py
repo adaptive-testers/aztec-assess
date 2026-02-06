@@ -294,6 +294,13 @@ class TestGoogleOAuthSerializer:
         assert "role" in serializer.errors
         assert "Invalid role" in str(serializer.errors["role"])
 
+    def test_validate_role_returns_none_when_blank(self):
+        """Blank or missing role is allowed and returns None (login flow)."""
+        for payload in [{"code": "abc"}, {"code": "abc", "role": ""}, {"code": "abc", "role": "   "}]:
+            serializer = GoogleOAuthSerializer(data=payload)
+            assert serializer.is_valid()
+            assert serializer.validated_data.get("role") is None
+
 
 class TestMicrosoftOAuthSerializer:
     """Test Microsoft OAuth serializer validation."""
@@ -306,3 +313,14 @@ class TestMicrosoftOAuthSerializer:
         assert not serializer.is_valid()
         assert "role" in serializer.errors
         assert "Invalid role" in str(serializer.errors["role"])
+
+    def test_validate_role_returns_none_when_blank(self):
+        """Blank or missing role is allowed and returns None (login flow)."""
+        for payload in [
+            {"access_token": "t"},
+            {"access_token": "t", "role": ""},
+            {"access_token": "t", "role": "   "},
+        ]:
+            serializer = MicrosoftOAuthSerializer(data=payload)
+            assert serializer.is_valid()
+            assert serializer.validated_data.get("role") is None

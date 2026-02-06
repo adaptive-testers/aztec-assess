@@ -594,6 +594,23 @@ class TestUserProfileView:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_profile_method_not_allowed(self):
+        """POST (or other non-GET/PATCH method) to profile returns 405."""
+        user = UserModel.objects.create_user(
+            email="method@example.com",
+            password="StrongP@ssw0rd!",
+            first_name="M",
+            last_name="User",
+            role="student",
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+        url = reverse("accounts:profile")
+        response = client.post(url, {}, format="json")
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert "detail" in response.data
+        assert "not allowed" in response.data["detail"].lower()
+
     def test_patch_profile_success(self):
         """Test that user can update their profile."""
         user = UserModel.objects.create_user(
