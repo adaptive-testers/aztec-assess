@@ -48,7 +48,16 @@ vi.mock('@react-oauth/google', () => ({
         return mockGoogleLoginFunction;
     }),
     GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
-}))
+}));
+
+const mockLoginPopup = vi.fn();
+vi.mock('@azure/msal-react', () => ({
+    useMsal: () => ({
+        instance: { loginPopup: mockLoginPopup },
+        accounts: [],
+        inProgress: 0,
+    }),
+}));
 
 describe("SignUpContainer", () => {
     const mockSetAccessToken = vi.fn()
@@ -99,13 +108,13 @@ describe("SignUpContainer", () => {
 
         it("renders social login buttons", () => {
             render(<SignUpContainer />)
-            
+
             const googleButton = screen.getByLabelText("Sign up with Google")
             const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
-            
+
             expect(googleButton).toBeInTheDocument()
             expect(microsoftButton).toBeInTheDocument()
-            expect(microsoftButton).toBeDisabled() // Microsoft not implemented yet
+            expect(microsoftButton).not.toBeDisabled()
         })
     })
 
@@ -255,6 +264,88 @@ describe("SignUpContainer", () => {
         it("renders 'Already have an account?' text", () => {
             render(<SignUpContainer />)
             expect(screen.getByText(/Already have an account\?/)).toBeInTheDocument()
+        })
+    })
+
+    describe("Microsoft OAuth Sign-Up", () => {
+        it("calls loginPopup when Microsoft button is clicked", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: { tokens: { access: "mock_access_token" } },
+            })
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            expect(mockLoginPopup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    scopes: ["openid", "profile", "email", "User.Read"],
+                    overrideInteractionInProgress: true,
+                })
+            )
+        })
+
+        it("handles successful Microsoft OAuth sign-up with role", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: { tokens: { access: "mock_access_token" } },
+            })
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_MICROSOFT,
+                    { access_token: "mock_ms_token", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles Microsoft sign-up API error", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockRejectedValueOnce(new Error("OAuth failed"))
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(screen.getByText(/Sign-up failed. Please try again./i)).toBeInTheDocument()
+            })
+        })
+
+        it("redirects to role selection when Microsoft is clicked without role", async () => {
+            vi.mocked(useLocation).mockReturnValue({
+                state: null,
+                pathname: "/sign-up",
+                search: "",
+                hash: "",
+                key: "default",
+            })
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            expect(mockLoginPopup).not.toHaveBeenCalled()
+            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+        })
+
+        it("handles Microsoft popup rejection", async () => {
+            mockLoginPopup.mockRejectedValueOnce(new Error("User closed popup"))
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(screen.getByText(/Sign-up failed. Please try again./i)).toBeInTheDocument()
+            })
         })
     })
 

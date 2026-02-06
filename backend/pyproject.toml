@@ -30,11 +30,11 @@ django-stubs = "^5.2.9"
 djangorestframework-stubs = "^3.16.7"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^9.0.2"
-pytest-django = "^4.11.1"
 factory-boy = "^3.3.3"
 coverage = "^7.13.2"
-pytest-cov = "^4.1.0"
+pytest = "^9.0.2"
+pytest-django = "^4.11.1"
+pytest-cov = "^7.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

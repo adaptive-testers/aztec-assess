@@ -9,6 +9,7 @@ import CourseDetailPage from "../features/Course/CourseDetailPage";
 
 import { render } from "./utils";
 
+// publicApi needed for AuthProvider token refresh
 vi.mock("../api/axios", () => ({
   privateApi: {
     get: vi.fn(),
@@ -16,6 +17,11 @@ vi.mock("../api/axios", () => ({
     patch: vi.fn(),
     delete: vi.fn(),
   },
+  publicApi: { post: vi.fn(() => Promise.reject(new Error("No refresh token"))) },
+}));
+
+vi.mock("@azure/msal-react", () => ({
+  useMsal: () => ({ instance: {}, accounts: [], inProgress: 0 }),
 }));
 
 const mockNavigate = vi.fn();

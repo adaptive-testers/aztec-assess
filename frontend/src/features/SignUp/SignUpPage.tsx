@@ -1,3 +1,4 @@
+import { useMsal } from "@azure/msal-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -21,14 +22,20 @@ interface FormFields {
   userPassword: string;
 }
 
+const OAUTH_SIGNUP_ERROR = "Sign-up failed. Please try again.";
+
 export default function SignUpContainer() {
     const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<FormFields>();
     const { setAccessToken } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { instance } = useMsal();
 
     // Role must be passed from RoleSelectionPage via location.state
     const selectedRole = (location.state as { role?: string } | null)?.role ?? null;
+
+    const [showPassword, setShowPassword] = useState(false);
+    const [isOAuthLoading, setIsOAuthLoading] = useState(false);
 
     useEffect(() => {
         if (!selectedRole) {
@@ -37,8 +44,6 @@ export default function SignUpContainer() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-  const [showPassword, setShowPassword] = useState(false);
 
     // Password validation function
     const validatePassword = (password: string) => {
@@ -52,34 +57,70 @@ export default function SignUpContainer() {
   const handlePasswordToggle = () => setShowPassword((prev) => !prev);
 
   const loginWithGoogleCode = useGoogleLogin({
-  flow: "auth-code",
-  onSuccess: async ({ code }) => {
-    try {
+    flow: "auth-code",
+    onSuccess: async ({ code }) => {
       if (!selectedRole) {
         navigate("/", { replace: true });
         return;
       }
-      const res = await publicApi.post(AUTH.OAUTH_GOOGLE, {
-        code,            
-        role: selectedRole
-      });
-
-      if (res.data?.tokens?.access) {
-        setAccessToken(res.data.tokens.access);
-        navigate("/profile");
-      } else {
+      setIsOAuthLoading(true);
+      try {
+        const res = await publicApi.post(AUTH.OAUTH_GOOGLE, {
+          code,
+          role: selectedRole,
+        });
+        if (res.data?.tokens?.access) {
+          setAccessToken(res.data.tokens.access);
+          navigate("/profile");
+        } else {
+          setError("root", { message: "Google sign-up failed" });
+        }
+      } catch (e) {
+        console.error(e);
         setError("root", { message: "Google sign-up failed" });
+      } finally {
+        setIsOAuthLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-      setError("root", { message: "Google sign-up failed" });
+    },
+    onError: () => setError("root", { message: "Google sign-up cancelled or failed" }),
+  });
+
+  const loginWithMicrosoft = async () => {
+    if (!selectedRole) {
+      navigate("/", { replace: true });
+      return;
     }
-  },
-  onError: () => setError("root", { message: "Google sign-up cancelled or failed" }),
-});
+    try {
+      const response = await instance.loginPopup({
+        scopes: ["openid", "profile", "email", "User.Read"],
+        overrideInteractionInProgress: true,
+      });
+      const accessToken = response.accessToken;
+      if (!accessToken) {
+        setError("root", { message: OAUTH_SIGNUP_ERROR });
+        return;
+      }
+      setIsOAuthLoading(true);
+      try {
+        const res = await publicApi.post(AUTH.OAUTH_MICROSOFT, {
+          access_token: accessToken,
+          role: selectedRole,
+        });
+        if (res.data?.tokens?.access) {
+          setAccessToken(res.data.tokens.access);
+          navigate("/profile");
+        } else {
+          setError("root", { message: OAUTH_SIGNUP_ERROR });
+        }
+      } finally {
+        setIsOAuthLoading(false);
+      }
+    } catch {
+      setError("root", { message: OAUTH_SIGNUP_ERROR });
+    }
+  };
 
-
-    const onSubmit: SubmitHandler<FormFields> = async (data) => {
+  const onSubmit: SubmitHandler<FormFields> = async (data) => {
         try {
             if (!selectedRole) {
                 // If role is missing, redirect back
@@ -102,14 +143,28 @@ export default function SignUpContainer() {
                 navigate("/profile");
             }
         }
-        catch (error) {
+        catch {
             setError("root", { message: "An unexpected error occurred" });
-            console.log(error);
         }
     };
 
     return (
         <>
+            {isOAuthLoading && (
+                <div
+                    className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
+                    aria-live="polite"
+                    aria-busy="true"
+                >
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="relative h-12 w-12" aria-hidden>
+                            <div className="absolute inset-0 rounded-full border-4 border-[#2A2A2A]" />
+                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#EF6262]" />
+                        </div>
+                        <div className="text-sm text-[#8E8E8E]">Signing you in…</div>
+                    </div>
+                </div>
+            )}
             <div className="
                 bg-secondary-background
                 w-full max-w-[410px]
@@ -214,9 +269,10 @@ export default function SignUpContainer() {
                             <img src={googleLogo} alt="Google logo" className="h-4 w-4" />
                         </button>
                         <button
+                            type="button"
+                            onClick={() => loginWithMicrosoft()}
                             aria-label="Sign up with Microsoft"
-                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-200 cursor-not-allowed opacity-50"
-                            disabled
+                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-300 hover:border-white hover:scale-[1.02] cursor-pointer will-change-transform"
                         >
                             <img src={microsoftLogo} alt="Microsoft logo" className="h-4 w-4" />
                         </button>

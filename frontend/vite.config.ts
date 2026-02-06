@@ -6,6 +6,11 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      input: ["index.html", "auth-callback.html"],
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

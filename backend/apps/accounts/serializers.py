@@ -132,3 +132,28 @@ class GoogleOAuthSerializer(serializers.Serializer):
                 "Invalid role. Must be one of: " + ", ".join([role.value.lower() for role in UserRole])
             )
         return value
+
+class MicrosoftOAuthSerializer(serializers.Serializer):
+    """
+    Serializer for Microsoft OAuth authentication.
+
+    Validates:
+    - Access token is present
+    - Role is optional (required for sign-up, optional for login)
+    """
+
+    access_token = serializers.CharField(required=True, help_text="Access token from Microsoft")
+    role = serializers.CharField(
+        required=False, allow_blank=True, help_text="User role: admin, instructor, or student (required for sign-up)"
+    )
+
+    def validate_role(self, value: str) -> str | None:
+        """Validate role is a valid choice if provided."""
+        if not value or not value.strip():
+            return None
+        value = value.lower().strip()
+        if value not in [role.value.lower() for role in UserRole]:
+            raise serializers.ValidationError(
+                "Invalid role. Must be one of: " + ", ".join([role.value.lower() for role in UserRole])
+            )
+        return value

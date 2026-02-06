@@ -12,9 +12,9 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Multi-role Support**: Admin, Instructor, and Student roles
 - **Email-based Authentication**: Secure login with email verification
 - **Google OAuth**: Sign up and log in with Google accounts
+- **Microsoft OAuth**: Sign up and log in with Microsoft accounts
 - **JWT Token Management**: Stateless authentication with refresh tokens stored in HTTP-only cookies
 - **Auto Token Refresh**: Automatic token refresh for seamless user experience
-- **Microsoft OAuth**: Planned for future implementation
 
 ### 📚 Course Management
 - **Course Lifecycle**: Create, activate, archive, and delete courses
@@ -197,7 +197,7 @@ If you prefer not to use Docker, you can set up the project manually. This requi
    poetry shell  # Activates the virtual environment
    ```
 
-3. **Create `.env` file in the backend directory**
+3. **Create `.env` file in the backend directory** (see `backend/.env.example` for all options)
    ```bash
    DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
    SECRET_KEY=your-secret-key-here
@@ -207,7 +207,11 @@ If you prefer not to use Docker, you can set up the project manually. This requi
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
    GOOGLE_REDIRECT_URI=http://localhost:5173
+   MICROSOFT_CLIENT_ID=your-microsoft-client-id
+   MICROSOFT_TENANT_ID=common
+   MICROSOFT_REDIRECT_URI=http://localhost:5173/auth-callback.html
    ```
+   Create `frontend/.env` with `VITE_GOOGLE_CLIENT_ID`, `VITE_MICROSOFT_CLIENT_ID`, `VITE_MICROSOFT_TENANT_ID` (see `frontend/.env.example`).
 
 4. **Run database migrations**
    ```bash

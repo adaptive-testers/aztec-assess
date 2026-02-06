@@ -9,11 +9,14 @@ import CourseCreationPage from "../features/CourseCreation/CourseCreationPage";
 
 import { render } from "./utils";
 
-// Mock the API module
+// Mock the API module (publicApi needed for AuthProvider token refresh)
 vi.mock("../api/axios", () => ({
-  privateApi: {
-    post: vi.fn(),
-  },
+  privateApi: { post: vi.fn() },
+  publicApi: { post: vi.fn(() => Promise.reject(new Error("No refresh token"))) },
+}));
+
+vi.mock("@azure/msal-react", () => ({
+  useMsal: () => ({ instance: {}, accounts: [], inProgress: 0 }),
 }));
 
 // Mock react-router-dom
