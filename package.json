@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@mantine/core": "^8.3.9",
+    "@mantine/dates": "^8.3.9",
+    "@mantine/hooks": "^8.3.9"
+  }
+}
