@@ -160,7 +160,7 @@ export default function StudentQuizLanding() {
 
         {/* Start Quiz Button */}
         <div className="flex w-full justify-center pb-8">
-          <button className="w-full max-w-[340px] rounded-[7px] bg-[#FF7A7A] px-8 py-3 text-[15px] font-medium text-white transition-all duration-200 hover:bg-[#FF6565]">
+          <button className="w-full max-w-[340px] rounded-[7px] bg-[#FF7A7A] px-8 py-3 text-[15px] font-medium text-white transition-all duration-200 hover:bg-[#FF8F8F] hover:shadow-lg">
             Start Quiz
           </button>
         </div>
