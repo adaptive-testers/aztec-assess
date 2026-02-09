@@ -21,7 +21,7 @@ export default defineConfig(
     },
     plugins: {
       react: pluginReact,
-      "react-hooks": reactHooks,
+      "react-hooks": reactHooks as unknown as typeof pluginReact,
       "react-refresh": reactRefresh,
       import: importPlugin,
       "jsx-a11y": jsxA11y,
@@ -36,7 +36,6 @@ export default defineConfig(
       ],
       "react/react-in-jsx-scope": "off",
       "react/jsx-no-target-blank": "warn",
-      // Import organization rules
       "import/order": [
         "warn",
         {
