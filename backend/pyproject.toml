@@ -139,5 +139,14 @@ disallow_untyped_defs = false
 module = "apps.accounts.models"
 disallow_untyped_defs = false
 
+[[tool.mypy.overrides]]
+module = "apps.quizzes.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "apps.quizzes.tests.*"
+disallow_untyped_defs = false
+disable_error_code = ["attr-defined", "union-attr"]
+
 [tool.django-stubs]
 django_settings_module = "adaptive_testing.settings"
