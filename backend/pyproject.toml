@@ -31,7 +31,7 @@ djangorestframework-stubs = "^3.16.8"
 
 [tool.poetry.group.test.dependencies]
 factory-boy = "^3.3.3"
-coverage = "^7.13.3"
+coverage = "^7.13.4"
 pytest = "^9.0.2"
 pytest-django = "^4.11.1"
 pytest-cov = "^7.0.0"
