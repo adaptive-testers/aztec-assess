@@ -28,6 +28,7 @@ mypy = "^1.19.1"
 pre-commit = "^4.5.1"
 django-stubs = "^5.2.9"
 djangorestframework-stubs = "^3.16.8"
+types-requests = "^2.32.0"
 
 [tool.poetry.group.test.dependencies]
 factory-boy = "^3.3.3"
