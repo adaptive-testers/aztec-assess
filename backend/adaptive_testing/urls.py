@@ -30,6 +30,6 @@ urlpatterns = [
     # Courses API routes
     path("api/", include("apps.courses.urls")),
 
-    # Quizzes API routes (MVP)
+    # Quizzes API routes
     path("api/", include("apps.quizzes.urls")),
 ]
