@@ -1,6 +1,6 @@
 
 """
-Adaptive question selection service for quizzes (Phase 1 MVP).
+Adaptive question selection service for quizzes.
 
 This file contains pure-ish functions that decide:
  - how difficulty should change after an answer, and
@@ -14,14 +14,16 @@ Design notes:
      3. If none, try adjacent difficulty levels (one step up/down)
      4. If still none, return any unused in chapter
      5. If none, return None (attempt should finish)
- - Keep this code in a services package so it can be unit-tested independently.
 """
+
+import random
+from typing import cast
 
 from django.db.models import QuerySet
 
-from ..models import Question, QuizAttempt
+from ..models import Difficulty, Question, QuizAttempt
 
-DIFFICULTY_ORDER = ["EASY", "MEDIUM", "HARD"]
+DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD]
 
 
 def next_difficulty_after(current: str, was_correct: bool) -> str:
@@ -35,8 +37,8 @@ def next_difficulty_after(current: str, was_correct: bool) -> str:
     """
     if current not in DIFFICULTY_ORDER:
         # defensive fallback
-        current = "MEDIUM"
-    idx = DIFFICULTY_ORDER.index(current)
+        current = Difficulty.MEDIUM
+    idx = DIFFICULTY_ORDER.index(cast("Difficulty", current))
     if was_correct and idx < len(DIFFICULTY_ORDER) - 1:
         return DIFFICULTY_ORDER[idx + 1]
     if not was_correct and idx > 0:
@@ -49,7 +51,14 @@ def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: l
     Helper: return QuerySet of unused questions in the attempt's chapter with given difficulty,
     excluding any ids in excluded_ids.
     """
-    return Question.objects.filter(chapter=attempt.chapter, difficulty=difficulty).exclude(id__in=excluded_ids)
+    return (
+        Question.objects.filter(
+            chapter=attempt.quiz.chapter,
+            difficulty=difficulty,
+            is_active=True,
+        )
+        .exclude(id__in=excluded_ids)
+    )
 
 
 def select_next_question(attempt: QuizAttempt, answered_question_ids: list[int]) -> Question | None:
@@ -64,16 +73,16 @@ def select_next_question(attempt: QuizAttempt, answered_question_ids: list[int])
       - Question instance or None
     """
     # defensive checks
-    if not hasattr(attempt, "chapter") or attempt.chapter is None:
+    if not hasattr(attempt, "quiz") or attempt.quiz is None:
         return None
 
-    target = attempt.current_difficulty if attempt.current_difficulty in DIFFICULTY_ORDER else "MEDIUM"
+    target = attempt.current_difficulty if attempt.current_difficulty in DIFFICULTY_ORDER else Difficulty.MEDIUM
 
     # 1) try target difficulty
     qs = _unused_questions_for(attempt, target, answered_question_ids)
-    if qs.exists():
-        # randomize selection to reduce predictability; order_by('?') is fine for MVP
-        return qs.order_by("?").first()
+    candidate_ids = list(qs.values_list("id", flat=True))
+    if candidate_ids:
+        return Question.objects.get(id=random.choice(candidate_ids))
 
     # 2) try adjacent difficulties (one step down and one step up)
     idx = DIFFICULTY_ORDER.index(target)
@@ -85,15 +94,18 @@ def select_next_question(attempt: QuizAttempt, answered_question_ids: list[int])
 
     for diff in adjacents:
         qs = _unused_questions_for(attempt, diff, answered_question_ids)
-        if qs.exists():
-            return qs.order_by("?").first()
+        candidate_ids = list(qs.values_list("id", flat=True))
+        if candidate_ids:
+            return Question.objects.get(id=random.choice(candidate_ids))
 
     # 3) fallback: any unused in chapter
-    qs = Question.objects.filter(chapter=attempt.chapter).exclude(id__in=answered_question_ids)
-    if qs.exists():
-        return qs.order_by("?").first()
+    qs = Question.objects.filter(
+        chapter=attempt.quiz.chapter,
+        is_active=True,
+    ).exclude(id__in=answered_question_ids)
+    candidate_ids = list(qs.values_list("id", flat=True))
+    if candidate_ids:
+        return Question.objects.get(id=random.choice(candidate_ids))
 
     # nothing left
     return None
-
-
