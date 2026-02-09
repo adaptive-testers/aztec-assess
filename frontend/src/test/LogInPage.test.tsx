@@ -28,6 +28,15 @@ vi.mock("../api/axios", () => ({
   publicApi: { post: (...args: unknown[]) => postMock(...args) },
 }));
 
+const mockLoginPopup = vi.fn();
+vi.mock("@azure/msal-react", () => ({
+  useMsal: () => ({
+    instance: { loginPopup: mockLoginPopup },
+    accounts: [],
+    inProgress: 0,
+  }),
+}));
+
 // Capture setAccessToken calls from AuthContext
 const setAccessTokenMock = vi.fn();
 vi.mock("../context/AuthContext", () => ({
@@ -280,21 +289,17 @@ describe("LogInContainer", () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/Google login cancelled or failed/i)).toBeInTheDocument();
+        expect(screen.getByText(/Sign-in was cancelled/i)).toBeInTheDocument();
       });
     });
 
-    it("handles OAuth API error", async () => {
+    it("handles OAuth API error with friendly message", async () => {
       postMock.mockRejectedValueOnce({
         isAxiosError: true,
-        response: {
-          status: 401,
-          data: { detail: "Failed to authenticate with Google." },
-        },
+        response: { status: 401, data: { detail: "Failed to authenticate with Google." } },
       });
 
       renderWithRouter(<LogInContainer />);
-
       const googleButton = screen.getByLabelText("Sign in with Google");
       await userEvent.click(googleButton);
 
@@ -304,7 +309,90 @@ describe("LogInContainer", () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/Failed to authenticate with Google./i)).toBeInTheDocument();
+        expect(screen.getByText(/Sign-in failed. Please try again./i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Microsoft OAuth Login", () => {
+    it("calls loginPopup when Microsoft button is clicked", async () => {
+      mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" });
+      postMock.mockResolvedValueOnce({ data: { tokens: { access: "mock_access_token" } } });
+
+      renderWithRouter(<LogInContainer />);
+      const microsoftButton = screen.getByLabelText("Sign in with Microsoft");
+      await userEvent.click(microsoftButton);
+
+      expect(mockLoginPopup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scopes: ["openid", "profile", "email", "User.Read"],
+          overrideInteractionInProgress: true,
+        })
+      );
+    });
+
+    it("handles successful Microsoft OAuth login", async () => {
+      mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" });
+      postMock.mockResolvedValueOnce({ data: { tokens: { access: "mock_access_token" } } });
+
+      renderWithRouter(<LogInContainer />);
+      const microsoftButton = screen.getByLabelText("Sign in with Microsoft");
+      await userEvent.click(microsoftButton);
+
+      await waitFor(() => {
+        expect(postMock).toHaveBeenCalledWith(
+          expect.stringContaining("/auth/oauth/microsoft/"),
+          { access_token: "mock_ms_token" }
+        );
+        expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
+        expect(navigateMock).toHaveBeenCalledWith("/profile");
+      });
+    });
+
+    it("handles Microsoft account not found (shows friendly message)", async () => {
+      mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" });
+      postMock.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: { status: 400, data: { detail: "Role is required for new user registration." } },
+      });
+
+      renderWithRouter(<LogInContainer />);
+      const microsoftButton = screen.getByLabelText("Sign in with Microsoft");
+      await userEvent.click(microsoftButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Account not found. Please create an account first./i)).toBeInTheDocument();
+      });
+    });
+
+    it("does not show error when user cancels Microsoft popup", async () => {
+      mockLoginPopup.mockRejectedValueOnce(
+        Object.assign(new Error("User cancelled"), { errorCode: "user_cancelled", name: "BrowserAuthError" })
+      );
+
+      renderWithRouter(<LogInContainer />);
+      const microsoftButton = screen.getByLabelText("Sign in with Microsoft");
+      await userEvent.click(microsoftButton);
+
+      await waitFor(() => {
+        expect(mockLoginPopup).toHaveBeenCalled();
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("handles Microsoft API error with friendly message", async () => {
+      mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" });
+      postMock.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: { status: 401, data: { detail: "Invalid token." } },
+      });
+
+      renderWithRouter(<LogInContainer />);
+      const microsoftButton = screen.getByLabelText("Sign in with Microsoft");
+      await userEvent.click(microsoftButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Sign-in failed. Please try again./i)).toBeInTheDocument();
       });
     });
   });
