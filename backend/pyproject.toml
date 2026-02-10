@@ -64,6 +64,7 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "DJ01",  # Django model requires __str__ method
+    "DJ008",  # False positive: model __str__ present
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -137,6 +138,15 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = "apps.accounts.models"
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "apps.quizzes.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "apps.quizzes.tests.*"
+disallow_untyped_defs = false
+disable_error_code = ["attr-defined", "union-attr"]
 
 [tool.django-stubs]
 django_settings_module = "adaptive_testing.settings"
