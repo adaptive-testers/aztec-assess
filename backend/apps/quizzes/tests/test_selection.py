@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from apps.quizzes.models import Difficulty, Question
-from apps.quizzes.services.selection import select_next_question
+from apps.quizzes.services.selection import next_difficulty_after, select_next_question
 from apps.quizzes.tests.test_utils import (
     make_attempt,
     make_course_and_chapter,
@@ -65,3 +65,59 @@ class SelectionServiceTests(TestCase):
         q = select_next_question(self.attempt, [])
         self.assertIsNotNone(q)
         self.assertNotEqual(q.difficulty, Difficulty.MEDIUM)
+
+    def test_fallback_to_any_question_when_all_difficulty_buckets_empty(self):
+        """Test final fallback: select any question when target and adjacents are exhausted."""
+        # Make only one HARD question available, set attempt to EASY
+        # This should exhaust EASY (none) and MEDIUM (adjacent) and fall back to HARD
+        Question.objects.filter(chapter=self.chapter, difficulty__in=[Difficulty.EASY, Difficulty.MEDIUM]).delete()
+        self.attempt.current_difficulty = Difficulty.EASY
+        self.attempt.save()
+        q = select_next_question(self.attempt, [])
+        self.assertIsNotNone(q)
+        self.assertEqual(q.difficulty, Difficulty.HARD)
+
+    def test_returns_none_when_attempt_quiz_is_none(self):
+        """Test defensive check: return None if attempt.quiz is None."""
+        self.attempt.quiz = None
+        q = select_next_question(self.attempt, [])
+        self.assertIsNone(q)
+
+
+class NextDifficultyTests(TestCase):
+    """Test next_difficulty_after function (adaptive difficulty logic)."""
+
+    def test_correct_answer_increases_difficulty_easy_to_medium(self):
+        """Correct answer at EASY moves to MEDIUM."""
+        result = next_difficulty_after(Difficulty.EASY, was_correct=True)
+        self.assertEqual(result, Difficulty.MEDIUM)
+
+    def test_correct_answer_increases_difficulty_medium_to_hard(self):
+        """Correct answer at MEDIUM moves to HARD."""
+        result = next_difficulty_after(Difficulty.MEDIUM, was_correct=True)
+        self.assertEqual(result, Difficulty.HARD)
+
+    def test_correct_answer_stays_at_hard(self):
+        """Correct answer at HARD stays at HARD (ceiling)."""
+        result = next_difficulty_after(Difficulty.HARD, was_correct=True)
+        self.assertEqual(result, Difficulty.HARD)
+
+    def test_wrong_answer_decreases_difficulty_hard_to_medium(self):
+        """Wrong answer at HARD moves to MEDIUM."""
+        result = next_difficulty_after(Difficulty.HARD, was_correct=False)
+        self.assertEqual(result, Difficulty.MEDIUM)
+
+    def test_wrong_answer_decreases_difficulty_medium_to_easy(self):
+        """Wrong answer at MEDIUM moves to EASY."""
+        result = next_difficulty_after(Difficulty.MEDIUM, was_correct=False)
+        self.assertEqual(result, Difficulty.EASY)
+
+    def test_wrong_answer_stays_at_easy(self):
+        """Wrong answer at EASY stays at EASY (floor)."""
+        result = next_difficulty_after(Difficulty.EASY, was_correct=False)
+        self.assertEqual(result, Difficulty.EASY)
+
+    def test_invalid_difficulty_defaults_to_medium(self):
+        """Invalid difficulty input falls back to MEDIUM."""
+        result = next_difficulty_after("INVALID", was_correct=True)
+        self.assertEqual(result, Difficulty.HARD)  # MEDIUM (fallback) + correct = HARD
