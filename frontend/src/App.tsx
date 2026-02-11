@@ -13,6 +13,7 @@ import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
 import StudentQuizList from "./features/StudentQuizzes/StudentQuizList";
 import StudentQuizLanding from "./features/StudentQuizzes/StudentQuizLanding";
+import StudentQuizQuestions from "./features/StudentQuizzes/StudentQuizQuestions";
 import StudentQuizResults from "./features/StudentQuizzes/StudentQuizResults";
 
 function AuthInterceptorsInitializer() {
@@ -82,6 +83,7 @@ function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/student-quizzes" element={<StudentQuizList />} />
           <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
+          <Route path="/quiz-questions/:attemptId?" element={<StudentQuizQuestions />} />
           <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
         </Route>
       </Routes>
