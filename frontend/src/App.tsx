@@ -80,7 +80,7 @@ function App() {
         {/* Temporary development route - has sidebar but no auth */}
         <Route element={<DashboardLayout />}>
           <Route path="/student-quizzes" element={<StudentQuizList />} />
-          <Route path="/quiz-landing" element={<StudentQuizLanding />} />
+          <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
         </Route>
       </Routes>
     </>
