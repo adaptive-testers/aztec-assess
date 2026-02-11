@@ -1,9 +1,11 @@
 import { MsalProvider } from "@azure/msal-react";
 import { GoogleOAuthProvider } from "@react-oauth/google"; 
+import { MantineProvider } from "@mantine/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
+import "@mantine/core/styles.css";
 import "./index.css";
 import App from "./App.tsx";
 import { msalInstance } from "./config/msalConfig.ts";
@@ -20,7 +22,9 @@ createRoot(document.getElementById("root")!).render(
       <MsalProvider instance={msalInstance}>
         <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
           <AuthProvider>
-            <App />
+            <MantineProvider>
+              <App />
+            </MantineProvider>
           </AuthProvider>
         </GoogleOAuthProvider>
       </MsalProvider>
