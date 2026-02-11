@@ -35,6 +35,10 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Pin until plugins (react, import, typescript-eslint) support ESLint 10
+      - dependency-name: "eslint"
+      - dependency-name: "@eslint/js"
     reviewers:
       - "talberry"
     assignees:
