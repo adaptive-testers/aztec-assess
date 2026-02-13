@@ -31,15 +31,6 @@ export default function StudentQuizResults() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock topic performance
-  const topicPerformance: TopicPerformance[] = [
-    { name: "Binary Tree Basics", percentage: 100 },
-    { name: "Inorder Traversal", percentage: 70 },
-    { name: "Preorder Traversal", percentage: 50 },
-    { name: "Tree Height", percentage: 0 },
-    { name: "Balanced Trees", percentage: 85 },
-  ];
-
   useEffect(() => {
     if (attemptId) {
       fetchAttemptResults();
@@ -60,7 +51,6 @@ export default function StudentQuizResults() {
       setQuiz(quizResponse.data);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to load quiz results");
-      console.error("Error fetching results:", err);
     } finally {
       setLoading(false);
     }
@@ -84,11 +74,20 @@ export default function StudentQuizResults() {
   };
 
   const getProgressBarColor = (percentage: number): string => {
-    if (percentage >= 80) return "teal"; // Green
-    if (percentage >= 60) return "orange"; // Orange
-    if (percentage >= 40) return "red"; // Red
-    return "gray"; // Gray
+    if (percentage >= 80) return "teal";
+    if (percentage >= 60) return "blue";
+    if (percentage >= 40) return "yellow";
+    return "red";
   };
+
+  // Mock data for topic performance
+  const topicPerformance: TopicPerformance[] = [
+    { name: "Arrays and Strings", percentage: 85 },
+    { name: "Dynamic Programming", percentage: 60 },
+    { name: "Graph Algorithms", percentage: 75 },
+    { name: "Binary Search", percentage: 90 },
+    { name: "Recursion", percentage: 55 },
+  ];
 
   if (loading) {
     return (
