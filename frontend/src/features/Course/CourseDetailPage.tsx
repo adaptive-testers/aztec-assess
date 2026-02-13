@@ -62,6 +62,8 @@ export default function CourseDetailPage() {
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
 
+  const effectiveCourseId = resolvedCourseId ?? courseId ?? null;
+
   useEffect(() => {
     if (!courseId) return;
 
@@ -639,6 +641,38 @@ export default function CourseDetailPage() {
         </div>
       )}
 
+      {effectiveCourseId && (
+        <div className="mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => navigate(`/courses/${effectiveCourseId}`)}
+              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+            >
+              Quizzes
+            </button>
+            <button
+              type="button"
+              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+            >
+              Students
+            </button>
+            <button
+              type="button"
+              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+            >
+              Grades
+            </button>
+            <button
+              type="button"
+              className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
+            >
+              Settings
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-primary-text text-2xl font-medium tracking-wide">
@@ -871,6 +905,8 @@ export default function CourseDetailPage() {
                       )}
                     </div>
                   </div>
+
+      {/* (removed duplicated top nav block that was rendered lower in the page) */}
                   <p className="text-secondary-text text-xs mt-2">
                     Share this code with students to allow them to join the course. {isOwnerOrInstructor && 'You can rotate the code at any time to generate a new one.'}
                   </p>

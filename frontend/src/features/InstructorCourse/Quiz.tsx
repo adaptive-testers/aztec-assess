@@ -10,9 +10,10 @@ import {
   FiFileText,
 } from "react-icons/fi";
 import { IoAddOutline } from "react-icons/io5";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { privateApi } from "../../api/axios";
+import { COURSES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
 import AddChapterModal from "./CreateChapterModal";
@@ -384,6 +385,7 @@ const MOCK_QUESTIONS: ApiQuestion[] = [
 export default function Quiz() {
   // ---------- ROUTE & API ----------
   const { courseId = "" } = useParams<{ courseId: string }>();
+  const navigate = useNavigate();
   const { accessToken, setAccessToken, checkingRefresh } = useAuth();
   const api = useMemo(() => endpoints(courseId), [courseId]);
 
@@ -393,6 +395,7 @@ export default function Quiz() {
   const [quizzes, setQuizzes] = useState<UiQuiz[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [courseTitle, setCourseTitle] = useState<string | null>(null);
 
   // ---------- CREATE QUIZ MODAL (state + handlers in one block) ----------
   const [createOpen, setCreateOpen] = useState(false);
@@ -451,6 +454,26 @@ export default function Quiz() {
     }),
     [chapterQuestions.length],
   );
+
+  // ---------- COURSE TITLE (for header) ----------
+  useEffect(() => {
+    if (!courseId) {
+      setCourseTitle(null);
+      return;
+    }
+
+    const fetchCourseTitle = async () => {
+      try {
+        const response = await privateApi.get(COURSES.DETAIL(courseId));
+        const title = response.data?.title ?? null;
+        setCourseTitle(title);
+      } catch {
+        setCourseTitle(null);
+      }
+    };
+
+    void fetchCourseTitle();
+  }, [courseId]);
 
   // ---------- API: FETCH QUIZZES (used by page + Drafts modal) ----------
   const fetchAllQuizzes = useCallback(async () => {
@@ -789,7 +812,7 @@ export default function Quiz() {
         {/* Page header */}
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-            Course
+            {courseTitle ?? "Course"}
           </h1>
         </div>
 
@@ -816,6 +839,11 @@ export default function Quiz() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                if (courseId) {
+                  navigate(`/courses/${courseId}/settings`);
+                }
+              }}
               className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
             >
               Settings
