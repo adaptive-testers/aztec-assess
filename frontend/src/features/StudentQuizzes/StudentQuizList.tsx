@@ -28,10 +28,24 @@ export default function StudentQuizList() {
       if (chapterId) params.append("chapter", chapterId);
 
       const response = await privateApi.get(`/quizzes/?${params.toString()}`);
-      setQuizzes(response.data);
+      
+      // Handle paginated response (DRF pagination format)
+      if (response.data.results && Array.isArray(response.data.results)) {
+        setQuizzes(response.data.results);
+      } else if (Array.isArray(response.data)) {
+        setQuizzes(response.data);
+      } else {
+        setQuizzes([]);
+        setError("Unexpected response format from server");
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to load quizzes");
-      console.error("Error fetching quizzes:", err);
+      setQuizzes([]); // Always set to empty array on error
+      
+      if (err.response?.status === 401) {
+        setError("You need to log in to view quizzes");
+      } else {
+        setError(err.response?.data?.detail || "Failed to load quizzes");
+      }
     } finally {
       setLoading(false);
     }

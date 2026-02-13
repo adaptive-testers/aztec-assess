@@ -83,7 +83,7 @@ function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/student-quizzes" element={<StudentQuizList />} />
           <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
-          <Route path="/quiz-questions/:attemptId?" element={<StudentQuizQuestions />} />
+          <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
           <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
         </Route>
       </Routes>

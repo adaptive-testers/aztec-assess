@@ -9,6 +9,7 @@ export default function StudentQuizLanding() {
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,12 +34,53 @@ export default function StudentQuizLanding() {
 
   const handleStartQuiz = async () => {
     try {
+      setError(null);
+      setStarting(true);
       const response = await privateApi.post(`/quizzes/${quizId}/attempts/`);
-      // Navigate to quiz attempt page with the attempt ID
-      navigate(`/quiz-attempt/${response.data.id}`);
+      
+      const attemptId = response.data.id || response.data.attempt_id;
+      const firstQuestion = response.data.question;
+      
+      if (!attemptId) {
+        setError("Invalid response from server - no attempt ID returned");
+        setStarting(false);
+        return;
+      }
+      
+      // Navigate with first question data and initial state
+      navigate(`/quiz-questions/${attemptId}`, {
+        state: {
+          firstQuestion,
+          initialState: {
+            attempt_id: attemptId,
+            status: response.data.status,
+            num_answered: response.data.num_answered || 0,
+            num_correct: response.data.num_correct || 0,
+            current_difficulty: response.data.current_difficulty
+          }
+        }
+      });
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to start quiz");
-      console.error("Error starting quiz:", err);
+      // Handle 409 Conflict - attempt already in progress
+      if (err.response?.status === 409) {
+        const existingAttemptId = err.response.data?.attempt_id;
+        
+        if (existingAttemptId) {
+          // Navigate to existing attempt
+          navigate(`/quiz-questions/${existingAttemptId}`);
+          return;
+        } else {
+          setError("You have an in-progress attempt. Please refresh the page and try again.");
+        }
+      } else if (err.response?.status === 401) {
+        setError("Your session has expired. Please log in again.");
+      } else if (err.response?.status === 404) {
+        setError("Quiz not found. It may have been deleted.");
+      } else {
+        setError(err.response?.data?.detail || err.response?.data?.error || "Failed to start quiz");
+      }
+      
+      setStarting(false);
     }
   };
 
@@ -78,6 +120,13 @@ export default function StudentQuizLanding() {
           </h1>
           <p className="text-[15px] text-[#A1A1AA]">{quiz.chapter.title}</p>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="w-full rounded-[13px] border border-[#EF4444] bg-[#7C3030]/20 px-6 py-4">
+            <p className="text-[#EF4444]">{error}</p>
+          </div>
+        )}
 
         {/* Stats container */}
         <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
@@ -156,14 +205,16 @@ export default function StudentQuizLanding() {
           <button
             onClick={() => navigate("/student-quizzes")}
             className="rounded-[7px] border border-[#404040] bg-transparent px-6 py-3 text-[15px] font-medium text-[#F1F5F9] transition-all duration-200 hover:border-[#525252] hover:bg-[#404040]"
+            disabled={starting}
           >
             Back to Quizzes
           </button>
           <button
             onClick={handleStartQuiz}
-            className="flex-1 rounded-[7px] bg-[#FF7A7A] px-8 py-3 text-[15px] font-medium text-white transition-all duration-200 hover:bg-[#FF8F8F] hover:shadow-lg"
+            disabled={starting}
+            className="flex-1 rounded-[7px] bg-[#FF7A7A] px-8 py-3 text-[15px] font-medium text-white transition-all duration-200 hover:bg-[#FF8F8F] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Start Quiz
+            {starting ? "Starting..." : "Start Quiz"}
           </button>
         </div>
       </div>
