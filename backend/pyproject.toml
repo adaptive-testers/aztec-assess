@@ -89,7 +89,8 @@ source = ["adaptive_testing", "apps"]
 omit = [
     "*/migrations/*",
     "*/venv/*",
-    "*/tests/*"
+    "*/tests/*",
+    "*/settings/*"
 ]
 
 [tool.coverage.report]
