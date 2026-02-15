@@ -51,7 +51,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that choices must be a list of exactly 4 options."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C"],
                 "correct_index": 0,
@@ -64,7 +63,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that valid choices list of 4 passes validation."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 0,
@@ -76,7 +74,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that correct_index must be between 0 and 3."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 4,
@@ -89,7 +86,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that correct_index 0-3 passes validation."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 2,
