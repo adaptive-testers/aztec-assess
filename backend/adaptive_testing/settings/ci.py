@@ -22,16 +22,32 @@ DATABASES = {
     "default": dj_database_url.parse(DATABASE_URL)
 }
 
-CONN_MAX_AGE = 0
+# Keep connections alive to reduce Neon round-trips (faster tests).
+CONN_MAX_AGE = 60
 
 # Use a unique test database per CI run when provided, to avoid clashes on reruns.
-_test_db_suffix = os.getenv("DJANGO_TEST_DB_SUFFIX")
-if _test_db_suffix:
-    _base_name = DATABASES["default"].get("NAME")
-    if _base_name:
-        DATABASES["default"]["TEST"] = {
-            "NAME": f"test_{_base_name}_{_test_db_suffix}",
-        }
+# With pytest-xdist, each worker gets its own DB by including PYTEST_XDIST_WORKER.
+_test_db_suffix = os.getenv("DJANGO_TEST_DB_SUFFIX", "")
+_xdist_worker = os.getenv("PYTEST_XDIST_WORKER", "")
+_base_name = DATABASES["default"].get("NAME")
+if _base_name and (_test_db_suffix or _xdist_worker):
+    _parts = [f"test_{_base_name}"]
+    if _test_db_suffix:
+        _parts.append(_test_db_suffix)
+    if _xdist_worker:
+        _parts.append(_xdist_worker)
+    DATABASES["default"]["TEST"] = {"NAME": "_".join(_parts)}
+
+# Build test DB from current models instead of running migrations (faster, same as local testing).
+class DisableMigrations:
+    def __contains__(self, item: str) -> bool:
+        return True
+
+    def __getitem__(self, item: str) -> None:
+        return None
+
+
+MIGRATION_MODULES = DisableMigrations()
 
 # Disable password hashing for faster CI
 PASSWORD_HASHERS = [
