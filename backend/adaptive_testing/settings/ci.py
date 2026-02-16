@@ -38,17 +38,6 @@ if _base_name and (_test_db_suffix or _xdist_worker):
         _parts.append(_xdist_worker)
     DATABASES["default"]["TEST"] = {"NAME": "_".join(_parts)}
 
-# Build test DB from current models instead of running migrations (faster, same as local testing).
-class DisableMigrations:
-    def __contains__(self, item: str) -> bool:
-        return True
-
-    def __getitem__(self, item: str) -> None:
-        return None
-
-
-MIGRATION_MODULES = DisableMigrations()
-
 # Disable password hashing for faster CI
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
