@@ -62,6 +62,32 @@ class ChapterListCreateView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class ChapterDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Staff can retrieve, update, or delete a chapter. Delete cascades to questions and quizzes."""
+
+    serializer_class = ChapterSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Chapter.objects.all()
+
+    def retrieve(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
+        chapter = self.get_object()
+        if not is_course_staff(request.user, chapter.course):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        return super().retrieve(request, *_args, **_kwargs)
+
+    def update(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
+        chapter = self.get_object()
+        if not is_course_staff(request.user, chapter.course):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *_args, **_kwargs)
+
+    def destroy(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
+        chapter = self.get_object()
+        if not is_course_staff(request.user, chapter.course):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *_args, **_kwargs)
+
+
 class QuestionListCreateView(generics.ListCreateAPIView):
     serializer_class = QuestionCreateUpdateSerializer
     permission_classes = [IsAuthenticated]
@@ -71,7 +97,7 @@ class QuestionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self) -> QuerySet[Question]:
         chapter = self.get_chapter()
-        return Question.objects.filter(chapter=chapter).order_by("created_at")
+        return Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
 
     def list(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         chapter = self.get_chapter()
