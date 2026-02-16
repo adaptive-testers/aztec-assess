@@ -11,6 +11,7 @@ from apps.quizzes.serializers import (
     QuestionCreateUpdateSerializer,
     QuestionStudentSerializer,
     QuizSerializer,
+    QuizStudentSerializer,
 )
 from apps.quizzes.tests.test_utils import (
     make_attempt,
@@ -51,7 +52,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that choices must be a list of exactly 4 options."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C"],
                 "correct_index": 0,
@@ -64,7 +64,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that valid choices list of 4 passes validation."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 0,
@@ -76,7 +75,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that correct_index must be between 0 and 3."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 4,
@@ -89,7 +87,6 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         """Test that correct_index 0-3 passes validation."""
         serializer = QuestionCreateUpdateSerializer(
             data={
-                "chapter": self.chapter.pk,
                 "prompt": "Q?",
                 "choices": ["A", "B", "C", "D"],
                 "correct_index": 2,
@@ -140,6 +137,40 @@ class QuizSerializerTests(TestCase):
         self.assertEqual(data["title"], "Quiz 1")
         self.assertEqual(data["num_questions"], 10)
         self.assertTrue(data["is_published"])
+
+
+class QuizStudentSerializerTests(TestCase):
+    """Test QuizStudentSerializer attempt_status/attempt_id when no request or unauthenticated."""
+
+    def setUp(self):
+        self.course, self.chapter = make_course_and_chapter()
+        self.quiz = make_quiz(
+            self.chapter,
+            title="Student Quiz",
+            num_questions=5,
+            is_published=True,
+        )
+
+    def test_attempt_status_and_id_none_when_no_request_in_context(self):
+        """When context has no request, attempt_status and attempt_id are None (coverage for early return)."""
+        serializer = QuizStudentSerializer(self.quiz, context={})
+        data = serializer.data
+        self.assertIsNone(data["attempt_status"])
+        self.assertIsNone(data["attempt_id"])
+
+    def test_attempt_status_and_id_none_when_user_not_authenticated(self):
+        """When request user is not authenticated, attempt_status and attempt_id are None."""
+        from django.contrib.auth.models import AnonymousUser
+        from rest_framework.request import Request
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = Request(factory.get("/"))
+        request.user = AnonymousUser()
+        serializer = QuizStudentSerializer(self.quiz, context={"request": request})
+        data = serializer.data
+        self.assertIsNone(data["attempt_status"])
+        self.assertIsNone(data["attempt_id"])
 
 
 class AttemptDetailSerializerTests(TestCase):

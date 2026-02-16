@@ -67,7 +67,6 @@ class ChapterListCreateViewTests(TestCase):
         res = self.client.post(
             url,
             data={
-                "course": str(self.course.id),
                 "title": "New Chapter",
                 "order_index": 2,
             },
@@ -75,6 +74,7 @@ class ChapterListCreateViewTests(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.data["title"], "New Chapter")
+        self.assertEqual(str(res.data["course"]), str(self.course.id))
         self.assertTrue(Chapter.objects.filter(title="New Chapter").exists())
 
     def test_create_chapter_as_non_staff_returns_403(self):
@@ -100,6 +100,80 @@ class ChapterListCreateViewTests(TestCase):
         res = self.client.get(url)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
+
+class ChapterDetailViewTests(TestCase):
+    """Test chapter retrieve, update, destroy (staff only)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.course, self.chapter = make_course_and_chapter()
+        self.owner = self.course.owner
+        self.student = User.objects.create_user(
+            email="student@example.com", password="pass123"
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=self.owner, role=CourseRole.OWNER
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=self.student, role=CourseRole.STUDENT
+        )
+
+    def test_retrieve_chapter_as_staff_returns_200(self):
+        """Test that staff can retrieve a chapter."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["id"], self.chapter.id)
+        self.assertEqual(res.data["title"], self.chapter.title)
+
+    def test_retrieve_chapter_as_non_staff_returns_403(self):
+        """Test that non-staff cannot retrieve a chapter."""
+        self.client.force_authenticate(user=self.student)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_chapter_as_staff_returns_200(self):
+        """Test that staff can update a chapter."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        res = self.client.patch(
+            url,
+            data={"title": "Updated Chapter Title", "order_index": 10},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.chapter.refresh_from_db()
+        self.assertEqual(self.chapter.title, "Updated Chapter Title")
+        self.assertEqual(self.chapter.order_index, 10)
+
+    def test_update_chapter_as_non_staff_returns_403(self):
+        """Test that non-staff cannot update a chapter."""
+        self.client.force_authenticate(user=self.student)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        res = self.client.patch(
+            url,
+            data={"title": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_destroy_chapter_as_staff_returns_204(self):
+        """Test that staff can delete a chapter (cascades to questions and quizzes)."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        chapter_id = self.chapter.id
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Chapter.objects.filter(pk=chapter_id).exists())
+
+    def test_destroy_chapter_as_non_staff_returns_403(self):
+        """Test that non-staff cannot delete a chapter."""
+        self.client.force_authenticate(user=self.student)
+        url = reverse("chapter-detail", kwargs={"pk": self.chapter.pk})
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class QuestionListCreateViewTests(TestCase):
@@ -149,7 +223,6 @@ class QuestionListCreateViewTests(TestCase):
         res = self.client.post(
             url,
             data={
-                "chapter": self.chapter.id,
                 "prompt": "What is 2+2?",
                 "choices": ["3", "4", "5", "6"],
                 "correct_index": 1,
@@ -180,6 +253,24 @@ class QuestionListCreateViewTests(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_list_questions_excludes_soft_deleted(self):
+        """Test that soft-deleted (is_active=False) questions do not appear in list."""
+        self.client.force_authenticate(user=self.owner)
+        q1 = make_question(self.chapter, prompt="Visible", correct_index=0)
+        q2 = make_question(self.chapter, prompt="Will be deleted", correct_index=0)
+        q2.is_active = False
+        q2.save(update_fields=["is_active"])
+        url = reverse(
+            "question-list-create",
+            kwargs={"chapter_id": self.chapter.id},
+        )
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = res.data.get("results", res.data) if isinstance(res.data, dict) else res.data
+        ids = [q["id"] for q in results]
+        self.assertIn(q1.id, ids)
+        self.assertNotIn(q2.id, ids)
 
 
 class QuestionDetailViewTests(TestCase):
@@ -287,7 +378,6 @@ class QuizListCreateViewTests(TestCase):
         res = self.client.post(
             url,
             data={
-                "chapter": self.chapter.id,
                 "title": "New Quiz",
                 "num_questions": 5,
             },
@@ -295,6 +385,7 @@ class QuizListCreateViewTests(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.data["title"], "New Quiz")
+        self.assertEqual(res.data["chapter"], self.chapter.id)
         self.assertTrue(Quiz.objects.filter(title="New Quiz").exists())
 
     def test_create_quiz_as_non_staff_returns_403(self):
@@ -422,7 +513,7 @@ class StudentQuizListViewTests(TestCase):
         self.assertIn("Published Quiz", titles)
 
     def test_list_quizzes_includes_nested_chapter_info(self):
-        """Test that each quiz in the list includes chapter as object (id, title, order_index, course)."""
+        """Test that each quiz in the list includes chapter and attempt_status/attempt_id for routing."""
         self.client.force_authenticate(user=self.student)
         url = reverse("quiz-list")
         res = self.client.get(url)
@@ -437,6 +528,25 @@ class StudentQuizListViewTests(TestCase):
         self.assertEqual(chapter["title"], self.chapter.title)
         self.assertEqual(chapter["order_index"], self.chapter.order_index)
         self.assertEqual(str(chapter["course"]), str(self.course.id))
+        self.assertIn("attempt_status", quiz)
+        self.assertIn("attempt_id", quiz)
+        # No attempt yet for this student, so both should be null
+        self.assertIsNone(quiz["attempt_status"])
+        self.assertIsNone(quiz["attempt_id"])
+
+    def test_list_quizzes_includes_attempt_status_and_id_when_student_has_attempt(self):
+        """Test that attempt_status and attempt_id are set when student has an in-progress or completed attempt."""
+        from apps.quizzes.models import AttemptStatus
+
+        attempt = make_attempt(self.student, self.quiz)
+        self.client.force_authenticate(user=self.student)
+        url = reverse("quiz-list")
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = res.data.get("results", res.data) if isinstance(res.data, dict) else res.data
+        quiz = next(q for q in results if q["title"] == "Published Quiz")
+        self.assertEqual(quiz["attempt_status"], AttemptStatus.IN_PROGRESS)
+        self.assertEqual(quiz["attempt_id"], attempt.pk)
 
     def test_list_quizzes_requires_authentication(self):
         """Test that unauthenticated user cannot list quizzes."""
@@ -470,6 +580,23 @@ class AttemptDetailViewTests(TestCase):
         res = self.client.get(url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data["id"], self.attempt.pk)
+        self.assertIn("current_question", res.data)
+
+    def test_retrieve_own_attempt_includes_current_question_when_set(self):
+        """Test that resume payload includes current_question (id, prompt, choices, difficulty) when in progress."""
+        question = make_question(self.chapter, prompt="Resume this question", correct_index=0)
+        self.attempt.current_question = question
+        self.attempt.save(update_fields=["current_question"])
+        self.client.force_authenticate(user=self.student)
+        url = reverse("attempt-detail", kwargs={"pk": self.attempt.pk})
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(res.data["current_question"])
+        self.assertEqual(res.data["current_question"]["id"], question.id)
+        self.assertEqual(res.data["current_question"]["prompt"], "Resume this question")
+        self.assertIn("choices", res.data["current_question"])
+        self.assertIn("difficulty", res.data["current_question"])
+        self.assertNotIn("correct_index", res.data["current_question"])
 
     def test_retrieve_other_attempt_returns_403(self):
         """Test that student cannot retrieve another user's attempt."""

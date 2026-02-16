@@ -81,7 +81,7 @@ jobs:
       - name: Run migrations
         run: poetry run python manage.py migrate --noinput --settings=adaptive_testing.settings.ci
       - name: Run tests
-        run: poetry run pytest --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=html --ds=adaptive_testing.settings.ci
+        run: poetry run pytest -n 4 --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=term-missing --ds=adaptive_testing.settings.ci
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
