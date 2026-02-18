@@ -29,6 +29,14 @@ export const COURSES = {
   REMOVE_MEMBER: (id: string) => `/courses/${id}/members/remove/`,
 } as const;
 
+export const QUIZZES = {
+  LIST: "/quizzes/",
+  DETAIL: (id: number | string) => `/quizzes/${id}/`,
+  START_ATTEMPT: (quizId: number | string) => `/quizzes/${quizId}/attempts/`,
+  ATTEMPT_DETAIL: (attemptId: number | string) => `/attempts/${attemptId}/`,
+  SUBMIT_ANSWER: (attemptId: number | string) => `/attempts/${attemptId}/answer/`,
+} as const;
+
 export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
 
 
