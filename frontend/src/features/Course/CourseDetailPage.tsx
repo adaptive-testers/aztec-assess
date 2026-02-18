@@ -4,11 +4,12 @@ import { useForm } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
 import { FaTrash } from 'react-icons/fa';
 import { FiCopy, FiRefreshCw, FiX } from 'react-icons/fi';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { privateApi } from '../../api/axios';
 import { AUTH, COURSES } from '../../api/endpoints';
 import { Toast } from '../../components/Toast';
+import StudentQuizList from '../StudentQuizzes/StudentQuizList';
 
 interface Course {
   id: string;
@@ -40,11 +41,12 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormFields>();
   const watchedTitle = watch('title');
-  
-  const [activeTab, setActiveTab] = useState<'details' | 'members'>('details');
+
+  const [activeTab, setActiveTab] = useState<'details' | 'quizzes' | 'members'>('details');
   const [course, setCourse] = useState<Course | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -61,6 +63,8 @@ export default function CourseDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+
+  const effectiveCourseId = resolvedCourseId ?? courseId ?? null;
 
   useEffect(() => {
     if (!courseId) return;
@@ -160,6 +164,14 @@ export default function CourseDetailPage() {
     void fetchCourseData();
     void fetchMembers();
   }, [resolvedCourseId, setValue]);
+
+  useEffect(() => {
+    if (!effectiveCourseId) return;
+    const path = location.pathname;
+    if (path.endsWith('/quizzes')) setActiveTab('quizzes');
+    else if (path.endsWith('/members')) setActiveTab('members');
+    else setActiveTab('details');
+  }, [location.pathname, effectiveCourseId]);
 
   useEffect(() => {
     if (currentUserId && members.length > 0) {
@@ -699,7 +711,7 @@ export default function CourseDetailPage() {
       <div className="border-b border-primary-border mb-6">
         <div className="flex gap-8">
           <button
-            onClick={() => setActiveTab('details')}
+            onClick={() => { if (courseId) { navigate(`/courses/${courseId}`); setActiveTab('details'); } }}
             className={`pb-3 px-1 text-sm font-medium tracking-wide transition-colors relative ${
               activeTab === 'details'
                 ? 'text-primary-text'
@@ -712,7 +724,20 @@ export default function CourseDetailPage() {
             )}
           </button>
           <button
-            onClick={() => setActiveTab('members')}
+            onClick={() => { if (courseId) { navigate(`/courses/${courseId}/quizzes`); setActiveTab('quizzes'); } }}
+            className={`pb-3 px-1 text-sm font-medium tracking-wide transition-colors relative ${
+              activeTab === 'quizzes'
+                ? 'text-primary-text'
+                : 'text-secondary-text hover:text-primary-text'
+            }`}
+          >
+            Quizzes
+            {activeTab === 'quizzes' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-accent"></div>
+            )}
+          </button>
+          <button
+            onClick={() => { if (courseId) { navigate(`/courses/${courseId}/members`); setActiveTab('members'); } }}
             className={`pb-3 px-1 text-sm font-medium tracking-wide transition-colors relative ${
               activeTab === 'members'
                 ? 'text-primary-text'
@@ -727,7 +752,11 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
-      {activeTab === 'details' ? (
+      {activeTab === 'quizzes' ? (
+        effectiveCourseId && (
+          <StudentQuizList courseId={resolvedCourseId ?? undefined} />
+        )
+      ) : activeTab === 'details' ? (
         <div className="space-y-6">
           {isLoading ? (
             <>

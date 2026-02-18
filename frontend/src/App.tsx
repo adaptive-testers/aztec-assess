@@ -11,7 +11,6 @@ import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
-import StudentQuizList from "./features/StudentQuizzes/StudentQuizList";
 import StudentQuizLanding from "./features/StudentQuizzes/StudentQuizLanding";
 import StudentQuizQuestions from "./features/StudentQuizzes/StudentQuizQuestions";
 import StudentQuizResults from "./features/StudentQuizzes/StudentQuizResults";
@@ -77,11 +76,9 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
           <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+          <Route path="/courses/:courseId/quizzes" element={<CourseDetailPage />} />
+          <Route path="/courses/:courseId/members" element={<CourseDetailPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
-        </Route>
-        {/* Temporary development route - has sidebar but no auth */}
-        <Route element={<DashboardLayout />}>
-          <Route path="/student-quizzes" element={<StudentQuizList />} />
           <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
           <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
           <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
