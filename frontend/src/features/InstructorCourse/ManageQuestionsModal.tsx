@@ -2,9 +2,9 @@
 import * as React from "react";
 import {
   FiChevronDown,
+  FiEdit2,
   FiFilter,
   FiSliders,
-  FiTrash2,
   FiX,
 } from "react-icons/fi";
 
@@ -25,13 +25,17 @@ export interface ManageQuestionItem {
   difficulty: Difficulty;
   prompt: string;
   choices?: ManageQuestionChoice[];
+  /** Created_by (user id), created_at (ISO), is_active */
+  created_by?: number;
+  created_at?: string;
+  is_active?: boolean;
 }
 
 export interface ManageQuestionsModalProps {
   open: boolean;
   onClose: () => void;
 
-  /** Questions from API (chapter question bank) */
+  /** Questions from API  */
   questions?: ManageQuestionItem[];
   loading?: boolean;
   error?: string | null;
@@ -42,9 +46,35 @@ export interface ManageQuestionsModalProps {
     choices: string[];
     correctIndex: number;
     difficulty: string;
+    is_active?: boolean;
   }) => void | Promise<void>;
+  /** Update question (Guide §2.4): PATCH when saving in edit mode */
+  onUpdateQuestion?: (
+    questionId: number,
+    data: {
+      prompt: string;
+      choices: string[];
+      correctIndex: number;
+      difficulty: string;
+      is_active?: boolean;
+    },
+  ) => void | Promise<void>;
   /** Delete question by ID (API soft-delete) */
   onDeleteQuestion?: (questionId: number) => void | Promise<void>;
+
+  /** When set, open Create Question modal in edit mode */
+  editingQuestion?: {
+    id: number;
+    prompt: string;
+    choices: string[];
+    correct_index: number;
+    difficulty: string;
+    is_active?: boolean;
+  } | null;
+  /** Edit question: parent fetches GET question then sets editingQuestion */
+  onEditQuestion?: (questionId: number) => void | Promise<void>;
+  /** Called when Create Question modal closes so parent can clear editingQuestion */
+  onCloseCreateQuestion?: () => void;
 
   // Not in API – buttons left unclickable
   onCreateQuestion?: () => void;
@@ -76,14 +106,32 @@ function labelForDifficulty(d: Difficulty) {
   return "Hard";
 }
 
+function formatQuestionDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function ManageQuestionsModal({
   open,
   onClose,
   questions = [],
   loading = false,
   error: questionsError = null,
+  editingQuestion = null,
   onSaveQuestion,
+  onUpdateQuestion,
   onDeleteQuestion,
+  onEditQuestion,
+  onCloseCreateQuestion,
   onCreateQuestion,
 }: ManageQuestionsModalProps) {
   const items = questions;
@@ -96,6 +144,11 @@ export default function ManageQuestionsModal({
   React.useEffect(() => {
     if (open) setExpandedId(null);
   }, [open]);
+
+  // When parent sets editingQuestion, open Create Question modal in edit mode (Guide §2.3).
+  React.useEffect(() => {
+    if (editingQuestion) setCreateQuestionOpen(true);
+  }, [editingQuestion]);
 
   if (!open) return null;
 
@@ -217,24 +270,42 @@ export default function ManageQuestionsModal({
                                   >
                                     {labelForDifficulty(q.difficulty)}
                                   </span>
+                                  {q.is_active === false && (
+                                    <span className="inline-flex h-[26px] items-center rounded-[4px] px-2 text-[12px] font-medium leading-[18px] bg-[#404040]/50 text-[#A1A1AA]">
+                                      Inactive
+                                    </span>
+                                  )}
                                 </div>
 
                                 <p className="mt-2 truncate text-[14px] font-normal leading-[23px] tracking-[-0.1504px] text-[#F1F5F9] sm:whitespace-normal">
                                   {q.prompt}
                                 </p>
+                                {(q.created_by != null || q.created_at) && (
+                                  <p className="mt-1.5 text-[12px] leading-[18px] text-[#71717A]">
+                                    {q.created_at && (
+                                      <span>
+                                        Created {formatQuestionDate(q.created_at)}
+                                      </span>
+                                    )}
+                                    {q.created_by != null && q.created_at && " · "}
+                                    {q.created_by != null && (
+                                      <span>By user #{q.created_by}</span>
+                                    )}
+                                  </p>
+                                )}
                               </div>
 
                               {/* Right actions  */}
-                              <div className="flex flex-col gap-1">
+                              <div className="flex flex-col gap-3">
                                 <button
                                   type="button"
-                                  aria-label="Delete question"
+                                  aria-label="Edit question"
                                   onClick={() =>
-                                    onDeleteQuestion?.(Number(q.id))
+                                    onEditQuestion?.(Number(q.id))
                                   }
                                   className="grid h-8 w-8 place-items-center rounded-[6px] hover:bg-[#202020]"
                                 >
-                                  <FiTrash2 className="h-4 w-4 text-[#F87171]" />
+                                  <FiEdit2 className="h-4 w-4 text-[#A1A1AA]" />
                                 </button>
 
                                 <button
@@ -314,15 +385,56 @@ export default function ManageQuestionsModal({
         </div>
       </div>
 
-      {/* Create Question modal (opens on top; backdrop closes only this modal) */}
+      {/* Create Question modal (opens on top; backdrop closes only this modal). Edit mode when editingQuestion is set. */}
       <CreateQuestionModal
-        key={createQuestionOpen ? "open" : "closed"}
+        key={
+          createQuestionOpen
+            ? editingQuestion
+              ? `edit-${editingQuestion.id}`
+              : "new"
+            : "closed"
+        }
         open={createQuestionOpen}
-        onClose={() => setCreateQuestionOpen(false)}
-        onSave={async (data) => {
-          await onSaveQuestion?.(data);
+        onClose={() => {
           setCreateQuestionOpen(false);
+          onCloseCreateQuestion?.();
         }}
+        editQuestionId={editingQuestion?.id}
+        initialValue={
+          editingQuestion
+            ? {
+                prompt: editingQuestion.prompt,
+                choices:
+                  editingQuestion.choices?.length === 4
+                    ? editingQuestion.choices
+                    : [...(editingQuestion.choices ?? []).slice(0, 4), "", "", ""].slice(0, 4),
+                correctIndex: Math.max(
+                  0,
+                  Math.min(3, editingQuestion.correct_index ?? 0),
+                ),
+                difficulty: (editingQuestion.difficulty ?? "MEDIUM").toLowerCase() as "easy" | "medium" | "hard",
+                is_active: editingQuestion.is_active ?? true,
+              }
+            : undefined
+        }
+        onSave={async (data, editId) => {
+          if (editId != null && onUpdateQuestion) {
+            await onUpdateQuestion(editId, data);
+          } else {
+            await onSaveQuestion?.(data);
+          }
+          setCreateQuestionOpen(false);
+          onCloseCreateQuestion?.();
+        }}
+        onDelete={
+          onDeleteQuestion && editingQuestion
+            ? async (questionId) => {
+                await onDeleteQuestion(questionId);
+                setCreateQuestionOpen(false);
+                onCloseCreateQuestion?.();
+              }
+            : undefined
+        }
       />
     </div>
   );
