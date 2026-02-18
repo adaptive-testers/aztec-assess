@@ -16,7 +16,7 @@ import { privateApi } from "../../api/axios";
 import { COURSES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
-import AddChapterModal from "./CreateChapterModal";
+import CreateChapterModal from "./CreateChapterModal";
 import CreateQuizModal, { type CreateQuizPayload } from "./CreateQuizModal";
 import DraftQuizzesModal, { type DraftQuiz } from "./DraftQuizzesModal";
 import ManageQuestionsModal, {
@@ -27,8 +27,10 @@ import ManageQuestionsModal, {
 // TYPES
 // =============================================================================
 
+/** Chapter shape (List/Create Chapters) */
 interface Chapter {
   id: number;
+  course?: string;
   title: string;
   order_index: number | null;
 }
@@ -71,18 +73,14 @@ interface UiQuiz {
 // API & HELPERS
 // =============================================================================
 
-const QUIZZES_BASE = "/api/quizzes";
-
 function endpoints(courseId: string) {
   return {
-    chapters: `${QUIZZES_BASE}/courses/${courseId}/chapters/`,
-    chapterQuizzes: (chapterId: number) =>
-      `${QUIZZES_BASE}/chapters/${chapterId}/quizzes/`,
-    chapterQuestions: (chapterId: number) =>
-      `${QUIZZES_BASE}/chapters/${chapterId}/questions/`,
-    quiz: (quizId: number) => `${QUIZZES_BASE}/quizzes/${quizId}/`,
-    question: (questionId: number) =>
-      `${QUIZZES_BASE}/questions/${questionId}/`,
+    chapters: `/courses/${courseId}/chapters/`,
+    chapterDetail: (chapterId: number) => `/chapters/${chapterId}/`,
+    chapterQuizzes: (chapterId: number) => `/chapters/${chapterId}/quizzes/`,
+    chapterQuestions: (chapterId: number) =>`/chapters/${chapterId}/questions/`,
+    quiz: (quizId: number) => `/quizzes/${quizId}/`,
+    question: (questionId: number) => `/questions/${questionId}/`,
   };
 }
 
@@ -91,6 +89,25 @@ function humanDate(iso?: string | null) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString();
+}
+
+/** Format API error per guide: 400 field-level (field_name: ["msg"]), 403/404 detail, or fallback. */
+function formatApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof axios.AxiosError)) return fallback;
+  const data = err.response?.data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const d = data as Record<string, unknown>;
+    if (typeof d.detail === "string") return d.detail;
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(d)) {
+      if (key === "detail") continue;
+      if (Array.isArray(value) && value.every((v) => typeof v === "string"))
+        parts.push(`${key}: ${(value as string[]).join(" ")}`);
+      else if (typeof value === "string") parts.push(`${key}: ${value}`);
+    }
+    if (parts.length > 0) return parts.join("; ");
+  }
+  return (err.response?.data as { message?: string })?.message ?? err.message ?? fallback;
 }
 
 function toUiQuiz(q: ApiQuiz): UiQuiz {
@@ -120,6 +137,9 @@ function apiQuestionToManageItem(q: ApiQuestion): ManageQuestionItem {
     difficulty,
     prompt: q.prompt,
     choices,
+    created_by: q.created_by,
+    created_at: q.created_at,
+    is_active: q.is_active,
   };
 }
 
@@ -137,11 +157,13 @@ function ChapterSelector({
   value,
   onChange,
   onAddChapter,
+  onEditChapter,
 }: {
   chapters: Chapter[];
   value: number | null;
   onChange: (chapterId: number) => void;
   onAddChapter?: () => void;
+  onEditChapter?: (chapter: Chapter) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -170,7 +192,7 @@ function ChapterSelector({
   }, [open]);
 
   return (
-    <div ref={wrapperRef} className="relative w-full max-w-[280px]">
+    <div ref={wrapperRef} className="relative w-full max-w-[420px]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -197,22 +219,38 @@ function ChapterSelector({
               chapters.map((c) => {
                 const isActive = c.id === active?.id;
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    type="button"
                     role="option"
                     aria-selected={isActive}
-                    onClick={() => {
-                      onChange(c.id);
-                      setOpen(false);
-                    }}
                     className={
-                      "flex h-[41px] w-full items-center px-4 text-left text-[14px] leading-[21px] text-[#F1F5F9] hover:bg-[#151515]" +
+                      "flex h-[41px] w-full items-center justify-between gap-2 px-4 text-[14px] leading-[21px] text-[#F1F5F9] hover:bg-[#151515]" +
                       (isActive ? " bg-[#151515]" : "")
                     }
                   >
-                    {chapterLabel(c)}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange(c.id);
+                        setOpen(false);
+                      }}
+                      className="min-w-0 flex-1 truncate text-left"
+                    >
+                      {chapterLabel(c)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(false);
+                        onEditChapter?.(c);
+                      }}
+                      aria-label="Edit chapter"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-[6px] text-[#A1A1AA] hover:bg-[#202020]"
+                    >
+                      <FiEdit2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 );
               })
             ) : (
@@ -276,7 +314,7 @@ function RowAction({
 // MOCK DATA SECTION - REMOVE BEFORE DEPLOYMENT
 // =============================================================================
 // Set to true to use mock data instead of API calls
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 const MOCK_CHAPTERS: Chapter[] = [
   { id: 1, title: "Introduction to React", order_index: 1 },
@@ -387,7 +425,9 @@ export default function Quiz() {
   const { courseId = "" } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { accessToken, setAccessToken, checkingRefresh } = useAuth();
-  const api = useMemo(() => endpoints(courseId), [courseId]);
+
+  const effectiveCourseId = courseId || null;
+  const api = useMemo(() => endpoints(effectiveCourseId ?? ""), [effectiveCourseId]);
 
   // ---------- PAGE STATE (chapters, quizzes, loading) ----------
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -418,9 +458,14 @@ export default function Quiz() {
   const [chapterQuestionsError, setChapterQuestionsError] = useState<
     string | null
   >(null);
+  /** When set, Create Question modal opens in edit mode (Guide §2.3 + §2.4). */
+  const [editingQuestion, setEditingQuestion] = useState<ApiQuestion | null>(
+    null,
+  );
 
   // ---------- ADD CHAPTER MODAL ----------
   const [addChapterOpen, setAddChapterOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
 
   // ---------- DERIVED DATA ----------
   const manageQuestionItems: ManageQuestionItem[] = useMemo(
@@ -457,14 +502,14 @@ export default function Quiz() {
 
   // ---------- COURSE TITLE (for header) ----------
   useEffect(() => {
-    if (!courseId) {
+    if (!effectiveCourseId) {
       setCourseTitle(null);
       return;
     }
 
     const fetchCourseTitle = async () => {
       try {
-        const response = await privateApi.get(COURSES.DETAIL(courseId));
+        const response = await privateApi.get(COURSES.DETAIL(effectiveCourseId));
         const title = response.data?.title ?? null;
         setCourseTitle(title);
       } catch {
@@ -473,11 +518,11 @@ export default function Quiz() {
     };
 
     void fetchCourseTitle();
-  }, [courseId]);
+  }, [effectiveCourseId]);
 
   // ---------- API: FETCH QUIZZES (used by page + Drafts modal) ----------
   const fetchAllQuizzes = useCallback(async () => {
-    if (!courseId) return;
+    if (!effectiveCourseId) return;
     setLoading(true);
     setError(null);
     try {
@@ -509,17 +554,11 @@ export default function Quiz() {
       combined.sort((a, b) => b.id - a.id);
       setQuizzes(combined);
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to load quizzes.";
-      setError(message);
+      setError(formatApiError(err, "Failed to load quizzes."));
     } finally {
       setLoading(false);
     }
-  }, [courseId, api, activeChapterId]);
+  }, [effectiveCourseId, api, activeChapterId]);
 
   // ---------- EFFECTS ----------
   useEffect(() => {
@@ -578,13 +617,9 @@ export default function Quiz() {
         const list = Array.isArray(res.data) ? res.data : [];
         setChapterQuestions(list);
       } catch (err) {
-        const message =
-          err instanceof axios.AxiosError
-            ? err.response?.data?.detail ||
-              err.response?.data?.message ||
-              err.message
-            : "Failed to load questions.";
-        setChapterQuestionsError(message);
+        setChapterQuestionsError(
+          formatApiError(err, "Failed to load questions."),
+        );
         setChapterQuestions([]);
       } finally {
         setChapterQuestionsLoading(false);
@@ -604,23 +639,109 @@ export default function Quiz() {
     }
   }, [activeChapterId, fetchChapterQuestions]);
 
-  // ---------- API: CREATE CHAPTER (Add Chapter in selector) ----------
+  // ---------- API: CHAPTERS ----------
   async function createChapter(title: string, orderIndex?: number | null) {
-    if (!courseId) return;
+    if (!effectiveCourseId) return;
     try {
+      // Server sets from URL /courses/<course_id>/chapters/
       await privateApi.post(api.chapters, {
         title: title.trim(),
         order_index: orderIndex ?? null,
       });
       await fetchAllQuizzes();
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to create chapter.";
-      setError(message);
+      setError(formatApiError(err, "Failed to create chapter."));
+    }
+  }
+
+  async function updateChapter(
+    chapterId: number,
+    data: { title: string; order_index?: number | null },
+  ) {
+    try {
+      if (USE_MOCK_DATA) {
+        setChapters((prev) =>
+          prev.map((c) =>
+            c.id === chapterId
+              ? {
+                  ...c,
+                  title: data.title.trim(),
+                  order_index: data.order_index ?? c.order_index,
+                }
+              : c,
+          ),
+        );
+        setAddChapterOpen(false);
+        setEditingChapter(null);
+        return;
+      }
+      await privateApi.patch(api.chapterDetail(chapterId), {
+        title: data.title.trim(),
+        order_index: data.order_index ?? null,
+      });
+      await fetchAllQuizzes();
+      setAddChapterOpen(false);
+      setEditingChapter(null);
+    } catch (err) {
+      setError(formatApiError(err, "Failed to update chapter."));
+    }
+  }
+
+  async function deleteChapter(chapterId: number) {
+    try {
+      if (USE_MOCK_DATA) {
+        const remaining = chapters.filter((c) => c.id !== chapterId);
+        setChapters(remaining);
+        if (activeChapterId === chapterId) {
+          setActiveChapterId(remaining[0]?.id ?? null);
+        }
+        setAddChapterOpen(false);
+        setEditingChapter(null);
+        return;
+      }
+      await privateApi.delete(api.chapterDetail(chapterId));
+      if (activeChapterId === chapterId) {
+        const remaining = chapters.filter((c) => c.id !== chapterId);
+        setActiveChapterId(remaining[0]?.id ?? null);
+      }
+      await fetchAllQuizzes();
+      setAddChapterOpen(false);
+      setEditingChapter(null);
+    } catch (err) {
+      setError(formatApiError(err, "Failed to delete chapter."));
+    }
+  }
+
+  /** Fetch single chapter by ID then open edit modal (keeps form in sync with server). */
+  async function openEditChapterModal(chapterId: number) {
+    setError(null);
+    if (USE_MOCK_DATA) {
+      const mockChapter = MOCK_CHAPTERS.find((c) => c.id === chapterId);
+      if (mockChapter) {
+        setEditingChapter(mockChapter);
+        setAddChapterOpen(true);
+      } else {
+        setError("Chapter not found in mock data.");
+      }
+      return;
+    }
+    try {
+      const res = await privateApi.get<{
+        id: number;
+        course?: string;
+        title: string;
+        order_index: number | null;
+      }>(api.chapterDetail(chapterId));
+      const data = res.data;
+      setEditingChapter({
+        id: data.id,
+        title: data.title,
+        order_index: data.order_index ?? null,
+        course: data.course,
+      });
+      setAddChapterOpen(true);
+    } catch (err) {
+      setError(formatApiError(err, "Failed to load chapter."));
     }
   }
 
@@ -632,11 +753,49 @@ export default function Quiz() {
     setCreateOpen(true);
   }
 
-  function openEditDraftFromRow(q: UiQuiz) {
+  /** Fetch single quiz by ID then open edit modal (keeps form in sync with server). */
+  async function openEditQuizModal(quizId: number) {
     setModalError(null);
-    setEditingDraftId(q.id);
-    setInitialValues({ title: q.title, num_questions: 10 });
-    setCreateOpen(true);
+
+    // MOCK DATA: open edit modal from in-memory quiz (no API call)
+    if (USE_MOCK_DATA) {
+      const mockQuiz = MOCK_QUIZZES.find((q) => q.id === quizId);
+      if (mockQuiz) {
+        setEditingDraftId(quizId);
+        setInitialValues({
+          title: mockQuiz.title,
+          num_questions: mockQuiz.num_questions ?? 10,
+          adaptive_enabled: mockQuiz.adaptive_enabled ?? true,
+          selection_mode: mockQuiz.selection_mode ?? "BANK",
+          is_published: mockQuiz.is_published,
+        });
+        setCreateOpen(true);
+      } else {
+        setModalError("Quiz not found in mock data.");
+      }
+      return;
+    }
+
+    try {
+      const res = await privateApi.get<ApiQuiz>(api.quiz(quizId));
+      const data = res.data;
+      setEditingDraftId(quizId);
+      setInitialValues({
+        title: data.title,
+        num_questions: data.num_questions ?? 10,
+        adaptive_enabled: data.adaptive_enabled ?? true,
+        selection_mode: data.selection_mode ?? "BANK",
+        is_published: data.is_published,
+      });
+      setCreateOpen(true);
+    } catch (err) {
+      setModalError(formatApiError(err, "Failed to load quiz."));
+    }
+  }
+
+  async function handleEditDraft(draft: DraftQuiz) {
+    setDraftsOpen(false);
+    await openEditQuizModal(Number(draft.id));
   }
 
   async function handlePrimaryAction(payload: CreateQuizPayload) {
@@ -647,12 +806,14 @@ export default function Quiz() {
     setModalSubmitting(true);
     setModalError(null);
     try {
+      // Title (required), adaptive_enabled, selection_mode (BANK|FIXED), num_questions, is_published. Do not send chapter in body; server sets from URL.
       const body = {
         title: payload.title.trim(),
-        adaptive_enabled: true,
-        selection_mode: "BANK" as const,
+        adaptive_enabled: payload.adaptive_enabled ?? true,
+        selection_mode: payload.selection_mode ?? "BANK",
         num_questions: payload.num_questions ?? 10,
-        is_published: editingDraftId ? false : true,
+        is_published:
+          payload.is_published ?? (editingDraftId ? false : true),
       };
       if (editingDraftId) {
         await privateApi.patch(api.quiz(editingDraftId), body);
@@ -662,48 +823,7 @@ export default function Quiz() {
       setCreateOpen(false);
       await fetchAllQuizzes();
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to save quiz.";
-      setModalError(message);
-    } finally {
-      setModalSubmitting(false);
-    }
-  }
-
-  async function handleSaveDraft(payload: CreateQuizPayload) {
-    if (!activeChapterId && editingDraftId === null) {
-      setModalError("No chapter found for this course.");
-      return;
-    }
-    setModalSubmitting(true);
-    setModalError(null);
-    try {
-      const body = {
-        title: payload.title.trim(),
-        adaptive_enabled: true,
-        selection_mode: "BANK" as const,
-        num_questions: payload.num_questions ?? 10,
-        is_published: false,
-      };
-      if (editingDraftId) {
-        await privateApi.patch(api.quiz(editingDraftId), body);
-      } else {
-        await privateApi.post(api.chapterQuizzes(activeChapterId!), body);
-      }
-      setCreateOpen(false);
-      await fetchAllQuizzes();
-    } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to save draft.";
-      setModalError(message);
+      setModalError(formatApiError(err, "Failed to save quiz."));
     } finally {
       setModalSubmitting(false);
     }
@@ -714,26 +834,13 @@ export default function Quiz() {
     setDraftsOpen(false);
   }
 
-  function handleEditDraft(draft: DraftQuiz) {
-    const match = quizzes.find((q) => String(q.id) === draft.id);
-    if (!match) return;
-    setDraftsOpen(false);
-    openEditDraftFromRow(match);
-  }
-
   async function handleDeleteDraft(draftId: string) {
     setDraftsError(null);
     try {
       await privateApi.delete(api.quiz(Number(draftId)));
       setQuizzes((prev) => prev.filter((q) => String(q.id) !== draftId));
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to delete draft.";
-      setDraftsError(message);
+      setDraftsError(formatApiError(err, "Failed to delete draft."));
     }
   }
 
@@ -754,6 +861,7 @@ export default function Quiz() {
     choices: string[];
     correctIndex: number;
     difficulty: string;
+    is_active?: boolean;
   }) {
     if (!activeChapterId) return;
     const difficulty =
@@ -762,24 +870,23 @@ export default function Quiz() {
         : data.difficulty.toUpperCase() === "HARD"
           ? "HARD"
           : "MEDIUM";
+    // Choices = array of exactly 4 strings; correct_index 0–3; difficulty EASY|MEDIUM|HARD; is_active optional (default true).
+    const choices = [...data.choices.slice(0, 4)];
+    while (choices.length < 4) choices.push("");
     const body = {
       prompt: data.prompt.trim(),
-      choices: data.choices.slice(0, 4),
-      correct_index: data.correctIndex,
+      choices,
+      correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
-      is_active: true,
+      is_active: data.is_active ?? true,
     };
     try {
       await privateApi.post(api.chapterQuestions(activeChapterId), body);
       await fetchChapterQuestions(activeChapterId);
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to create question.";
-      setChapterQuestionsError(message);
+      setChapterQuestionsError(
+        formatApiError(err, "Failed to create question."),
+      );
     }
   }
 
@@ -788,13 +895,71 @@ export default function Quiz() {
       await privateApi.delete(api.question(questionId));
       if (activeChapterId) await fetchChapterQuestions(activeChapterId);
     } catch (err) {
-      const message =
-        err instanceof axios.AxiosError
-          ? err.response?.data?.detail ||
-            err.response?.data?.message ||
-            err.message
-          : "Failed to delete question.";
-      setChapterQuestionsError(message);
+      setChapterQuestionsError(
+        formatApiError(err, "Failed to delete question."),
+      );
+    }
+  }
+
+  /** Fetch single question by ID, then open Create Question modal in edit mode. */
+  async function handleEditQuestion(questionId: number) {
+    setChapterQuestionsError(null);
+
+    // MOCK DATA: open edit modal from in-memory question (no API call)
+    if (USE_MOCK_DATA) {
+      const mockQuestion = MOCK_QUESTIONS.find((q) => q.id === questionId);
+      if (mockQuestion) {
+        setEditingQuestion(mockQuestion);
+      } else {
+        setChapterQuestionsError("Question not found in mock data.");
+      }
+      return;
+    }
+
+    try {
+      const res = await privateApi.get<ApiQuestion>(api.question(questionId));
+      setEditingQuestion(res.data);
+    } catch (err) {
+      setChapterQuestionsError(
+        formatApiError(err, "Failed to load question."),
+      );
+    }
+  }
+
+  /** PATCH question (same body shape as create). */
+  async function handleUpdateQuestion(
+    questionId: number,
+    data: {
+      prompt: string;
+      choices: string[];
+      correctIndex: number;
+      difficulty: string;
+      is_active?: boolean;
+    },
+  ) {
+    const difficulty =
+      data.difficulty.toUpperCase() === "EASY"
+        ? "EASY"
+        : data.difficulty.toUpperCase() === "HARD"
+          ? "HARD"
+          : "MEDIUM";
+    const choices = [...data.choices.slice(0, 4)];
+    while (choices.length < 4) choices.push("");
+    const body = {
+      prompt: data.prompt.trim(),
+      choices,
+      correct_index: Math.max(0, Math.min(3, data.correctIndex)),
+      difficulty,
+      is_active: data.is_active ?? true,
+    };
+    try {
+      await privateApi.patch(api.question(questionId), body);
+      if (activeChapterId) await fetchChapterQuestions(activeChapterId);
+      setEditingQuestion(null);
+    } catch (err) {
+      setChapterQuestionsError(
+        formatApiError(err, "Failed to update question."),
+      );
     }
   }
 
@@ -840,8 +1005,8 @@ export default function Quiz() {
             <button
               type="button"
               onClick={() => {
-                if (courseId) {
-                  navigate(`/courses/${courseId}/settings`);
+                if (effectiveCourseId) {
+                  navigate(`/courses/${effectiveCourseId}/settings`);
                 }
               }}
               className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
@@ -869,7 +1034,11 @@ export default function Quiz() {
               value={activeChapterId}
               onChange={(chapterId) => setActiveChapterId(chapterId)}
               onAddChapter={() => {
+                setEditingChapter(null);
                 setAddChapterOpen(true);
+              }}
+              onEditChapter={(chapter) => {
+                void openEditChapterModal(chapter.id);
               }}
             />
           </div>
@@ -889,7 +1058,7 @@ export default function Quiz() {
         {/* Question Bank */}
         <div className="mt-6 rounded-xl border border-[#404040] bg-[#1A1A1A] p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.3)] sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-[18px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">
+            <h3 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">
               Question Bank
             </h3>
             <button
@@ -901,8 +1070,8 @@ export default function Quiz() {
             </button>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[20px] font-normal leading-[30px] tracking-[-0.1504px] text-[#F87171]">
-              {questionBankCounts.total} multiple choice questions available
+            <div className="text-[18px] font-normal leading-[24px] tracking-[-0.1504px] text-[#F87171]">
+              {questionBankCounts.total} questions available
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
               <div
@@ -983,7 +1152,7 @@ export default function Quiz() {
                       </div>
                     </div>
                     <RowAction
-                      onEdit={() => openEditDraftFromRow(q)}
+                      onEdit={() => openEditQuizModal(q.id)}
                       onView={() => undefined}
                     />
                   </div>
@@ -997,14 +1166,12 @@ export default function Quiz() {
         <CreateQuizModal
           isOpen={createOpen}
           onClose={() => setCreateOpen(false)}
-          mode={editingDraftId ? "edit" : "create"}
+          mode={editingDraftId !== null ? "edit" : "create"}
           initialValues={initialValues}
           isSubmitting={modalSubmitting}
           apiError={modalError}
-          primaryLabel={editingDraftId ? "Save Changes" : "Create Quiz"}
-          saveDraftLabel="Save Draft"
+          primaryLabel={editingDraftId !== null ? "Save Changes" : "Create Quiz"}
           onPrimaryAction={handlePrimaryAction}
-          onSaveDraft={handleSaveDraft}
         />
         <DraftQuizzesModal
           isOpen={draftsOpen}
@@ -1017,22 +1184,51 @@ export default function Quiz() {
         />
         <ManageQuestionsModal
           open={manageQuestionsOpen}
-          onClose={() => setManageQuestionsOpen(false)}
+          onClose={() => {
+            setManageQuestionsOpen(false);
+            setEditingQuestion(null);
+          }}
           questions={manageQuestionItems}
           loading={chapterQuestionsLoading}
           error={chapterQuestionsError}
-          onDeleteQuestion={handleDeleteQuestion}
+          editingQuestion={editingQuestion}
+          onEditQuestion={handleEditQuestion}
           onSaveQuestion={handleCreateQuestion}
+          onUpdateQuestion={handleUpdateQuestion}
+          onDeleteQuestion={handleDeleteQuestion}
+          onCloseCreateQuestion={() => setEditingQuestion(null)}
         />
         {addChapterOpen && (
-          <AddChapterModal
-            title="Add Chapter"
-            onClose={() => setAddChapterOpen(false)}
-            onCancel={() => setAddChapterOpen(false)}
-            onAdd={async (chapterTitle) => {
-              await createChapter(chapterTitle);
+          <CreateChapterModal
+            key={editingChapter ? `edit-${editingChapter.id}` : "create"}
+            mode={editingChapter ? "edit" : "create"}
+            editChapterId={editingChapter?.id}
+            initialValues={
+              editingChapter
+                ? {
+                    title: editingChapter.title,
+                    order_index: editingChapter.order_index ?? undefined,
+                  }
+                : undefined
+            }
+            onClose={() => {
               setAddChapterOpen(false);
+              setEditingChapter(null);
             }}
+            onCancel={() => {
+              setAddChapterOpen(false);
+              setEditingChapter(null);
+            }}
+            onAdd={async (chapterTitle, order_index) => {
+              await createChapter(
+                chapterTitle,
+                order_index ?? (chapters.length + 1),
+              );
+              setAddChapterOpen(false);
+              setEditingChapter(null);
+            }}
+            onUpdate={updateChapter}
+            onDelete={editingChapter ? deleteChapter : undefined}
           />
         )}
       </div>

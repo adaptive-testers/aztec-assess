@@ -8,13 +8,22 @@ export interface CreateQuestionFormState {
   choices: string[];
   correctIndex: number;
   difficulty: QuestionDifficulty;
+  /** (optional, defaults to true) */
+  is_active: boolean;
 }
 
 export interface CreateQuestionModalProps {
   open: boolean;
   onClose: () => void;
-  onSave?: (data: CreateQuestionFormState) => void | Promise<void>;
+  onSave?: (
+    data: CreateQuestionFormState,
+    editQuestionId?: number,
+  ) => void | Promise<void>;
   initialValue?: Partial<CreateQuestionFormState>;
+  /** When set, modal is in edit mode; onSave will be called with this id. */
+  editQuestionId?: number;
+  /** When in edit mode, called when user clicks Delete; parent should delete then close/clear. */
+  onDelete?: (questionId: number) => void | Promise<void>;
 }
 
 function clampIndex(value: number, max: number) {
@@ -27,6 +36,8 @@ export default function CreateQuestionModal({
   onClose,
   onSave,
   initialValue,
+  editQuestionId,
+  onDelete,
 }: CreateQuestionModalProps) {
   const [prompt, setPrompt] = useState(initialValue?.prompt ?? "");
   const [choices, setChoices] = useState<string[]>(
@@ -38,12 +49,16 @@ export default function CreateQuestionModal({
   const [difficulty, setDifficulty] = useState<QuestionDifficulty>(
     initialValue?.difficulty ?? "easy",
   );
+  const [isActive, setIsActive] = useState(
+    initialValue?.is_active ?? true,
+  );
+  const isEditMode = editQuestionId != null;
 
   const firstFieldRef = useRef<HTMLTextAreaElement | null>(null);
 
   const state: CreateQuestionFormState = useMemo(
-    () => ({ prompt, choices, correctIndex, difficulty }),
-    [prompt, choices, correctIndex, difficulty],
+    () => ({ prompt, choices, correctIndex, difficulty, is_active: isActive }),
+    [prompt, choices, correctIndex, difficulty, isActive],
   );
 
   useEffect(() => {
@@ -92,7 +107,7 @@ export default function CreateQuestionModal({
 
   const submit = async () => {
     if (!onSave) return;
-    await onSave(state);
+    await onSave(state, editQuestionId);
   };
 
   return (
@@ -112,7 +127,7 @@ export default function CreateQuestionModal({
         {/* Header */}
         <div className="flex h-[75px] items-center justify-between border-b border-[#404040] px-6">
           <h2 className="text-[20px] font-medium leading-[30px] tracking-[-0.4492px] text-[#F1F5F9]">
-            Create Question
+            {isEditMode ? "Edit Question" : "Create Question"}
           </h2>
 
           <button
@@ -209,11 +224,40 @@ export default function CreateQuestionModal({
                 {difficultyButton("hard", "Hard")}
               </div>
             </div>
+
+            {/* Active (Guide: is_active, optional, default true) */}
+            <div className="flex flex-col gap-2">
+              <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
+                Status
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="h-4 w-4 rounded border-[#404040] bg-[#262626] text-[#F87171] focus:ring-[#F87171]"
+                />
+                <span className="text-[14px] leading-[21px] text-[#F1F5F9]">
+                  Active (included in question bank)
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex h-[88px] items-start justify-end gap-3 border-t border-[#404040] px-6 pt-6">
+          {isEditMode && onDelete && editQuestionId != null ? (
+            <button
+              type="button"
+              onClick={async () => {
+                await onDelete(editQuestionId);
+              }}
+              className="h-[39px] rounded-[6px] border border-[#F87171] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#F87171] hover:bg-[#F87171]/10"
+            >
+              Delete
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
@@ -227,7 +271,7 @@ export default function CreateQuestionModal({
             onClick={submit}
             className="h-[39px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-[#0A0A0A] hover:brightness-95"
           >
-            Save Question
+            {isEditMode ? "Update" : "Create"}
           </button>
         </div>
       </div>
