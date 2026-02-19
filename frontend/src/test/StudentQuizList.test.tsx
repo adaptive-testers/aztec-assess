@@ -121,6 +121,7 @@ describe("StudentQuizList", () => {
 
   describe("Loading State", () => {
     it("should display loading skeletons while fetching quizzes", () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.get.mockReturnValue(new Promise(() => {})); // Never resolves
       
       render(<StudentQuizList />);

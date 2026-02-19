@@ -89,6 +89,7 @@ describe("StudentQuizQuestions", () => {
 
   describe("Loading State", () => {
     it("should display loading skeleton while fetching attempt state", () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.get.mockReturnValue(new Promise(() => {})); // Never resolves
       
       render(<StudentQuizQuestions />);
@@ -302,6 +303,7 @@ describe("StudentQuizQuestions", () => {
     it("should display submitting state while posting answer", async () => {
       const user = userEvent.setup();
       api.get.mockResolvedValue({ data: mockAttemptState });
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.post.mockReturnValue(new Promise(() => {})); // Never resolves
       
       render(<StudentQuizQuestions />);
@@ -670,6 +672,7 @@ describe("StudentQuizQuestions", () => {
     it("should disable answer choices while submitting", async () => {
       const user = userEvent.setup();
       api.get.mockResolvedValue({ data: mockAttemptState });
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.post.mockReturnValue(new Promise(() => {})); // Never resolves
       
       render(<StudentQuizQuestions />);

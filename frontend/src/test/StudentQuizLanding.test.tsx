@@ -86,6 +86,7 @@ describe("StudentQuizLanding", () => {
 
   describe("Loading State", () => {
     it("should display loading skeleton while fetching quiz details", () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.get.mockReturnValue(new Promise(() => {})); // Never resolves
       
       render(<StudentQuizLanding />);
@@ -335,6 +336,7 @@ describe("StudentQuizLanding", () => {
 
     it("should display 'Starting...' and disable button while starting", async () => {
       api.get.mockResolvedValue({ data: mockQuiz });
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.post.mockImplementation(() => new Promise(() => {})); // Never resolves
       const user = userEvent.setup();
       
@@ -565,6 +567,7 @@ describe("StudentQuizLanding", () => {
   describe("Button States", () => {
     it("should disable back button while starting quiz", async () => {
       api.get.mockResolvedValue({ data: mockQuiz });
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.post.mockImplementation(() => new Promise(() => {})); // Never resolves
       const user = userEvent.setup();
       
