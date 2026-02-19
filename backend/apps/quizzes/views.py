@@ -233,7 +233,10 @@ class StartAttemptView(generics.CreateAPIView):
             status=AttemptStatus.IN_PROGRESS,
         ).first()
         if existing:
-            return Response({"detail": "Attempt already in progress."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Attempt already in progress.", "attempt_id": existing.pk},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         try:
             attempt = QuizAttempt.objects.create(quiz=quiz, student=request.user)
