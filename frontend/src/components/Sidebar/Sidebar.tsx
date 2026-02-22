@@ -98,10 +98,11 @@ export default function Sidebar() {
         const archived: Course[] = [];
 
         coursesArray.forEach((course: BackendCourse) => {
+          const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
           const mappedCourse = {
             id: course.id,
             name: course.title || course.name || "Untitled Course",
-            path: `/courses/${course.id}`,
+            path: coursePath,
             status: course.status,
           };
           
@@ -145,7 +146,7 @@ export default function Sidebar() {
           const mappedCourses = coursesArray.map((course: BackendCourse) => ({
             id: course.id,
             name: course.title || course.name || "Untitled Course",
-            path: `/courses/${course.id}`,
+            path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
             status: course.status,
           }));
           
@@ -177,10 +178,11 @@ export default function Sidebar() {
             const archived: Course[] = [];
 
             coursesArray.forEach((course: BackendCourse) => {
+              const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
               const mappedCourse = {
                 id: course.id,
                 name: course.title || course.name || "Untitled Course",
-                path: `/courses/${course.id}`,
+                path: coursePath,
                 status: course.status,
               };
               
@@ -200,7 +202,7 @@ export default function Sidebar() {
               const mappedArchived = archivedArray.map((course: BackendCourse) => ({
                 id: course.id,
                 name: course.title || course.name || "Untitled Course",
-                path: `/courses/${course.id}`,
+                path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
                 status: course.status,
               }));
               

@@ -1,9 +1,11 @@
 // Source (Manual/AI) is display-only; API has no source field.
 import * as React from "react";
 import {
+  FiCheck,
   FiChevronDown,
   FiEdit2,
   FiFilter,
+  FiSearch,
   FiSliders,
   FiX,
 } from "react-icons/fi";
@@ -12,6 +14,7 @@ import CreateQuestionModal from "./CreateQuestionModal";
 
 type QuestionSource = "ai" | "manual";
 type Difficulty = "easy" | "medium" | "hard";
+type SortOption = "newest" | "oldest" | "difficulty-asc" | "difficulty-desc";
 
 export interface ManageQuestionChoice {
   label: string;
@@ -25,8 +28,8 @@ export interface ManageQuestionItem {
   difficulty: Difficulty;
   prompt: string;
   choices?: ManageQuestionChoice[];
-  /** Created_by (user id), created_at (ISO), is_active */
   created_by?: number;
+  created_by_name?: string;
   created_at?: string;
   is_active?: boolean;
 }
@@ -38,6 +41,9 @@ export interface ManageQuestionsModalProps {
   /** Questions from API  */
   questions?: ManageQuestionItem[];
   loading?: boolean;
+  loadingMore?: boolean;
+  totalCount?: number;
+  hasMore?: boolean;
   error?: string | null;
 
   /** Create question: called when user saves in CreateQuestionModal */
@@ -48,7 +54,7 @@ export interface ManageQuestionsModalProps {
     difficulty: string;
     is_active?: boolean;
   }) => void | Promise<void>;
-  /** Update question (Guide §2.4): PATCH when saving in edit mode */
+  /** Update question: PATCH when saving in edit mode */
   onUpdateQuestion?: (
     questionId: number,
     data: {
@@ -81,7 +87,15 @@ export interface ManageQuestionsModalProps {
   onGenerateQuestion?: () => void;
   onFilter?: () => void;
   onSort?: () => void;
+  onLoadMore?: () => void | Promise<void>;
+  onEnsureAllQuestionsLoaded?: () => void | Promise<void>;
 }
+
+const DIFFICULTY_ORDER: Record<Difficulty, number> = {
+  easy: 1,
+  medium: 2,
+  hard: 3,
+};
 
 function tagStylesForSource(source: QuestionSource) {
   if (source === "ai") {
@@ -125,6 +139,9 @@ export default function ManageQuestionsModal({
   onClose,
   questions = [],
   loading = false,
+  loadingMore = false,
+  totalCount,
+  hasMore = false,
   error: questionsError = null,
   editingQuestion = null,
   onSaveQuestion,
@@ -133,19 +150,129 @@ export default function ManageQuestionsModal({
   onEditQuestion,
   onCloseCreateQuestion,
   onCreateQuestion,
+  onLoadMore,
+  onEnsureAllQuestionsLoaded,
 }: ManageQuestionsModalProps) {
   const items = questions;
+  const filterDropdownRef = React.useRef<HTMLDivElement>(null);
+  const sortDropdownRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const prevItemsLengthRef = React.useRef(0);
 
   // Keep items collapsed by default.
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const [difficultyFilters, setDifficultyFilters] = React.useState<Set<Difficulty>>(new Set());
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [sortOpen, setSortOpen] = React.useState(false);
+  const [sortBy, setSortBy] = React.useState<SortOption>("newest");
 
   const [createQuestionOpen, setCreateQuestionOpen] = React.useState(false);
 
+  const hasActiveFilters = difficultyFilters.size > 0;
+  const isLoadingMore = loadingMore && hasMore;
+
   React.useEffect(() => {
-    if (open) setExpandedId(null);
+    if (items.length > prevItemsLengthRef.current && prevItemsLengthRef.current > 0) {
+      // Items were added - don't scroll, just update the ref
+    }
+    prevItemsLengthRef.current = items.length;
+  }, [items.length]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const filteredAndSortedItems = React.useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = items.filter((item) => {
+      if (difficultyFilters.size > 0 && !difficultyFilters.has(item.difficulty)) {
+        return false;
+      }
+      if (!normalizedQuery) return true;
+      return item.prompt.toLowerCase().includes(normalizedQuery);
+    });
+
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+        case "newest":
+          return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+        case "difficulty-asc":
+          return DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty];
+        case "difficulty-desc":
+          return DIFFICULTY_ORDER[b.difficulty] - DIFFICULTY_ORDER[a.difficulty];
+        default:
+          return 0;
+      }
+    });
+  }, [items, query, difficultyFilters, sortBy]);
+
+  const toggleDifficultyFilter = (difficulty: Difficulty) => {
+    setDifficultyFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(difficulty)) {
+        next.delete(difficulty);
+      } else {
+        next.add(difficulty);
+      }
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setDifficultyFilters(new Set());
+  };
+
+  React.useEffect(() => {
+    if (open) {
+      setExpandedId(null);
+      setQuery("");
+      setDebouncedQuery("");
+      setDifficultyFilters(new Set());
+      setFilterOpen(false);
+      setSortOpen(false);
+      setSortBy("newest");
+    }
   }, [open]);
 
-  // When parent sets editingQuestion, open Create Question modal in edit mode (Guide §2.3).
+  React.useEffect(() => {
+    const shouldEnsureAll =
+      hasMore &&
+      (debouncedQuery.trim().length > 0 || difficultyFilters.size > 0);
+    if (shouldEnsureAll) {
+      void onEnsureAllQuestionsLoaded?.();
+    }
+  }, [difficultyFilters.size, hasMore, onEnsureAllQuestionsLoaded, debouncedQuery]);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterOpen(false);
+      }
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(event.target as Node)
+      ) {
+        setSortOpen(false);
+      }
+    }
+
+    if (filterOpen || sortOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [filterOpen, sortOpen]);
+
+  // When parent sets editingQuestion, open Create Question modal in edit mode.
   React.useEffect(() => {
     if (editingQuestion) setCreateQuestionOpen(true);
   }, [editingQuestion]);
@@ -171,77 +298,233 @@ export default function ManageQuestionsModal({
           <div className="rounded-[12px] border-2 border-[#404040] bg-white/[0.01] p-[2px]">
             <div className="flex h-[min(717px,calc(100vh-64px))] flex-col overflow-hidden rounded-[10px] bg-[#1A1A1A]">
               {/* Header */}
-              <div className="flex h-[88px] items-center justify-between gap-6 border-b border-[#404040] px-6">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onCreateQuestion?.();
-                      setCreateQuestionOpen(true);
-                    }}
-                    className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-[#0A0A0A] shadow-sm hover:brightness-110"
-                  >
-                    Create Question
-                  </button>
+              <div className="flex flex-col gap-4 border-b border-[#404040] px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCreateQuestion?.();
+                        setCreateQuestionOpen(true);
+                      }}
+                      className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-white shadow-sm hover:bg-[#EF6262]"
+                    >
+                      Create Question
+                    </button>
 
-                  <button
-                    type="button"
-                    disabled
-                    title="Not in API"
-                    className="h-[39px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] cursor-not-allowed opacity-60 pointer-events-none"
-                  >
-                    Generate Question
-                  </button>
+                    <button
+                      type="button"
+                      disabled
+                      title="Not in API"
+                      className="h-[39px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] cursor-not-allowed opacity-60 pointer-events-none"
+                    >
+                      Generate Question
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Filter dropdown */}
+                    <div ref={filterDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setFilterOpen((prev) => !prev)}
+                        className={
+                          "inline-flex h-[39px] items-center gap-2 rounded-[6px] border px-4 text-[14px] font-medium leading-[21px] transition-colors " +
+                          (filterOpen || hasActiveFilters
+                            ? "border-[#F87171]/60 bg-[#F87171]/10 text-[#F1F5F9]"
+                            : "border-[#404040] bg-transparent text-[#A1A1AA] hover:bg-[#202020]")
+                        }
+                      >
+                        <FiFilter className="h-4 w-4" />
+                        Filter
+                        {hasActiveFilters && (
+                          <span className="ml-1 rounded bg-[#F87171]/20 px-1.5 py-0.5 text-[11px] text-[#F87171]">
+                            {difficultyFilters.size}
+                          </span>
+                        )}
+                        <FiChevronDown
+                          className={
+                            "h-3.5 w-3.5 transition-transform " +
+                            (filterOpen ? "rotate-180" : "")
+                          }
+                        />
+                      </button>
+
+                      {filterOpen && (
+                        <div className="absolute right-0 top-full z-20 mt-2 min-w-[150px] rounded-[8px] border border-[#404040] bg-[#1A1A1A] py-1.5 shadow-lg">
+                          <div className="flex items-center justify-between px-3 py-1.5">
+                            <span className="text-[12px] font-medium uppercase tracking-wider text-[#71717A]">
+                              Difficulty
+                            </span>
+                            {hasActiveFilters && (
+                              <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="text-[12px] text-[#F87171] hover:text-[#F87171]/80"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          {(["easy", "medium", "hard"] as const).map((difficulty) => {
+                            const isSelected = difficultyFilters.has(difficulty);
+                            return (
+                              <button
+                                key={difficulty}
+                                type="button"
+                                onClick={() => toggleDifficultyFilter(difficulty)}
+                                className={
+                                  "flex w-full items-center gap-2.5 px-3 py-2 text-[14px] hover:bg-[#262626] " +
+                                  (isSelected ? "text-[#F1F5F9]" : "text-[#A1A1AA]")
+                                }
+                              >
+                                <span
+                                  className={
+                                    "flex h-4 w-4 items-center justify-center rounded border " +
+                                    (isSelected
+                                      ? "border-[#F87171] bg-[#F87171]"
+                                      : "border-[#404040] bg-transparent")
+                                  }
+                                >
+                                  {isSelected && <FiCheck className="h-3 w-3 text-white" />}
+                                </span>
+                                <span>
+                                  {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sort dropdown */}
+                    <div ref={sortDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setSortOpen((prev) => !prev)}
+                        className={
+                          "inline-flex h-[39px] items-center gap-2 rounded-[6px] border px-4 text-[14px] font-medium leading-[21px] transition-colors " +
+                          (sortOpen
+                            ? "border-[#F87171]/60 bg-[#F87171]/10 text-[#F1F5F9]"
+                            : "border-[#404040] bg-transparent text-[#A1A1AA] hover:bg-[#202020]")
+                        }
+                      >
+                        <FiSliders className="h-4 w-4" />
+                        Sort
+                        <FiChevronDown
+                          className={
+                            "h-3.5 w-3.5 transition-transform " +
+                            (sortOpen ? "rotate-180" : "")
+                          }
+                        />
+                      </button>
+
+                      {sortOpen && (
+                        <div className="absolute right-0 top-full z-20 mt-2 min-w-[150px] rounded-[8px] border border-[#404040] bg-[#1A1A1A] py-1.5 shadow-lg">
+                          {(
+                            [
+                              { value: "newest", label: "Newest" },
+                              { value: "oldest", label: "Oldest" },
+                              { value: "difficulty-asc", label: "Easy → Hard" },
+                              { value: "difficulty-desc", label: "Hard → Easy" },
+                            ] as const
+                          ).map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                setSortBy(option.value);
+                                setSortOpen(false);
+                              }}
+                              className={
+                                "flex w-full items-center gap-2.5 px-3 py-2 text-[14px] hover:bg-[#262626] " +
+                                (sortBy === option.value
+                                  ? "text-[#F1F5F9]"
+                                  : "text-[#A1A1AA]")
+                              }
+                            >
+                              <span
+                                className={
+                                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
+                                  (sortBy === option.value
+                                    ? "border-[#F87171] bg-[#F87171]"
+                                    : "border-[#404040] bg-transparent")
+                                }
+                              >
+                                {sortBy === option.value && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                                )}
+                              </span>
+                              <span>{option.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      aria-label="Close"
+                      className="grid h-9 w-9 place-items-center rounded-[8px] hover:bg-[#202020]"
+                    >
+                      <FiX className="h-5 w-5 text-[#A1A1AA]" />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled
-                    title="Not in API"
-                    className="inline-flex h-[39px] items-center gap-2 rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] cursor-not-allowed opacity-60 pointer-events-none"
-                  >
-                    <FiFilter className="h-4 w-4" />
-                    Filter
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled
-                    title="Not in API"
-                    className="inline-flex h-[39px] items-center gap-2 rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] cursor-not-allowed opacity-60 pointer-events-none"
-                  >
-                    <FiSliders className="h-4 w-4" />
-                    Sort
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close"
-                    className="grid h-9 w-9 place-items-center rounded-[8px] hover:bg-[#202020]"
-                  >
-                    <FiX className="h-5 w-5 text-[#A1A1AA]" />
-                  </button>
-                </div>
+                {/* Always-visible search bar */}
+                <label className="flex h-[39px] items-center gap-2 rounded-[6px] border border-[#404040] bg-[#151515] px-3">
+                  <FiSearch className="h-4 w-4 text-[#71717A]" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search questions..."
+                    className="w-full bg-transparent text-[14px] text-[#F1F5F9] outline-none placeholder:text-[#71717A]"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="text-[#71717A] hover:text-[#A1A1AA]"
+                      aria-label="Clear search"
+                    >
+                      <FiX className="h-4 w-4" />
+                    </button>
+                  )}
+                </label>
               </div>
 
               {/* Body */}
               <div className="flex-1 overflow-hidden">
-                <div className="h-full overflow-y-auto px-6 pb-6 pt-6">
+                <div ref={scrollContainerRef} className="h-full overflow-y-auto px-6 pb-6 pt-6">
                   {questionsError && (
                     <div className="mb-3 rounded-[8px] border border-[#F87171] bg-[#F87171]/10 px-3 py-2 text-[13px] text-[#F87171]">
                       {questionsError}
                     </div>
                   )}
                   {loading && (
-                    <div className="text-[14px] text-[#A1A1AA]">
-                      Loading questions...
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="rounded-[8px] border border-[#404040] bg-[#151515] p-4"
+                        >
+                          <div className="flex gap-2">
+                            <div className="h-[22px] w-16 animate-pulse rounded bg-[#262626]" />
+                            <div className="h-[22px] w-14 animate-pulse rounded bg-[#262626]" />
+                          </div>
+                          <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-[#262626]" />
+                          <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-[#262626]" />
+                        </div>
+                      ))}
                     </div>
                   )}
                   <div className="flex flex-col gap-3">
                     {!loading &&
-                      items.map((q) => {
+                      filteredAndSortedItems.map((q) => {
                         const expanded = expandedId === q.id;
                         const hasChoices = (q.choices?.length ?? 0) > 0;
 
@@ -288,7 +571,10 @@ export default function ManageQuestionsModal({
                                       </span>
                                     )}
                                     {q.created_by != null && q.created_at && " · "}
-                                    {q.created_by != null && (
+                                    {q.created_by_name && (
+                                      <span>By {q.created_by_name}</span>
+                                    )}
+                                    {!q.created_by_name && q.created_by != null && (
                                       <span>By user #{q.created_by}</span>
                                     )}
                                   </p>
@@ -374,6 +660,60 @@ export default function ManageQuestionsModal({
                           </div>
                         );
                       })}
+                    {!loading && filteredAndSortedItems.length === 0 && !isLoadingMore && (
+                      <div className="rounded-[8px] border border-[#404040] bg-[#151515] p-4 text-[14px] text-[#A1A1AA]">
+                        {query.trim() || hasActiveFilters
+                          ? "No questions match the current filters."
+                          : "No questions yet."}
+                      </div>
+                    )}
+                    {!loading && filteredAndSortedItems.length === 0 && isLoadingMore && (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="rounded-[8px] border border-[#404040] bg-[#151515] p-4"
+                          >
+                            <div className="flex gap-2">
+                              <div className="h-[22px] w-16 animate-pulse rounded bg-[#262626]" />
+                              <div className="h-[22px] w-14 animate-pulse rounded bg-[#262626]" />
+                            </div>
+                            <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-[#262626]" />
+                            <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-[#262626]" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!loading && items.length > 0 && hasMore && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const container = scrollContainerRef.current;
+                            const scrollTop = container?.scrollTop ?? 0;
+                            void onLoadMore?.();
+                            requestAnimationFrame(() => {
+                              if (container) container.scrollTop = scrollTop;
+                            });
+                          }}
+                          disabled={loadingMore}
+                          className="inline-flex h-[41px] w-full items-center justify-center gap-2 rounded-[8px] border border-[#404040] bg-[#151515] px-4 text-[14px] font-medium leading-[21px] text-[#F1F5F9] hover:bg-[#202020] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {loadingMore ? (
+                            <>
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#404040] border-t-[#F87171]" />
+                              Loading more...
+                            </>
+                          ) : (
+                            "Load More"
+                          )}
+                        </button>
+                        <p className="mt-2 text-[12px] leading-[18px] text-[#71717A]">
+                          Showing {items.length}
+                          {typeof totalCount === "number" ? ` of ${totalCount}` : ""} questions
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

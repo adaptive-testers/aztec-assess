@@ -22,6 +22,7 @@ export interface CreateQuizModalProps {
   primaryLabel?: string;
 
   onPrimaryAction: (payload: CreateQuizPayload) => Promise<void>;
+  onDelete?: () => void | Promise<void>;
 }
 
 export default function CreateQuizModal(props: CreateQuizModalProps) {
@@ -32,6 +33,7 @@ export default function CreateQuizModal(props: CreateQuizModalProps) {
     initialValues,
     primaryLabel,
     onPrimaryAction,
+    onDelete,
     isSubmitting = false,
     apiError,
   } = props;
@@ -40,8 +42,9 @@ export default function CreateQuizModal(props: CreateQuizModalProps) {
   const [numQuestionsRaw, setNumQuestionsRaw] = useState("10");
   const [adaptiveEnabled, setAdaptiveEnabled] = useState(true);
   const [selectionMode, setSelectionMode] = useState<"BANK" | "FIXED">("BANK");
-  const [publishImmediately, setPublishImmediately] = useState(true);
+  const [isPublished, setIsPublished] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -50,8 +53,9 @@ export default function CreateQuizModal(props: CreateQuizModalProps) {
       setNumQuestionsRaw(String(initialValues?.num_questions ?? 10));
       setAdaptiveEnabled(initialValues?.adaptive_enabled ?? true);
       setSelectionMode(initialValues?.selection_mode ?? "BANK");
-      setPublishImmediately(initialValues?.is_published ?? true);
+      setIsPublished(initialValues?.is_published ?? true);
       setLocalError(null);
+      setConfirmingDelete(false);
     }, 0);
   }, [isOpen, initialValues]);
 
@@ -71,8 +75,14 @@ export default function CreateQuizModal(props: CreateQuizModalProps) {
       num_questions: numQuestions,
       adaptive_enabled: adaptiveEnabled,
       selection_mode: selectionMode,
-      is_published: publishImmediately,
+      is_published: isPublished,
     });
+  }
+
+  async function handleDelete() {
+    if (onDelete) {
+      await onDelete();
+    }
   }
 
   if (!isOpen) return null;
@@ -195,34 +205,67 @@ export default function CreateQuizModal(props: CreateQuizModalProps) {
               <label className="inline-flex cursor-pointer items-center gap-2 text-[14px] leading-[21px] text-[#F1F5F9]">
                 <input
                   type="checkbox"
-                  checked={publishImmediately}
-                  onChange={(e) => setPublishImmediately(e.target.checked)}
+                  checked={isPublished}
+                  onChange={(e) => setIsPublished(e.target.checked)}
                   className="h-4 w-4 rounded-[4px] accent-[#F87171]"
                 />
-                Publish quiz immediately
+                {mode === "edit" ? "Published" : "Publish immediately"}
               </label>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex h-[58px] items-center justify-end gap-2 border-t border-[#404040] px-5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-[37px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[13px] font-medium leading-[20px] text-[#F1F5F9] hover:bg-white/5"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[13px] font-medium leading-[20px] text-[#0A0A0A] hover:brightness-95 disabled:opacity-50"
-            >
-              {isSubmitting
-                ? "Saving..."
-                : (primaryLabel ??
-                    (mode === "edit" ? "Save Changes" : "Create Quiz"))}
-            </button>
+          <div className="flex h-[58px] items-center justify-between border-t border-[#404040] px-5">
+            <div>
+              {mode === "edit" && onDelete ? (
+                confirmingDelete ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[#F87171]">Delete quiz?</span>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      className="h-[37px] rounded-[6px] bg-[#F87171] px-3 text-[13px] font-medium leading-[20px] text-white hover:bg-[#EF6262]"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(false)}
+                      className="h-[37px] rounded-[6px] border border-[#404040] px-3 text-[13px] font-medium leading-[20px] text-[#F1F5F9] hover:bg-white/5"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    className="h-[37px] rounded-[6px] border border-[#F87171] bg-transparent px-4 text-[13px] font-medium leading-[20px] text-[#F87171] hover:bg-[#F87171]/10"
+                  >
+                    Delete
+                  </button>
+                )
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-[37px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[13px] font-medium leading-[20px] text-[#F1F5F9] hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[13px] font-medium leading-[20px] text-white hover:bg-[#EF6262] disabled:opacity-50"
+              >
+                {isSubmitting
+                  ? "Saving..."
+                  : (primaryLabel ??
+                      (mode === "edit" ? "Save Changes" : "Create Quiz"))}
+              </button>
+            </div>
           </div>
         </form>
       </div>

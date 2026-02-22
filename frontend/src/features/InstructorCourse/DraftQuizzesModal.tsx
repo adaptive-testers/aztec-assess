@@ -1,12 +1,10 @@
+import { useState } from "react";
 import { FiTrash2, FiX } from "react-icons/fi";
 
 export interface DraftQuiz {
   id: string;
   title: string;
-  description?: string | null;
-  start_date?: string | null;
-  due_date?: string | null;
-  time_limit_minutes?: number | null;
+  createdDate?: string;
 }
 
 export interface DraftQuizzesModalProps {
@@ -28,6 +26,8 @@ export default function DraftQuizzesModal({
   onEditDraft,
   onDeleteDraft,
 }: DraftQuizzesModalProps) {
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   return (
@@ -86,36 +86,61 @@ export default function DraftQuizzesModal({
                   drafts.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-start justify-between gap-4 rounded-[8px] border border-[#404040] bg-[#151515] px-4 pb-4 pt-4"
+                      className="flex items-center justify-between gap-4 rounded-[8px] border border-[#404040] bg-[#151515] px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[16px] font-medium leading-[24px] tracking-[-0.3125px] text-[#F1F5F9]">
                           {d.title || "Untitled draft"}
                         </div>
-                        <div className="mt-1 line-clamp-1 text-[14px] leading-[21px] tracking-[-0.1504px] text-[#A1A1AA]">
-                          {d.description?.trim()
-                            ? d.description
-                            : "No description"}
+                        <div className="mt-0.5 text-[13px] leading-[20px] text-[#A1A1AA]">
+                          {d.createdDate
+                            ? `Created ${d.createdDate}`
+                            : "No date"}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onEditDraft(d)}
-                          className="h-[39px] rounded-[6px] border border-[#404040] px-4 text-[14px] font-medium leading-[21px] text-[#F1F5F9] hover:bg-[#262626] transition"
-                        >
-                          Edit
-                        </button>
+                        {confirmingDeleteId === d.id ? (
+                          <>
+                            <span className="text-[13px] text-[#F87171]">Delete?</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void onDeleteDraft(d.id);
+                                setConfirmingDeleteId(null);
+                              }}
+                              className="h-[36px] rounded-[6px] bg-[#F87171] px-3 text-[13px] font-medium leading-[20px] text-white hover:bg-[#EF6262] transition"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingDeleteId(null)}
+                              className="h-[36px] rounded-[6px] border border-[#404040] px-3 text-[13px] font-medium leading-[20px] text-[#F1F5F9] hover:bg-white/5 transition"
+                            >
+                              No
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onEditDraft(d)}
+                              className="h-[36px] rounded-[6px] border border-[#404040] px-4 text-[14px] font-medium leading-[21px] text-[#F1F5F9] hover:bg-[#262626] transition"
+                            >
+                              Edit
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => onDeleteDraft(d.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] hover:bg-[#262626] transition"
-                          aria-label={`Delete ${d.title}`}
-                        >
-                          <FiTrash2 className="h-4 w-4 text-[#F87171]" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingDeleteId(d.id)}
+                              className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[6px] hover:bg-[#262626] transition"
+                              aria-label={`Delete ${d.title}`}
+                            >
+                              <FiTrash2 className="h-4 w-4 text-[#F87171]" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))

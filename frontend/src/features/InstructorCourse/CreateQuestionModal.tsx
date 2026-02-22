@@ -269,7 +269,7 @@ export default function CreateQuestionModal({
           <button
             type="button"
             onClick={submit}
-            className="h-[39px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-[#0A0A0A] hover:brightness-95"
+            className="h-[39px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-white hover:bg-[#EF6262]"
           >
             {isEditMode ? "Update" : "Create"}
           </button>
