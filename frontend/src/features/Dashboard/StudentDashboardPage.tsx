@@ -29,15 +29,10 @@ export default function StudentDashboardPage() {
   }, []);
  return <>
  <div className="grid grid-rows-[auto_auto_1fr_1fr] grid-cols-2 min-h-screen w-full gap-4 geist-font">
-
-    <div className="row-span-1 col-span-2 text-primary-text flex flex-col">
-       <div className="tracking-wider font-medium text-3xl">Welcome Back, {userName}!</div>
-       <div className="tracking-wide text-secondary-text text-lg"> Here's what's happening in your courses.</div>
-    </div>
     
-
-    <div className="row-span-1 col-span-2 text-primary-text h-48 bg-secondary-background border-2 border-primary-border rounded-2xl flex items-center justify-center">
-        Calendar placeholder 
+    <div className="row-span-1 col-span-2 text-primary-text flex flex-col -center">
+       <div className="tracking-wide font-medium text-3xl">Welcome Back, {userName}!</div>
+       <div className="tracking-wide text-secondary-text text-lg"> Here's what's happening in your courses.</div>
     </div>
 
     <div className="flex flex-col row-span-2 col-span-1 bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl p-6 gap-8">
