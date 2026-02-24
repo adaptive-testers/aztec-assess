@@ -157,7 +157,6 @@ export default function ManageQuestionsModal({
   const filterDropdownRef = React.useRef<HTMLDivElement>(null);
   const sortDropdownRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const prevItemsLengthRef = React.useRef(0);
 
   // Keep items collapsed by default.
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
@@ -172,13 +171,6 @@ export default function ManageQuestionsModal({
 
   const hasActiveFilters = difficultyFilters.size > 0;
   const isLoadingMore = loadingMore && hasMore;
-
-  React.useEffect(() => {
-    if (items.length > prevItemsLengthRef.current && prevItemsLengthRef.current > 0) {
-      // Items were added - don't scroll, just update the ref
-    }
-    prevItemsLengthRef.current = items.length;
-  }, [items.length]);
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -718,8 +710,6 @@ export default function ManageQuestionsModal({
                 </div>
               </div>
 
-              {/* Footer placeholder */}
-              {/* <div className="border-t border-[#404040] px-6 py-4">Footer</div> */}
             </div>
           </div>
         </div>

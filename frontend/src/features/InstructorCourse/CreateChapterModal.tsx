@@ -47,17 +47,16 @@ export default function CreateChapterModal({
   const handleSubmit = async () => {
     const trimmed = chapterTitle.trim();
     if (!trimmed) return;
-    if (isEdit && onUpdate && editChapterId != null) {
-      await onUpdate(editChapterId, { title: trimmed });
-    } else {
-      await onAdd?.(trimmed);
+    if (isEdit) {
+      await onUpdate?.(editChapterId!, { title: trimmed });
+      return;
     }
+    await onAdd?.(trimmed);
   };
 
   const handleDelete = async () => {
-    if (isEdit && onDelete && editChapterId != null) {
-      await onDelete(editChapterId);
-    }
+    if (!isEdit) return;
+    await onDelete?.(editChapterId!);
   };
 
   return (

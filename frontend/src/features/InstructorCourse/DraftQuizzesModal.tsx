@@ -135,7 +135,7 @@ export default function DraftQuizzesModal({
                               type="button"
                               onClick={() => setConfirmingDeleteId(d.id)}
                               className="inline-flex h-[36px] w-[36px] items-center justify-center rounded-[6px] hover:bg-[#262626] transition"
-                              aria-label={`Delete ${d.title}`}
+                              aria-label={`Delete ${d.title || "Untitled draft"}`}
                             >
                               <FiTrash2 className="h-4 w-4 text-[#F87171]" />
                             </button>
