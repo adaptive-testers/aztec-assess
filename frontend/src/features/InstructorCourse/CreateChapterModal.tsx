@@ -48,7 +48,7 @@ export default function CreateChapterModal({
     const trimmed = chapterTitle.trim();
     if (!trimmed) return;
     if (isEdit) {
-      await onUpdate?.(editChapterId!, { title: trimmed });
+      await onUpdate?.(editChapterId, { title: trimmed });
       return;
     }
     await onAdd?.(trimmed);
@@ -56,7 +56,7 @@ export default function CreateChapterModal({
 
   const handleDelete = async () => {
     if (!isEdit) return;
-    await onDelete?.(editChapterId!);
+    await onDelete?.(editChapterId);
   };
 
   return (
