@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiX } from "react-icons/fi";
 
-/** Payload for create/update quiz (Guide §3.2: adaptive_enabled, selection_mode BANK|FIXED, is_published) */
+/** Payload for create/update quiz (adaptive_enabled, selection_mode BANK|FIXED, is_published). */
 export interface CreateQuizPayload {
   title: string;
   num_questions?: number;

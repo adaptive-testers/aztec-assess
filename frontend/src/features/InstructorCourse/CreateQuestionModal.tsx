@@ -225,7 +225,7 @@ export default function CreateQuestionModal({
               </div>
             </div>
 
-            {/* Active (Guide: is_active, optional, default true) */}
+            {/* Active (included in question bank) */}
             <div className="flex flex-col gap-2">
               <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
                 Status

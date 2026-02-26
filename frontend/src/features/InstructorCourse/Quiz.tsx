@@ -74,7 +74,7 @@ function humanDate(iso?: string | null) {
   return d.toLocaleDateString();
 }
 
-/** Format API error per guide: 400 field-level (field_name: ["msg"]), 403/404 detail, or fallback. */
+/** Format API error: 400 field-level (field_name: ["msg"]), 403/404 detail, or fallback. */
 function formatApiError(err: unknown, fallback: string): string {
   if (!(err instanceof axios.AxiosError)) return fallback;
   const data = err.response?.data;
@@ -104,7 +104,7 @@ function toUiQuiz(q: ApiQuiz): UiQuiz {
   };
 }
 
-/** Map API question to ManageQuestionsModal display shape. Guide has no source field -> use "manual" for list UI. */
+/** Map API question to ManageQuestionsModal display shape. API has no source field; use "manual" for list UI. */
 function apiQuestionToManageItem(
   q: ApiQuestion,
   creatorNameById: Record<number, string>,
@@ -371,7 +371,7 @@ export default function Quiz() {
   const [chapterQuestionsError, setChapterQuestionsError] = useState<
     string | null
   >(null);
-  /** When set, Create Question modal opens in edit mode (Guide §2.3 + §2.4). */
+  /** When set, Create Question modal opens in edit mode. */
   const [editingQuestion, setEditingQuestion] = useState<ApiQuestion | null>(
     null,
   );
