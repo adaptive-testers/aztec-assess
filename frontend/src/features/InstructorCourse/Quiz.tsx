@@ -39,7 +39,6 @@ interface UiQuiz {
   chapterId: number;
   title: string;
   createdDate: string;
-  description: string;
   is_published: boolean;
 }
 
@@ -99,7 +98,6 @@ function toUiQuiz(q: ApiQuiz): UiQuiz {
     chapterId: q.chapter,
     title: q.title,
     createdDate: humanDate(q.created_at),
-    description: "",
     is_published: q.is_published,
   };
 }
