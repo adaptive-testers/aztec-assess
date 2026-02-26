@@ -29,6 +29,21 @@ export const COURSES = {
   REMOVE_MEMBER: (id: string) => `/courses/${id}/members/remove/`,
 } as const;
 
-export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
+export const QUIZZES = {
+  // Student-facing
+  LIST: "/quizzes/",
+  DETAIL: (id: number | string) => `/quizzes/${id}/`,
+  START_ATTEMPT: (quizId: number | string) => `/quizzes/${quizId}/attempts/`,
+  ATTEMPT_DETAIL: (attemptId: number | string) => `/attempts/${attemptId}/`,
+  SUBMIT_ANSWER: (attemptId: number | string) => `/attempts/${attemptId}/answer/`,
+  // Instructor-facing
+  CHAPTERS_BY_COURSE: (courseId: string) => `/courses/${courseId}/chapters/`,
+  CHAPTER_DETAIL: (chapterId: number | string) => `/chapters/${chapterId}/`,
+  QUESTIONS_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/questions/`,
+  QUESTION_DETAIL: (questionId: number | string) => `/questions/${questionId}/`,
+  QUIZZES_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/quizzes/`,
+  QUIZ_DETAIL: (quizId: number | string) => `/quizzes/${quizId}/`,
+} as const;
 
+export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
 
