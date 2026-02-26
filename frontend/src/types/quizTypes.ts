@@ -8,6 +8,13 @@ export interface Chapter {
   course: string;
 }
 
+export interface InstructorChapter {
+  id: number;
+  title: string;
+  order_index: number | null;
+  course?: string;
+}
+
 export interface Quiz {
   id: number;
   chapter: Chapter;
@@ -19,11 +26,34 @@ export interface Quiz {
   attempt_id: number | null;
 }
 
+export interface InstructorQuiz {
+  id: number;
+  chapter: number;
+  title: string;
+  adaptive_enabled: boolean;
+  selection_mode: "BANK" | "FIXED";
+  num_questions: number;
+  is_published: boolean;
+  created_at: string;
+}
+
 export interface Question {
   id: number;
   prompt: string;
   choices: string[];
   difficulty: Difficulty;
+}
+
+export interface InstructorQuestion {
+  id: number;
+  chapter: number;
+  prompt: string;
+  choices: string[];
+  correct_index: number;
+  difficulty: Difficulty;
+  created_by?: number;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface QuizAttempt {
@@ -38,10 +68,4 @@ export interface QuizAttempt {
   num_correct: number;
   current_difficulty: Difficulty;
   current_question: Question | null;
-}
-
-export interface AttemptAnswer {
-  attempt: number;
-  question: number;
-  selected_index: number;
 }
