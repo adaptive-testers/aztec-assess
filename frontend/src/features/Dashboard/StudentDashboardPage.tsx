@@ -32,7 +32,7 @@ export default function StudentDashboardPage() {
     
     <div className="row-span-1 col-span-2 text-primary-text flex flex-col -center">
        <div className="tracking-wide font-medium text-3xl">Welcome Back, {userName}!</div>
-       <div className="tracking-wide text-secondary-text text-lg"> Here's what's happening in your courses.</div>
+       <div className="tracking-wide text-secondary-text text-lg"> Here'sg what's happening in your courses.</div>
     </div>
 
     <div className="flex flex-col row-span-2 col-span-1 bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl p-6 gap-8">
