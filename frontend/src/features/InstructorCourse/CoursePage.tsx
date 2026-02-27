@@ -11,13 +11,14 @@ import { IoAddOutline } from "react-icons/io5";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { privateApi } from "../../api/axios";
-import { COURSES, QUIZZES } from "../../api/endpoints";
+import { AUTH, COURSES, QUIZZES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 import type {
   InstructorChapter,
   InstructorQuestion,
   InstructorQuiz,
 } from "../../types/quizTypes";
+import StudentQuizList from "../StudentQuizzes/StudentQuizList";
 
 import CreateChapterModal from "./CreateChapterModal";
 import CreateQuizModal, { type CreateQuizPayload } from "./CreateQuizModal";
@@ -282,7 +283,7 @@ function RowAction({
 // MAIN PAGE COMPONENT
 // =============================================================================
 
-export default function Quiz() {
+export default function CoursePage() {
   // ---------- ROUTE & API ----------
   const { courseId = "" } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
@@ -291,6 +292,66 @@ export default function Quiz() {
   const [resolvedCourseId, setResolvedCourseId] = useState<string | null>(null);
   const effectiveCourseId = resolvedCourseId ?? courseId ?? null;
 
+  // ---------- COURSE ROLE (for student vs instructor content) ----------
+  const [userCourseRole, setUserCourseRole] = useState<
+    "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT" | null
+  >(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
+
+  useEffect(() => {
+    if (!resolvedCourseId) return;
+
+    const fetchProfile = async () => {
+      try {
+        const res = await privateApi.get(AUTH.PROFILE);
+        setCurrentUserId(res.data?.id ?? null);
+      } catch {
+        setCurrentUserId(null);
+      }
+    };
+
+    void fetchProfile();
+  }, [resolvedCourseId]);
+
+  useEffect(() => {
+    if (!resolvedCourseId || currentUserId === null) return;
+
+    const fetchMembersAndRole = async () => {
+      try {
+        const res = await privateApi.get<{ user_id: string; role: string }[]>(
+          COURSES.MEMBERS(resolvedCourseId),
+        );
+        const members = Array.isArray(res.data) ? res.data : [];
+        const normalizedCurrent = String(currentUserId).toLowerCase().trim();
+        const member = members.find(
+          (m) =>
+            String(m.user_id).toLowerCase().trim() === normalizedCurrent,
+        );
+        if (member && ["OWNER", "INSTRUCTOR", "TA", "STUDENT"].includes(member.role)) {
+          setUserCourseRole(member.role as "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT");
+        } else {
+          setUserCourseRole(null);
+        }
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 403) {
+          setUserCourseRole("STUDENT");
+        } else {
+          setUserCourseRole(null);
+        }
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+
+    void fetchMembersAndRole();
+  }, [resolvedCourseId, currentUserId]);
+
+  const isStaff =
+    userCourseRole !== null &&
+    ["OWNER", "INSTRUCTOR", "TA"].includes(userCourseRole);
+  const isStudent = userCourseRole === "STUDENT";
+
   // ---------- PAGE STATE (chapters, quizzes, loading) ----------
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeChapterId, setActiveChapterId] = useState<number | null>(null);
@@ -298,6 +359,7 @@ export default function Quiz() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [courseTitle, setCourseTitle] = useState<string | null>(null);
+  const [courseTitleLoading, setCourseTitleLoading] = useState(true);
   const [creatorNameById, setCreatorNameById] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -336,9 +398,11 @@ export default function Quiz() {
 
         setResolvedCourseId(null);
         setError("Course not found.");
+        setRoleLoading(false);
       } catch (err) {
         setResolvedCourseId(null);
         setError(formatApiError(err, "Failed to resolve course."));
+        setRoleLoading(false);
       }
     };
 
@@ -425,6 +489,8 @@ export default function Quiz() {
         setCourseTitle(title);
       } catch {
         setCourseTitle(null);
+      } finally {
+        setCourseTitleLoading(false);
       }
     };
 
@@ -506,10 +572,10 @@ export default function Quiz() {
   }, [checkingRefresh, accessToken, setAccessToken]);
 
   useEffect(() => {
-    if (!checkingRefresh && accessToken) {
+    if (!checkingRefresh && accessToken && isStaff) {
       void fetchAllQuizzes();
     }
-  }, [checkingRefresh, accessToken, fetchAllQuizzes]);
+  }, [checkingRefresh, accessToken, fetchAllQuizzes, isStaff]);
 
   // ---------- API: FETCH CHAPTER QUESTIONS (for Manage Questions modal + question bank) ----------
   const fetchChapterQuestions = useCallback(
@@ -937,26 +1003,39 @@ export default function Quiz() {
       <div className="mx-auto w-full max-w-[1400px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
         {/* Page header */}
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-            {courseTitle ?? "Course"}
-          </h1>
+          {courseTitleLoading ? (
+            <div className="skeleton-shimmer h-7 w-48 rounded" />
+          ) : (
+            <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
+              {courseTitle ?? "Course"}
+            </h1>
+          )}
         </div>
 
         {/* Top nav */}
         <div className="mt-4 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
-          <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+          {roleLoading ? (
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-12 rounded-xl bg-[#232323]" />
+              ))}
+            </div>
+          ) : (
+          <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
             <button
               type="button"
               className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
             >
               Quizzes
             </button>
-            <button
-              type="button"
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Students
-            </button>
+            {!isStudent && (
+              <button
+                type="button"
+                className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+              >
+                Students
+              </button>
+            )}
             <button
               type="button"
               className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
@@ -972,11 +1051,26 @@ export default function Quiz() {
               }}
               className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
             >
-              Settings
+              Course Info
             </button>
           </div>
+          )}
         </div>
 
+        {error ? (
+          <div className="mt-4 text-[#A1A1AA]">{error}</div>
+        ) : roleLoading ? (
+          <div className="mt-4 space-y-4">
+            <div className="skeleton-shimmer h-24 rounded-xl" />
+            <div className="skeleton-shimmer h-[76px] rounded-lg" />
+            <div className="skeleton-shimmer h-[76px] rounded-lg" />
+          </div>
+        ) : isStudent ? (
+          <div className="mt-4">
+            <StudentQuizList courseId={resolvedCourseId ?? undefined} />
+          </div>
+        ) : isStaff ? (
+          <>
         {/* Filters */}
         <div className="mt-4 grid grid-cols-1 items-center gap-2 sm:grid-cols-3">
           <div className="flex justify-start">
@@ -1053,7 +1147,11 @@ export default function Quiz() {
             </button>
 
             {loading ? (
-              <div className="text-[#A1A1AA]">Loading...</div>
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="skeleton-shimmer h-[72px] rounded-lg" />
+                ))}
+              </div>
             ) : error ? (
               <div className="text-[#F87171]">{error}</div>
             ) : visibleQuizzes.length === 0 ? (
@@ -1172,6 +1270,10 @@ export default function Quiz() {
             onUpdate={updateChapter}
             onDelete={editingChapter ? deleteChapter : undefined}
           />
+        )}
+          </>
+        ) : (
+          <div className="mt-4 text-[#A1A1AA]">Loading...</div>
         )}
       </div>
     </section>

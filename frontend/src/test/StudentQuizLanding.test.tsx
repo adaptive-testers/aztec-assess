@@ -197,7 +197,7 @@ describe("StudentQuizLanding", () => {
       const backButton = screen.getByText("Back to Quizzes");
       await user.click(backButton);
       
-      expect(mockNavigate).toHaveBeenCalledWith("/courses/course-123/quizzes");
+      expect(mockNavigate).toHaveBeenCalledWith("/courses/course-123");
     });
 
     it("should navigate back to dashboard from error page when no fromCourseId", async () => {

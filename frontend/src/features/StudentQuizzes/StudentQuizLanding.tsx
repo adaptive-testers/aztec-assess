@@ -10,7 +10,7 @@ export default function StudentQuizLanding() {
   const location = useLocation();
   const navigate = useNavigate();
   const fromCourseId = (location.state as { fromCourseId?: string } | null)?.fromCourseId;
-  const backToQuizzesPath = fromCourseId ? `/courses/${fromCourseId}/quizzes` : "/dashboard";
+  const backToQuizzesPath = fromCourseId ? `/courses/${fromCourseId}` : "/dashboard";
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);

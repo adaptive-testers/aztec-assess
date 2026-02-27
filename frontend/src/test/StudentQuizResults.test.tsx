@@ -569,7 +569,7 @@ describe("StudentQuizResults", () => {
       
       await user.click(screen.getByText("Back to Quizzes"));
       
-      expect(mockNavigate).toHaveBeenCalledWith("/courses/course-123/quizzes");
+      expect(mockNavigate).toHaveBeenCalledWith("/courses/course-123");
     });
   });
 

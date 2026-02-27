@@ -6,9 +6,9 @@ import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { privateApi } from "../../api/axios";
-import { COURSES, QUIZZES } from "../../api/endpoints";
+import { AUTH, COURSES, QUIZZES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
-import Quiz from "../../features/InstructorCourse/Quiz";
+import CoursePage from "../../features/InstructorCourse/CoursePage";
 
 vi.mock("../../api/axios", () => ({
   privateApi: {
@@ -25,9 +25,13 @@ vi.mock("../../context/AuthContext", () => ({
 
 const COURSE_ID = "123e4567-e89b-12d3-a456-426614174000";
 const COURSE_SLUG = "course-slug";
+const TEST_USER_ID = "test-user-id";
 
 const setupGetMock = () => {
   (privateApi.get as Mock).mockImplementation((url: string) => {
+    if (url === AUTH.PROFILE) {
+      return Promise.resolve({ data: { id: TEST_USER_ID } });
+    }
     if (url === COURSES.LIST) {
       return Promise.resolve({
         data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }],
@@ -40,7 +44,17 @@ const setupGetMock = () => {
       return Promise.resolve({ data: { id: COURSE_ID, title: "Course" } });
     }
     if (url === COURSES.MEMBERS(COURSE_ID)) {
-      return Promise.resolve({ data: [] });
+      return Promise.resolve({
+        data: [
+          {
+            id: "mem-1",
+            user_id: TEST_USER_ID,
+            user_email: "instructor@example.com",
+            role: "OWNER",
+            joined_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      });
     }
     if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
       return Promise.resolve({
@@ -66,7 +80,7 @@ const renderPageAt = (entry: string) => {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/courses/:courseId" element={<Quiz />} />
+        <Route path="/courses/:courseId" element={<CoursePage />} />
         <Route path="/courses/:courseId/settings" element={<SettingsPage />} />
       </Routes>
     </MemoryRouter>,
@@ -166,6 +180,9 @@ describe("Instructor Quiz Page", () => {
     }));
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) {
+        return Promise.resolve({ data: { id: TEST_USER_ID } });
+      }
       if (url === COURSES.LIST) {
         return Promise.resolve({
           data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }],
@@ -178,7 +195,17 @@ describe("Instructor Quiz Page", () => {
         return Promise.resolve({ data: { id: COURSE_ID, title: "Course" } });
       }
       if (url === COURSES.MEMBERS(COURSE_ID)) {
-        return Promise.resolve({ data: [] });
+        return Promise.resolve({
+          data: [
+            {
+              id: "mem-1",
+              user_id: TEST_USER_ID,
+              user_email: "instructor@example.com",
+              role: "OWNER",
+              joined_at: "2024-01-01T00:00:00Z",
+            },
+          ],
+        });
       }
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({
@@ -230,15 +257,52 @@ describe("Instructor Quiz Page", () => {
     ).toBeInTheDocument();
   });
 
-  it("navigates to Settings using resolved UUID when clicking Settings", async () => {
+  it("navigates to Course Info page when clicking Course Info tab", async () => {
     const user = userEvent.setup();
     renderPage();
 
     // wait for page hydration
     await screen.findByRole("button", { name: /create new quiz/i });
 
-    await user.click(screen.getByRole("button", { name: /^settings$/i }));
+    await user.click(screen.getByRole("button", { name: /^course info$/i }));
     expect(await screen.findByText(`Settings Page for ${COURSE_ID}`)).toBeInTheDocument();
+  });
+
+  it("renders StudentQuizList when current user has STUDENT role in course", async () => {
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
+      if (url === COURSES.LIST) {
+        return Promise.resolve({
+          data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }],
+        });
+      }
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) {
+        return Promise.resolve({ data: { id: COURSE_ID, title: "Course" } });
+      }
+      if (url === COURSES.MEMBERS(COURSE_ID)) {
+        return Promise.resolve({
+          data: [
+            {
+              id: "mem-1",
+              user_id: TEST_USER_ID,
+              user_email: "student@example.com",
+              role: "STUDENT",
+              joined_at: "2024-01-01T00:00:00Z",
+            },
+          ],
+        });
+      }
+      if (url === QUIZZES.LIST || url === `${QUIZZES.LIST}?course=${COURSE_ID}`) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Available Quizzes")).toBeInTheDocument();
+    expect(screen.getByText("Track your quizzes")).toBeInTheDocument();
   });
 
   it("when courseId route param is already a UUID, it does not call COURSES.LIST slug lookup", async () => {
@@ -255,6 +319,7 @@ describe("Instructor Quiz Page", () => {
     const ARCHIVED_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) {
         return Promise.resolve({ data: [{ id: COURSE_ID, slug: "different-slug" }] });
       }
@@ -266,7 +331,7 @@ describe("Instructor Quiz Page", () => {
       if (url === COURSES.DETAIL(ARCHIVED_ID)) {
         return Promise.resolve({ data: { id: ARCHIVED_ID, title: "Archived Course" } });
       }
-      if (url === COURSES.MEMBERS(ARCHIVED_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(ARCHIVED_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
       if (url === QUIZZES.CHAPTERS_BY_COURSE(ARCHIVED_ID)) {
         return Promise.resolve({
           data: [{ id: 1, title: "Ch 1", order_index: 1, course: ARCHIVED_ID }],
@@ -279,14 +344,17 @@ describe("Instructor Quiz Page", () => {
 
     renderPage();
 
+    // Wait until role resolves and instructor UI (Create New Quiz) is visible
+    await screen.findByRole("button", { name: /create new quiz/i });
     expect(
-      await screen.findByRole("heading", { name: "Archived Course" }),
+      screen.getByRole("heading", { name: "Archived Course" }),
     ).toBeInTheDocument();
     expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(ARCHIVED_ID));
   });
 
   it("shows 'Course not found.' when slug is not in active or archived lists", async () => {
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) return Promise.resolve({ data: [] });
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       return Promise.resolve({ data: [] });
@@ -297,24 +365,37 @@ describe("Instructor Quiz Page", () => {
   });
 
   it("shows Loading... while quizzes are fetching, then shows empty state", async () => {
-    const deferred = (() => {
+    const chaptersDeferred = (() => {
+      let resolve!: (value: unknown) => void;
+      const promise = new Promise((r) => (resolve = r));
+      return { promise, resolve };
+    })();
+    const membersDeferred = (() => {
       let resolve!: (value: unknown) => void;
       const promise = new Promise((r) => (resolve = r));
       return { promise, resolve };
     })();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
-      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) return deferred.promise;
+      if (url === COURSES.MEMBERS(COURSE_ID)) return membersDeferred.promise;
+      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) return chaptersDeferred.promise;
       return Promise.resolve({ data: [] });
     });
 
     renderPageAt(`/courses/${COURSE_ID}`);
 
-    expect(await screen.findByText("Loading...")).toBeInTheDocument();
+    // While members are unresolved the role-loading skeleton is shown (no text content to check)
+    // Resolve role so isStaff becomes true and fetchAllQuizzes fires
+    membersDeferred.resolve({
+      data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }],
+    });
 
-    deferred.resolve({
+    // Now the instructor UI should appear (Create New Quiz button) while chapters are still loading
+    await screen.findByRole("button", { name: /create new quiz/i });
+
+    chaptersDeferred.resolve({
       data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }],
     });
 
@@ -331,8 +412,9 @@ describe("Instructor Quiz Page", () => {
     );
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({
           data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }],
@@ -358,8 +440,9 @@ describe("Instructor Quiz Page", () => {
     );
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({
           data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }],
@@ -379,12 +462,13 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) {
         return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }] });
       }
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
 
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({
@@ -432,12 +516,13 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) {
         return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }] });
       }
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
 
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({
@@ -495,10 +580,11 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
 
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
@@ -545,10 +631,11 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
 
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
@@ -613,10 +700,11 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
 
     (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
       if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
       if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
       if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
-      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [] });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
 
       if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
         return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });

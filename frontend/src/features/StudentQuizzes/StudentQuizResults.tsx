@@ -72,7 +72,7 @@ export default function StudentQuizResults() {
   const location = useLocation();
   const navigate = useNavigate();
   const fromCourseId = (location.state as { fromCourseId?: string } | null)?.fromCourseId;
-  const backToQuizzesPath = fromCourseId ? `/courses/${fromCourseId}/quizzes` : "/dashboard";
+  const backToQuizzesPath = fromCourseId ? `/courses/${fromCourseId}` : "/dashboard";
 
   const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
