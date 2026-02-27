@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
 import { FaTrash } from 'react-icons/fa';
 import { FiCopy, FiRefreshCw, FiX } from 'react-icons/fi';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { privateApi } from '../../api/axios';
 import { AUTH, COURSES } from '../../api/endpoints';
@@ -40,10 +40,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormFields>();
   const watchedTitle = watch('title');
-  
+
   const [activeTab, setActiveTab] = useState<'details' | 'members'>('details');
   const [course, setCourse] = useState<Course | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -162,6 +163,16 @@ export default function CourseDetailPage() {
     void fetchCourseData();
     void fetchMembers();
   }, [resolvedCourseId, setValue]);
+
+  useEffect(() => {
+    if (!effectiveCourseId) return;
+    const path = location.pathname;
+    if (path.endsWith('/members')) setActiveTab('members');
+    else setActiveTab('details');
+  }, [location.pathname, effectiveCourseId]);
+
+  // For students on settings page: single combined Course Info view (no internal tabs)
+  const isStudent = userCourseRole === 'STUDENT';
 
   useEffect(() => {
     if (currentUserId && members.length > 0) {
@@ -643,7 +654,14 @@ export default function CourseDetailPage() {
 
       {effectiveCourseId && (
         <div className="mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
-          <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+          {isLoading && userCourseRole === null ? (
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-12 rounded-xl bg-[#232323]" />
+              ))}
+            </div>
+          ) : (
+          <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
             <button
               type="button"
               onClick={() => navigate(`/courses/${effectiveCourseId}`)}
@@ -651,12 +669,14 @@ export default function CourseDetailPage() {
             >
               Quizzes
             </button>
-            <button
-              type="button"
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Students
-            </button>
+            {!isStudent && (
+              <button
+                type="button"
+                className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+              >
+                Students
+              </button>
+            )}
             <button
               type="button"
               className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
@@ -667,26 +687,23 @@ export default function CourseDetailPage() {
               type="button"
               className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
             >
-              Settings
+              Course Info
             </button>
           </div>
+          )}
         </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-primary-text text-2xl font-medium tracking-wide">
-            {isArchived 
-              ? 'Course Details' 
-              : isOwnerOrInstructor 
-                ? 'Edit Course'
-                : 'Course Info'}
+          <h1 className="text-primary-text tracking-wide text-2xl font-medium">
+            Course Info
           </h1>
           <p className="text-secondary-text text-sm mt-1">
             {isArchived 
               ? 'View course information and members' 
               : isStaff 
-                ? 'Configure your course settings and manage members'
+                ? 'Manage course settings and members'
                 : 'View course information and members'}
           </p>
         </div>
@@ -730,6 +747,7 @@ export default function CourseDetailPage() {
         </div>
       )}
 
+      {isStaff && (
       <div className="border-b border-primary-border mb-6">
         <div className="flex gap-8">
           <button
@@ -760,8 +778,117 @@ export default function CourseDetailPage() {
           </button>
         </div>
       </div>
+      )}
 
-      {activeTab === 'details' ? (
+      {isStudent ? (
+        <div className="space-y-6">
+          {isLoading ? (
+            <>
+              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+                <div className="flex items-center border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+                  <div className="skeleton-shimmer h-[17px] w-[100px] rounded" />
+                </div>
+                <div className="flex flex-col gap-4 px-[26px] py-5 md:py-[26px]">
+                  <div className="skeleton-shimmer h-6 w-3/4 rounded" />
+                  <div className="skeleton-shimmer h-4 w-48 rounded" />
+                </div>
+              </div>
+              <div>
+                <div className="skeleton-shimmer h-6 w-40 rounded mb-4" />
+                <div className="space-y-4">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="skeleton-shimmer w-10 h-10 rounded-full" />
+                        <div className="flex flex-col gap-2">
+                          <div className="skeleton-shimmer h-4 w-32 rounded" />
+                          <div className="skeleton-shimmer h-3 w-20 rounded" />
+                        </div>
+                      </div>
+                      <div className="skeleton-shimmer h-3 w-14 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : course ? (
+            <>
+              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+                <div className="flex items-center border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+                  <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
+                    Course Title
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-3 px-[26px] py-5 md:py-[26px]">
+                  <p className="text-lg leading-6 text-[#F1F5F9]">
+                    {course.title}
+                  </p>
+                  {(() => {
+                    const normalizedId = String(currentUserId).toLowerCase().trim();
+                    const me = members.find(m => String(m.user_id).toLowerCase().trim() === normalizedId);
+                    if (!me) return null;
+                    return (
+                      <p className="text-sm text-[#A1A1AA]">
+                        You joined on {new Date(me.joined_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-primary-text text-lg font-semibold tracking-wide mb-4">
+                  Course Members
+                </h2>
+                <div className="space-y-4">
+                  {members.length === 0 ? (
+                    <div className="p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
+                      <p className="text-secondary-text text-sm">No members in this course yet.</p>
+                    </div>
+                  ) : (
+                    members.map((member) => {
+                      const displayName = member.user_first_name && member.user_last_name
+                        ? `${member.user_first_name} ${member.user_last_name}`
+                        : member.user_email || `User ${member.user_id.substring(0, 8)}`;
+                      const avatarLetter = member.user_first_name?.[0] || member.user_email?.[0] || member.user_id[0];
+                      const roleMap: Record<string, string> = {
+                        'OWNER': 'Instructor',
+                        'INSTRUCTOR': 'Instructor',
+                        'TA': 'TA',
+                        'STUDENT': 'Student'
+                      };
+                      const displayRole = roleMap[member.role] || member.role;
+                      const isStaffMember = ['OWNER', 'INSTRUCTOR', 'TA'].includes(member.role);
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg hover:border-primary-accent/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary-accent flex items-center justify-center">
+                              <span className="text-primary-text font-semibold text-sm">
+                                {avatarLetter.toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <h3 className="text-primary-text font-semibold text-sm">{displayName}</h3>
+                              {isStaffMember && member.user_email && (
+                                <p className="text-secondary-text text-xs">{member.user_email}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-secondary-text text-xs">{displayRole}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : activeTab === 'details' ? (
         <div className="space-y-6">
           {isLoading ? (
             <>
@@ -959,9 +1086,7 @@ export default function CourseDetailPage() {
                 return roleMap[role] || role;
               };
               
-              const displayRole = userCourseRole === 'STUDENT' && member.role === 'OWNER'
-                ? 'Instructor'
-                : formatRole(member.role);
+              const displayRole = formatRole(member.role);
               
               return (
               <div

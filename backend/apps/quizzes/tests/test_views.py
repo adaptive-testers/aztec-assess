@@ -644,6 +644,21 @@ class QuizAttemptFlowTests(TestCase):
         self.assertIn("question", res.data)
         self.assertNotIn("correct_index", res.data["question"])
 
+    def test_start_attempt_returns_existing_in_progress_attempt_id_on_conflict(self):
+        """Test that when an in-progress attempt exists, start returns 409 with attempt_id."""
+        from apps.quizzes.models import AttemptStatus
+
+        existing_attempt = make_attempt(self.student, self.quiz)
+        existing_attempt.status = AttemptStatus.IN_PROGRESS
+        existing_attempt.save(update_fields=["status"])
+
+        url = reverse("quiz-attempt-start", kwargs={"pk": self.quiz.id})
+        res = self.client.post(url, data={})
+
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(res.data["detail"], "Attempt already in progress.")
+        self.assertEqual(res.data["attempt_id"], existing_attempt.pk)
+
     def test_submit_answer_returns_next_question_when_more_questions(self):
         """Test that submitting an answer returns next_question when quiz has more questions."""
         quiz_two = make_quiz(

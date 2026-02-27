@@ -211,11 +211,11 @@ describe("CourseDetailPage", () => {
   });
 
   describe("Role-Based Rendering", () => {
-    it("shows 'Edit Course' title for owners", async () => {
+    it("shows 'Course Info' title for owners", async () => {
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Edit Course")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
     });
 
@@ -240,11 +240,11 @@ describe("CourseDetailPage", () => {
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Info")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
     });
 
-    it("shows 'Course Details' title for archived courses", async () => {
+    it("shows 'Course Info' title for archived courses", async () => {
       const archivedCourse = { ...mockCourse, status: "ARCHIVED" as const };
       api.get.mockImplementation((url: string) => {
         if (url === AUTH.PROFILE) {
@@ -265,7 +265,7 @@ describe("CourseDetailPage", () => {
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
     });
 
@@ -488,18 +488,13 @@ describe("CourseDetailPage", () => {
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      const user = userEvent.setup();
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
 
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
       await waitFor(() => {
-        // Should show "Instructor" not "Owner" for students
         const roleTexts = screen.getAllByText(/Instructor|Owner|Student|TA/);
         const instructorText = roleTexts.find(el => el.textContent === "Instructor");
         expect(instructorText).toBeInTheDocument();
@@ -604,19 +599,13 @@ describe("CourseDetailPage", () => {
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      const user = userEvent.setup();
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
 
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
-      await waitFor(() => {
-        expect(screen.queryByRole("button", { name: /add member/i })).not.toBeInTheDocument();
-      });
+      expect(screen.queryByRole("button", { name: /add member/i })).not.toBeInTheDocument();
     });
   });
 
@@ -854,7 +843,7 @@ describe("CourseDetailPage", () => {
       render(<CourseDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
       });
 
       expect(screen.queryByText("Danger Zone")).not.toBeInTheDocument();
