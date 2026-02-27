@@ -54,8 +54,6 @@ export default function SignUpContainer() {
         return true;
     };
 
-  const handlePasswordToggle = () => setShowPassword((prev) => !prev);
-
   const loginWithGoogleCode = useGoogleLogin({
     flow: "auth-code",
     onSuccess: async ({ code }) => {
@@ -149,7 +147,7 @@ export default function SignUpContainer() {
     };
 
     return (
-        <>
+        <div className="Sign-Up relative w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4 min-h-dvh">
             {isOAuthLoading && (
                 <div
                     className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
@@ -161,128 +159,233 @@ export default function SignUpContainer() {
                             <div className="absolute inset-0 rounded-full border-4 border-[#2A2A2A]" />
                             <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#EF6262]" />
                         </div>
-                        <div className="text-sm text-[#8E8E8E]">Signing you in…</div>
+                        <div className="text-sm text-[#8E8E8E]">Signing you up…</div>
                     </div>
                 </div>
             )}
-            <div className="
-                bg-secondary-background
-                w-full max-w-[410px]
-                border-[2px] border-primary-border rounded-[15px]
-                flex flex-col items-center gap-5
-                p-4 sm:p-5 transition-all duration-300 ease-out">
+            <div className="Sign-Up-Box flex flex-col justify-center items-center p-4 sm:p-6 md:p-[40px] gap-2 sm:gap-[10px] w-full max-w-[482px] bg-[#0A0A0A] border border-[#282828] rounded-[15px] transition-all duration-300 ease-out">
+                <div className="Frame-25 flex flex-col items-start gap-3 sm:gap-4 md:gap-[40px] w-full max-w-[402px]">
+                    <div className="Frame-19 flex flex-col items-center w-full max-w-[402px]">
+                        <h1 className="Sign-Up w-[200px] h-[31px] mb-[32px] flex items-center justify-center font-geist font-medium text-[32px] leading-[42px] text-center tracking-[0.5px] text-[#ffffff]">
+                            Sign Up
+                        </h1>
 
-                <div>
-                    <p className="text-primary-text geist-font text-[27px] font-[415] mt-3">Complete Your Account!</p>
-                </div>
-
-                <div className="w-full pl-4 pr-4">
-                    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-                        <div className="flex gap-3">
-                            <div className="relative flex-1">
-                                <label htmlFor="firstName-input" className="text-secondary-text geist-font text-sm font-[475]">First Name</label>
-                                <input {...register("firstName", { required: "First name is required" })} id="firstName-input" type="text" className="peer text-primary-text text-sm pl-10 pr-2 h-9 w-full border-primary-border border-[2px] rounded-lg focus:border-primary-accent focus:outline-none" />
-                                <IoPersonOutline className="absolute left-[10px] top-[72%] -translate-y-1/2 text-secondary-text peer-focus:text-primary-text text-sm pointer-events-none" />
-                                {errors.firstName && (
-                                    <p className="absolute left-0 bottom-[-18px] tracking-wider geist-font text-error-text text-[10px]">
-                                        {errors.firstName.message}
-                                    </p>
-                                )}
+                        {/* Error message banner */}
+                        {errors.root && (
+                            <div
+                                className="w-[402px] px-4 py-2 mb-[24px] bg-[#2A1414] border border-[#EF6262] rounded-[8px] text-[#EF6262] text-sm text-center"
+                                role="alert"
+                                aria-live="polite"
+                                aria-atomic="true"
+                            >
+                                {errors.root.message}
                             </div>
-                            <div className="relative flex-1">
-                                <label htmlFor="lastName-input" className="text-secondary-text geist-font text-sm font-[475]">Last Name</label>
-                                <input {...register("lastName", { required: "Last name is required" })} id="lastName-input" type="text" className="peer text-primary-text text-sm pl-3 pr-2 h-9 w-full border-primary-border border-[2px] rounded-lg focus:border-primary-accent focus:outline-none geist-font" />
-                                {errors.lastName && (
-                                    <p className="absolute left-0 bottom-[-18px] tracking-wider geist-font text-error-text text-[10px]">
-                                        {errors.lastName.message}
-                                    </p>
-                                )}
+                        )}
+
+                        <form
+                            className="Frame-18 flex flex-col items-start gap-4 sm:gap-6 md:gap-[32px] w-full max-w-[402px]"
+                            onSubmit={handleSubmit(onSubmit)}
+                            noValidate
+                        >
+                            <div className="Frame-17 flex flex-col items-start gap-3 sm:gap-4 md:gap-[24px] w-full">
+                                {/* First Name & Last Name */}
+                                <div className="grid grid-cols-2 gap-4 w-full">
+                                    <div className="Frame-13 flex flex-col items-start gap-2 sm:gap-[8px]">
+                                        <div className="flex justify-between items-center w-full">
+                                            <label
+                                                htmlFor="firstName-input"
+                                                className="First-Name font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                                            >
+                                                First Name
+                                            </label>
+                                            {errors.firstName && (
+                                                <div className="text-[#EF6262] text-[12px] font-geist h-[16px]">
+                                                    {errors.firstName.message}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                            <input
+                                                id="firstName-input"
+                                                type="text"
+                                                className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                                {...register("firstName", {
+                                                    required: "First name is required",
+                                                })}
+                                            />
+                                            <IoPersonOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div className="Frame-13 flex flex-col items-start gap-2 sm:gap-[8px]">
+                                        <div className="flex justify-between items-center w-full">
+                                            <label
+                                                htmlFor="lastName-input"
+                                                className="Last-Name font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                                            >
+                                                Last Name
+                                            </label>
+                                            {errors.lastName && (
+                                                <div className="text-[#EF6262] text-[12px] font-geist h-[16px]">
+                                                    {errors.lastName.message}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                            <input
+                                                id="lastName-input"
+                                                type="text"
+                                                className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                                {...register("lastName", {
+                                                    required: "Last name is required",
+                                                })}
+                                            />
+                                            <IoPersonOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Email */}
+                                <div className="Frame-13 flex flex-col items-start gap-2 sm:gap-[8px] w-full">
+                                    <div className="flex justify-between items-center w-full">
+                                        <label
+                                            htmlFor="email-input"
+                                            className="Email font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                                        >
+                                            Email
+                                        </label>
+                                        {errors.userEmail && (
+                                            <div className="text-[#EF6262] text-[12px] font-geist h-[16px]">
+                                                {errors.userEmail.message}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                        <input
+                                            id="email-input"
+                                            type="email"
+                                            className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                            {...register("userEmail", {
+                                                required: "Email is required",
+                                                pattern: {
+                                                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                                                    message: "Enter a valid email address",
+                                                },
+                                            })}
+                                        />
+                                        <MdOutlineMailOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                {/* Password */}
+                                <div className="Frame-14 flex flex-col items-start gap-2 sm:gap-[8px] w-full">
+                                    <div className="flex justify-between items-center w-full">
+                                        <label
+                                            htmlFor="password-input"
+                                            className="Password font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px] text-[#8E8E8E]"
+                                        >
+                                            Password
+                                        </label>
+                                        {errors.userPassword && (
+                                            <span className="text-[#EF6262] text-[12px] font-geist h-[16px]">
+                                                {errors.userPassword.message}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                        <input
+                                            id="password-input"
+                                            type={showPassword ? "text" : "password"}
+                                            className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                            {...register("userPassword", {
+                                                required: "Password is required",
+                                                minLength: { value: 8, message: "Minimum length is 8" },
+                                                validate: validatePassword
+                                            })}
+                                        />
+                                        <TbLockPassword className="flex order-first justify-center scale-170 w-[11px] h-[12px] gap-[10px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
+                                        <button
+                                            type="button"
+                                            aria-controls="password-input"
+                                            aria-label={
+                                                showPassword ? "Hide password" : "Show characters"
+                                            }
+                                            onClick={() => setShowPassword((v) => !v)}
+                                            className="w-[16px] h-[13px] mx-auto scale-125 text-[#8e8e8e] text-sm cursor-pointer hover:text-white transition-colors duration-300 bg-transparent border-none p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ae3a3a] rounded"
+                                        >
+                                            {showPassword ? (
+                                                <IoEyeOutline aria-hidden="true" focusable="false" />
+                                            ) : (
+                                                <IoEyeOffOutline aria-hidden="true" focusable="false" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="relative">
-                            <label htmlFor="email-input" className="text-secondary-text geist-font text-sm font-[475]">Email</label>
-                            <input {...register("userEmail", { required: "Email is required" })} id="email-input" type="email" className="peer text-primary-text text-sm pl-10 pr-2 h-9 w-full border-primary-border border-[2px] rounded-lg focus:border-primary-accent focus:outline-none" />
-                            <MdOutlineMailOutline className="absolute left-[10px] top-[72%] transform -translate-y-1/2 text-secondary-text peer-focus:text-primary-text text-sm pointer-events-none" />
-                            {errors.userEmail && (
-                                <p className="absolute left-0 bottom-[-18px] tracking-wider geist-font text-error-text text-[10px]">
-                                    {errors.userEmail.message}
-                                </p>
-                            )}
-                        </div>
+                            {/* Sign Up button */}
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                aria-busy={isSubmitting}
+                                aria-disabled={isSubmitting}
+                                className="flex justify-center items-center w-full max-w-[402px] h-[40px] gap-2 bg-[#EF6262] rounded-[8px] hover:border hover:border-white hover:scale-101 duration-300 font-geist text-[14px] tracking-[0.5px] text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isSubmitting ? "Creating account..." : "Sign Up"}
+                            </button>
+                        </form>
+                    </div>
 
-                        <div className="relative">
-                            <label htmlFor="password-input" className="text-secondary-text geist-font text-sm font-[475]">Password</label>
-                            <input
-                                id="password-input"
-                                type={showPassword ? "text" : "password"}
-                                {...register("userPassword", { 
-                                    required: "Password is required", 
-                                    minLength: { value: 8, message: "Minimum length is 8" },
-                                    validate: validatePassword
-                                })}
-                                className="peer text-primary-text text-sm pl-10 pr-10 h-9 w-full border-primary-border border-[2px] rounded-lg focus:border-primary-accent focus:outline-none"
-                            />
-                            <TbLockPassword className="absolute left-[10px] top-[70%] -translate-y-1/2 text-secondary-text peer-focus:text-primary-text text-sm pointer-events-none" />
-                            {errors.userPassword && (
-                                <p className="absolute left-0 bottom-[-18px] tracking-wider geist-font text-error-text text-[10px]">
-                                    {errors.userPassword.message}
-                                </p>
-                            )}    
+                    <div className="Frame-26 flex justify-center items-center gap-[10px] w-full max-w-[402px] h-[16px]">
+                        <div className="Rectangle-2 w-[182px] h-px bg-[#232323] grow"></div>
+                        <p className="OR w-[18px] h-[16px] font-geist font-semibold text-[12px] leading-[16px] flex items-center text-center tracking-[0.5px] text-[#8E8E8E]">
+                            OR
+                        </p>
+                        <div className="Rectangle-1 w-[182px] h-px bg-[#232323] grow"></div>
+                    </div>
+
+                    <div className="Frame-24 flex flex-col items-center gap-6 sm:gap-[40px] w-full max-w-[402px]">
+                        <div className="Frame-27 flex justify-between items-center gap-4 sm:gap-[24px] w-full max-w-[402px] h-[40px]">
                             <button
                                 type="button"
-                                aria-label={showPassword ? "Hide password" : "Show password"}
-                                onClick={handlePasswordToggle}
-                                className="absolute right-[10px] top-[72%] -translate-y-1/2 text-secondary-text text-sm cursor-pointer hover:text-primary-text transition-colors duration-300 bg-transparent border-none p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-accent rounded">
-                                {showPassword ? <IoEyeOutline /> : <IoEyeOffOutline />}
+                                onClick={() => loginWithGoogleCode()}
+                                aria-label="Sign up with Google"
+                                className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer"
+                            >
+                                <img
+                                    src={googleLogo}
+                                    alt="Google logo"
+                                    className="h-5 w-5 object-contain"
+                                />
                             </button>
-                        </div>
-
-                        <div className="relative">
-                            <button disabled={isSubmitting} className="text-primary-text bg-primary-accent w-full h-[35px] rounded-[6px] tracking-wider geist-font font-[250] text-[13px] mt-4 cursor-pointer transition-all duration-200 origin-center will-change-transform hover:bg-primary-accent-hover hover:shadow-[0_2px_12px_0_rgba(192,74,74,0.25)]">
-                                {isSubmitting ? "Creating account..." : "Create Account"}
+                            <button
+                                type="button"
+                                onClick={() => loginWithMicrosoft()}
+                                aria-label="Sign up with Microsoft"
+                                className="Frame-24 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer"
+                            >
+                                <img
+                                    src={microsoftLogo}
+                                    alt="Microsoft logo"
+                                    className="h-4 w-4 object-contain"
+                                />
                             </button>
-                            {errors.root && (
-                                <div className="absolute left-0 right-0 top-full mt-2" role="alert">
-                                    <p className="tracking-wider geist-font text-error-text text-[10px] text-center" aria-live="polite">
-                                        {errors.root.message}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </form>
-
-                    <div className="mt-10">
-                        <div className="flex items-center w-full gap-1">
-                            <div className="flex-1 h-[1px] bg-primary-border" />
-                            <span className="text-secondary-text geist-font font-[550] text-[11px] px-2">OR</span>
-                            <div className="flex-1 h-[1px] bg-primary-border" />
                         </div>
                     </div>
 
-                    <div className="flex flex-row gap-4 mt-7">
-                        <button
-                            onClick={() => loginWithGoogleCode()}
-                            aria-label="Sign up with Google"
-                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-300 hover:border-white hover:scale-[1.02] cursor-pointer will-change-transform"
-                        >
-                            <img src={googleLogo} alt="Google logo" className="h-4 w-4" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => loginWithMicrosoft()}
-                            aria-label="Sign up with Microsoft"
-                            className="flex items-center justify-center h-[34px] w-55 border-[2px] border-primary-border rounded-lg shadow-sm transition-all duration-300 hover:border-white hover:scale-[1.02] cursor-pointer will-change-transform"
-                        >
-                            <img src={microsoftLogo} alt="Microsoft logo" className="h-4 w-4" />
-                        </button>
-                    </div>
-
-                    <div className="geist-font text-[12px] font-[150] tracking-wider mt-10 flex justify-center">
-                        <p className="text-primary-text">Already have an account? <Link to="/" className="text-primary-accent transition-all duration-500 hover:underline">Log in</Link></p>
+                    <div className="Frame-7 flex flex-col justify-center items-center gap-4 sm:gap-[21px] w-full max-w-[402px]">
+                        <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px]">
+                            <span className="text-[#ededed]">Already have an account?</span>
+                            <span className="mx-1 text-[#ededed]">•</span>
+                            <Link
+                                to="/"
+                                className="text-[#EF6262] no-underline hover:underline cursor-pointer"
+                            >
+                                Log in
+                            </Link>
+                        </p>
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 }

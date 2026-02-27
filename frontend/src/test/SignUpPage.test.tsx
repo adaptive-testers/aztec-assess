@@ -90,7 +90,7 @@ describe("SignUpContainer", () => {
     describe("Rendering", () => {
         it("renders the SignUpContainer with the correct title", () => {
             render(<SignUpContainer />)
-            expect(screen.getByText("Complete Your Account!")).toBeInTheDocument()
+            expect(screen.getByRole("heading", { name: "Sign Up" })).toBeInTheDocument()
         })
 
         it("renders all form fields", () => {
@@ -101,9 +101,9 @@ describe("SignUpContainer", () => {
             expect(screen.getByLabelText("Password")).toBeInTheDocument()
         })
 
-        it("renders the create account button", () => {
+        it("renders the sign up button", () => {
             render(<SignUpContainer />)
-            expect(screen.getByText("Create Account")).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: "Sign Up" })).toBeInTheDocument()
         })
 
         it("renders social login buttons", () => {
@@ -423,7 +423,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -438,7 +438,7 @@ describe("SignUpContainer", () => {
             const user = userEvent.setup()
             render(<SignUpContainer />)
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -463,7 +463,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "pass1!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -485,7 +485,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "password!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -507,7 +507,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "password123")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -531,7 +531,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -560,7 +560,7 @@ describe("SignUpContainer", () => {
             render(<SignUpContainer />)
             
             const passwordInput = screen.getByLabelText("Password") as HTMLInputElement
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             
             expect(passwordInput.type).toBe("password")
             
@@ -570,7 +570,7 @@ describe("SignUpContainer", () => {
             
             await user.click(screen.getByLabelText("Hide password"))
             expect(passwordInput.type).toBe("password")
-            expect(screen.getByLabelText("Show password")).toBeInTheDocument()
+            expect(screen.getByLabelText("Show characters")).toBeInTheDocument()
         })
 
         it("submits form with valid data and student role", async () => {
@@ -589,7 +589,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -629,7 +629,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "jane@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -658,7 +658,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             expect(screen.getByText("Creating account...")).toBeInTheDocument()
@@ -681,7 +681,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -700,7 +700,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -719,7 +719,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -744,7 +744,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -771,7 +771,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -793,7 +793,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -819,7 +819,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -845,7 +845,7 @@ describe("SignUpContainer", () => {
         it("password toggle button has accessible label", () => {
             render(<SignUpContainer />)
             
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             expect(toggleButton).toHaveAttribute("type", "button")
         })
 
@@ -888,9 +888,9 @@ describe("SignUpContainer", () => {
         it("password toggle button has focus-visible styles", () => {
             render(<SignUpContainer />)
             
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             expect(toggleButton).toHaveClass("focus-visible:ring-2")
-            expect(toggleButton).toHaveClass("focus-visible:ring-primary-accent")
+            expect(toggleButton).toHaveClass("focus-visible:ring-[#ae3a3a]")
         })
 
         it("form can be submitted with Enter key", async () => {
@@ -968,7 +968,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "jean@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -1010,7 +1010,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "!@#$%^&*()1")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -1037,7 +1037,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
