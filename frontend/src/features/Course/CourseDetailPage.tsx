@@ -167,8 +167,7 @@ export default function CourseDetailPage() {
   useEffect(() => {
     if (!effectiveCourseId) return;
     const path = location.pathname;
-    if (path.endsWith('/quizzes')) setActiveTab('quizzes');
-    else if (path.endsWith('/members')) setActiveTab('members');
+    if (path.endsWith('/members')) setActiveTab('members');
     else setActiveTab('details');
   }, [location.pathname, effectiveCourseId]);
 
@@ -1087,9 +1086,7 @@ export default function CourseDetailPage() {
                 return roleMap[role] || role;
               };
               
-              const displayRole = userCourseRole === 'STUDENT' && member.role === 'OWNER'
-                ? 'Instructor'
-                : formatRole(member.role);
+              const displayRole = formatRole(member.role);
               
               return (
               <div
