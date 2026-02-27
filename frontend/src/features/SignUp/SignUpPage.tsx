@@ -3,7 +3,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
-import { IoPersonOutline } from "react-icons/io5";
+import { GoPerson } from "react-icons/go";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
@@ -204,16 +204,16 @@ export default function SignUpContainer() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                        <div className="Frame-10 flex flex-row items-center gap-2 w-full h-[40px] px-3 py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                            <GoPerson className="shrink-0 w-[16px] h-[16px] text-[#8e8e8e] pointer-events-none" style={{ stroke: "currentColor", strokeWidth: 0.8 }} />
                                             <input
                                                 id="firstName-input"
                                                 type="text"
-                                                className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                                className="peer bg-transparent flex-1 min-w-0 text-white text-[14px] outline-none focus:outline-none"
                                                 {...register("firstName", {
                                                     required: "First name is required",
                                                 })}
                                             />
-                                            <IoPersonOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
                                         </div>
                                     </div>
                                     <div className="Frame-13 flex flex-col items-start gap-2 sm:gap-[8px]">
@@ -230,16 +230,15 @@ export default function SignUpContainer() {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
+                                        <div className="Frame-10 flex flex-row items-center gap-2 w-full h-[40px] px-3 py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
                                             <input
                                                 id="lastName-input"
                                                 type="text"
-                                                className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
+                                                className="peer bg-transparent flex-1 min-w-0 text-white text-[14px] outline-none focus:outline-none"
                                                 {...register("lastName", {
                                                     required: "Last name is required",
                                                 })}
                                             />
-                                            <IoPersonOutline className="order-first scale-170 w-[10px] h-[12px] mx-auto text-[#8e8e8e] peer-focus:text-white text-sm pointer-events-none" />
                                         </div>
                                     </div>
                                 </div>
@@ -373,9 +372,8 @@ export default function SignUpContainer() {
                     </div>
 
                     <div className="Frame-7 flex flex-col justify-center items-center gap-4 sm:gap-[21px] w-full max-w-[402px]">
-                        <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px]">
+                        <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center gap-1.5 tracking-[0.5px]">
                             <span className="text-[#ededed]">Already have an account?</span>
-                            <span className="mx-1 text-[#ededed]">•</span>
                             <Link
                                 to="/"
                                 className="text-[#EF6262] no-underline hover:underline cursor-pointer"
