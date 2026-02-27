@@ -44,6 +44,4 @@ export const QUIZZES = {
   QUIZZES_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/quizzes/`,
   QUIZ_DETAIL: (quizId: number | string) => `/quizzes/${quizId}/`,
 } as const;
-
 export type AuthEndpoint = typeof AUTH[keyof typeof AUTH];
-

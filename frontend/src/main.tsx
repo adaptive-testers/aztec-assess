@@ -1,5 +1,5 @@
 import { MsalProvider } from "@azure/msal-react";
-import { GoogleOAuthProvider } from "@react-oauth/google"; 
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

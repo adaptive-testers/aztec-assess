@@ -7,11 +7,14 @@ import CourseDetailPage from "./features/Course/CourseDetailPage";
 import JoinCoursePage from "./features/Course/JoinCoursePage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
-import Quiz from "./features/InstructorCourse/Quiz";
+import CoursePage from "./features/InstructorCourse/CoursePage";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
+import StudentQuizLanding from "./features/StudentQuizzes/StudentQuizLanding";
+import StudentQuizQuestions from "./features/StudentQuizzes/StudentQuizQuestions";
+import StudentQuizResults from "./features/StudentQuizzes/StudentQuizResults";
 
 function AuthInterceptorsInitializer() {
   useAuthInterceptors();
@@ -76,9 +79,12 @@ function App() {
           />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
-          <Route path="/courses/:courseId" element={<Quiz />} />
+          <Route path="/courses/:courseId" element={<CoursePage />} />
           <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
+          <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
+          <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
+          <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
         </Route>
       </Routes>
     </>
