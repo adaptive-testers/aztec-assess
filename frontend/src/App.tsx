@@ -10,6 +10,7 @@ import CourseDetailPage from "./features/Course/CourseDetailPage";
 import JoinCoursePage from "./features/Course/JoinCoursePage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
+import StudentDashboardPage from "./features/Dashboard/StudentDashboardPage";
 import CoursePage from "./features/InstructorCourse/CoursePage";
 import LogInPage from "./features/LogIn/LogInPage";
 import ProfilePage from "./features/Profile/ProfilePage";
@@ -78,7 +79,7 @@ function App() {
         >
           <Route
             path="/dashboard"
-            element={<div className="text-primary-text">Dashboard</div>}
+            element={<StudentDashboardPage />}
           />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
