@@ -82,8 +82,8 @@ describe("SignUpContainer", () => {
             pathname: '/sign-up',
             search: '',
             hash: '',
-            key: 'default'
-        })
+            key: 'default',
+        } as ReturnType<typeof useLocation>)
     })
 
     // Basic rendering tests
@@ -232,8 +232,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
 
             render(<SignUpContainer />)
             
@@ -326,7 +326,7 @@ describe("SignUpContainer", () => {
                 search: "",
                 hash: "",
                 key: "default",
-            })
+            } as ReturnType<typeof useLocation>)
 
             render(<SignUpContainer />)
             const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
@@ -357,8 +357,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -371,8 +371,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -385,8 +385,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -402,8 +402,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             const { rerender } = render(<SignUpContainer />)
             
@@ -413,8 +413,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             rerender(<SignUpContainer />)
             
@@ -619,8 +619,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
