@@ -9,6 +9,7 @@ import { IoLogOut } from "react-icons/io5";
 import { NavLink } from "react-router-dom";
 
 import { privateApi } from "../../api/axios";
+import { COURSES } from "../../api/endpoints";
 import { AUTH } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
 
@@ -16,13 +17,39 @@ interface Course {
   id: string | number;
   name: string;
   path: string;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 }
+
+interface UserProfile {
+  role: "student" | "instructor" | "admin";
+}
+
+interface BackendCourse {
+  id: string | number;
+  title?: string;
+  name?: string;
+  slug?: string;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+}
+
+const parseCoursesArray = (data: unknown): BackendCourse[] => {
+  if (Array.isArray(data)) return data as BackendCourse[];
+  if (data && typeof data === 'object') {
+    const obj = data as { results?: unknown[]; courses?: unknown[] };
+    if (Array.isArray(obj.results)) return obj.results as BackendCourse[];
+    if (Array.isArray(obj.courses)) return obj.courses as BackendCourse[];
+  }
+  return [];
+};
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [coursesOpen, setCoursesOpen] = useState(true);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [archivedCourses, setArchivedCourses] = useState<Course[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserProfile["role"] | null>(null);
   const { logout, checkingRefresh, accessToken } = useAuth();
 
   const toggleSidebar = () => {
@@ -43,56 +70,170 @@ export default function Sidebar() {
     if (!accessToken) {
       setLoading(false);
       setCourses([]);
+      setUserRole(null);
       return;
     }
 
     let mounted = true;
+    const fetchUserProfile = async () => {
+      try {
+        const res = await privateApi.get<UserProfile>(AUTH.PROFILE);
+        if (!mounted) return;
+        setUserRole(res.data.role);
+      } catch (error) {
+        if (!mounted) return;
+        console.error("Failed to fetch user profile:", error);
+      }
+    };
+
     const fetchCourses = async () => {
       if (!mounted) return;
       try {
-        const res = await privateApi.get(AUTH.COURSES);
+        const res = await privateApi.get(COURSES.LIST);
         if (!mounted) return;
 
-        interface BackendCourse {
-          id: string | number;
-          title?: string;
-          name?: string;
-          slug?: string;
-        }
+        const coursesArray = parseCoursesArray(res.data);
 
-        let coursesArray: BackendCourse[] = [];
+        const activeCourses: Course[] = [];
+        const archived: Course[] = [];
 
-        if (Array.isArray(res.data)) {
-          coursesArray = res.data;
-        } else if (res.data?.results && Array.isArray(res.data.results)) {
-          coursesArray = res.data.results;
-        } else if (res.data?.courses && Array.isArray(res.data.courses)) {
-          coursesArray = res.data.courses;
-        }
-
-        if (coursesArray.length > 0) {
-          const mappedCourses = coursesArray.map((course: BackendCourse) => ({
+        coursesArray.forEach((course: BackendCourse) => {
+          const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
+          const mappedCourse = {
             id: course.id,
             name: course.title || course.name || "Untitled Course",
-            path: `/courses/${course.slug || course.id}`,
-          }));
-          setCourses(mappedCourses);
-        } else {
-          setCourses([]);
-        }
+            path: coursePath,
+            status: course.status,
+          };
+          
+          if (course.status === 'ARCHIVED') {
+            archived.push(mappedCourse);
+          } else {
+            activeCourses.push(mappedCourse);
+          }
+        });
+
+        setCourses(activeCourses);
+        setArchivedCourses(archived);
       } catch (error) {
         if (!mounted) return;
         console.error("Failed to fetch courses:", error);
         setCourses([]);
+        setArchivedCourses([]);
       } finally {
         if (mounted) setLoading(false);
       }
     };
+
+    fetchUserProfile();
     fetchCourses();
     return () => {
       mounted = false;
     };
   }, [checkingRefresh, accessToken]);
+
+  useEffect(() => {
+    if (accessToken && !checkingRefresh && !loading) {
+      let mounted = true;
+      const fetchArchivedCourses = async () => {
+        if (!mounted) return;
+        try {
+          const res = await privateApi.get(COURSES.LIST + '?status=ARCHIVED');
+          if (!mounted) return;
+
+          const coursesArray = parseCoursesArray(res.data);
+
+          const mappedCourses = coursesArray.map((course: BackendCourse) => ({
+            id: course.id,
+            name: course.title || course.name || "Untitled Course",
+            path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
+            status: course.status,
+          }));
+          
+          if (mounted) {
+            setArchivedCourses(mappedCourses);
+          }
+        } catch (error) {
+          if (!mounted) return;
+          console.error("Failed to fetch archived courses:", error);
+        }
+      };
+
+      void fetchArchivedCourses();
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [accessToken, checkingRefresh, loading]);
+
+  useEffect(() => {
+    const handleCourseDeleted = () => {
+      if (accessToken && !checkingRefresh) {
+        const fetchCourses = async () => {
+          try {
+            const res = await privateApi.get(COURSES.LIST);
+            const coursesArray = parseCoursesArray(res.data);
+
+            const activeCourses: Course[] = [];
+            const archived: Course[] = [];
+
+            coursesArray.forEach((course: BackendCourse) => {
+              const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
+              const mappedCourse = {
+                id: course.id,
+                name: course.title || course.name || "Untitled Course",
+                path: coursePath,
+                status: course.status,
+              };
+              
+              if (course.status === 'ARCHIVED') {
+                archived.push(mappedCourse);
+              } else {
+                activeCourses.push(mappedCourse);
+              }
+            });
+
+            setCourses(activeCourses);
+            
+            try {
+              const archivedRes = await privateApi.get(COURSES.LIST + '?status=ARCHIVED');
+              const archivedArray = parseCoursesArray(archivedRes.data);
+
+              const mappedArchived = archivedArray.map((course: BackendCourse) => ({
+                id: course.id,
+                name: course.title || course.name || "Untitled Course",
+                path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
+                status: course.status,
+              }));
+              
+              setArchivedCourses(mappedArchived);
+            } catch (archivedError) {
+              console.error("Failed to fetch archived courses:", archivedError);
+              setArchivedCourses(archived);
+            }
+          } catch (error) {
+            console.error("Failed to refresh courses:", error);
+            setCourses([]);
+            setArchivedCourses([]);
+          }
+        };
+
+        void fetchCourses();
+      }
+    };
+
+    const handleCourseArchived = () => {
+      handleCourseDeleted();
+    };
+
+    window.addEventListener('courseDeleted', handleCourseDeleted);
+    window.addEventListener('courseArchived', handleCourseArchived);
+
+    return () => {
+      window.removeEventListener('courseDeleted', handleCourseDeleted);
+      window.removeEventListener('courseArchived', handleCourseArchived);
+    };
+  }, [accessToken, checkingRefresh]);
 
   const handleLogout = () => {
     logout();
@@ -124,7 +265,7 @@ export default function Sidebar() {
         >
           <IoIosArrowUp
             className={`h-[17px] w-[17px] text-[rgba(241, 245, 249, 0.7)] transition-transform duration-300 ${
-              collapsed ? "rotate-90" : "rotate-[270deg]"
+              collapsed ? "rotate-90" : "-rotate-90"
             }`}
           />
         </button>
@@ -283,15 +424,27 @@ export default function Sidebar() {
           >
             <div className="overflow-hidden">
               <div className="w-full rounded-[7px] border border-[#404040] bg-[#1A1A1A] shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1),0px_2px_4px_-2px_rgba(0,0,0,0.1)] p-[6px]">
-                <NavLink
-                  to="/courses/create"
-                  className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
-                >
-                  <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
-                  <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
-                    Create Course
-                  </span>
-                </NavLink>
+                {userRole === "instructor" || userRole === "admin" ? (
+                  <NavLink
+                    to="/courses/create"
+                    className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
+                  >
+                    <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
+                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
+                      Create Course
+                    </span>
+                  </NavLink>
+                ) : (
+                  <NavLink
+                    to="/join-course"
+                    className="group/item relative flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#F87171]/80 transition-colors"
+                  >
+                    <FaPlus className="mr-[10px] h-[16px] w-[16px] text-[#A1A1AA] shrink-0" />
+                    <span className="font-inter text-[15px] leading-[22px] text-[#F1F5F9] truncate">
+                      Join Course
+                    </span>
+                  </NavLink>
+                )}
 
                 {loading ? (
                   <div className="mt-[6px] space-y-[4px]">
@@ -302,25 +455,67 @@ export default function Sidebar() {
                       />
                     ))}
                   </div>
-                ) : courses.length > 0 ? (
+                ) : (
                   <>
-                    <div className="mx-[2px] my-[6px] h-px bg-[#404040] rounded" />
-                    <div className="space-y-[4px]">
-                      {courses.map((course) => (
-                        <NavLink
-                          key={course.id}
-                          to={course.path}
-                          className="group/item relative flex h-[40px] items-center rounded-[5px] px-[10px] bg-[#1A1A1A] hover:bg-[#F87171]/80 transition-colors duration-200"
+                    {courses.length > 0 && (
+                      <>
+                        <div className="mx-[2px] my-[6px] h-px bg-[#404040] rounded" />
+                        <div className="space-y-[4px]">
+                          {courses.map((course) => (
+                            <NavLink
+                              key={course.id}
+                              to={course.path}
+                              className="group/item relative flex h-[40px] items-center rounded-[5px] px-[10px] bg-[#1A1A1A] hover:bg-[#F87171]/80 transition-colors duration-200"
+                            >
+                              <FaBook className="mr-[10px] h-[16px] w-[16px] text-[#F1F5F9] shrink-0" />
+                              <span className="font-inter text-[14px] leading-[20px] text-[#F1F5F9] truncate flex-1 min-w-0">
+                                {course.name}
+                              </span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {archivedCourses.length > 0 && (
+                      <>
+                        <div className="mx-[2px] my-[6px] h-px bg-[#404040] rounded" />
+                        <button
+                          onClick={() => setShowArchived(!showArchived)}
+                          className="w-full flex h-[36px] items-center rounded-[5px] px-[10px] hover:bg-[#404040]/50 transition-colors"
                         >
-                          <FaBook className="mr-[10px] h-[16px] w-[16px] text-[#F1F5F9] shrink-0" />
-                          <span className="font-inter text-[14px] leading-[20px] text-[#F1F5F9] truncate flex-1 min-w-0">
-                            {course.name}
+                          <span className="font-inter text-[13px] leading-[20px] text-[#A1A1AA] truncate flex-1 min-w-0 text-left">
+                            {showArchived ? 'Hide' : 'Show'} Archived ({archivedCourses.length})
                           </span>
-                        </NavLink>
-                      ))}
-                    </div>
+                          <IoIosArrowUp
+                            className={`h-[14px] w-[14px] text-[#A1A1AA] transition-transform duration-200 ${
+                              showArchived ? "rotate-0" : "rotate-180"
+                            }`}
+                          />
+                        </button>
+                        
+                        <div 
+                          className={`space-y-[4px] overflow-hidden transition-all duration-300 ease-in-out ${
+                            showArchived ? 'max-h-[500px] opacity-100 mt-[4px]' : 'max-h-0 opacity-0'
+                          }`}
+                        >
+                          {archivedCourses.map((course) => (
+                            <NavLink
+                              key={course.id}
+                              to={course.path}
+                              className="group/item relative flex h-[40px] items-center rounded-[5px] px-[10px] bg-[#1A1A1A] hover:bg-[#F87171]/80 transition-colors duration-200 opacity-60"
+                            >
+                              <FaBook className="mr-[10px] h-[16px] w-[16px] text-[#F1F5F9] shrink-0" />
+                              <span className="font-inter text-[14px] leading-[20px] text-[#F1F5F9] truncate flex-1 min-w-0">
+                                {course.name}
+                              </span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </>
-                ) : null}
+                )}
               </div>
             </div>
           </div>

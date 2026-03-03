@@ -1,3 +1,5 @@
+import { useMsal } from "@azure/msal-react";
+import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { useState } from "react";
 import { useForm, type SubmitHandler, useWatch } from "react-hook-form";
@@ -12,6 +14,30 @@ import googleLogo from "../../assets/googleLogo.png";
 import microsoftLogo from "../../assets/microsoftLogo.png";
 import { useAuth } from "../../context/AuthContext";
 
+const OAUTH_ERRORS = {
+  accountNotFound: "Account not found. Please create an account first.",
+  signInFailed: "Sign-in failed. Please try again.",
+  cancelled: "Sign-in was cancelled.",
+} as const;
+
+function getOAuthErrorMessage(
+  backendDetail: string | undefined,
+  rawError: unknown,
+  isMicrosoft: boolean
+): string | null {
+  if (backendDetail?.includes("Role is required")) return OAUTH_ERRORS.accountNotFound;
+  if (isMicrosoft && rawError) {
+    const s = [
+      String(rawError),
+      rawError instanceof Error ? rawError.message : "",
+      (rawError as { errorCode?: string })?.errorCode ?? "",
+      (rawError as { name?: string })?.name ?? "",
+    ].join(" ").toLowerCase();
+    if (s.includes("cancelled")) return null;
+  }
+  return OAUTH_ERRORS.signInFailed;
+}
+
 interface FormFields {
   userEmail: string;
   userPassword: string;
@@ -20,8 +46,10 @@ interface FormFields {
 
 export default function LogInContainer() {
   const [showPassword, setShowPassword] = useState(false);
+  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
   const { setAccessToken } = useAuth();
   const navigate = useNavigate();
+  const { instance } = useMsal();
 
   const {
     register,
@@ -35,6 +63,75 @@ export default function LogInContainer() {
   });
 
   const keepSignedIn = useWatch({ control, name: "keepSignedIn" }) ?? false;
+
+  const loginWithGoogleCode = useGoogleLogin({
+    flow: "auth-code",
+    onSuccess: async ({ code }) => {
+      setIsOAuthLoading(true);
+      try {
+        const res = await publicApi.post(AUTH.OAUTH_GOOGLE, {
+          code,
+          // No role needed for login - user already exists
+        });
+
+        if (res.data?.tokens?.access) {
+          setAccessToken(res.data.tokens.access);
+          navigate("/profile");
+        } else {
+          setError("root", { message: OAUTH_ERRORS.signInFailed });
+        }
+      } catch (e) {
+        const detail = axios.isAxiosError(e) ? e.response?.data?.detail || e.response?.data?.message : undefined;
+        const message = getOAuthErrorMessage(detail, e, false);
+        if (message) setError("root", { message });
+      } finally {
+        setIsOAuthLoading(false);
+      }
+    },
+    onError: () => {
+      setError("root", { message: OAUTH_ERRORS.cancelled });
+    },
+  });
+
+  const loginWithMicrosoft = async () => {
+    try {
+      const response = await instance.loginPopup({
+        scopes: ["openid", "profile", "email", "User.Read"],
+        overrideInteractionInProgress: true,
+      });
+      const accessToken = response.accessToken;
+
+      if (!accessToken) {
+        setError("root", { message: OAUTH_ERRORS.signInFailed });
+        return;
+      }
+
+      setIsOAuthLoading(true);
+      try {
+        const res = await publicApi.post(AUTH.OAUTH_MICROSOFT, {
+          access_token: accessToken,
+        });
+
+        if (res.data?.tokens?.access) {
+          setAccessToken(res.data.tokens.access);
+          navigate("/profile");
+        } else {
+          const detail = res.data?.detail || res.data?.message;
+          setError("root", {
+            message: getOAuthErrorMessage(detail, null, false) ?? OAUTH_ERRORS.signInFailed,
+          });
+        }
+      } finally {
+        setIsOAuthLoading(false);
+      }
+    } catch (e) {
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail || e.response?.data?.message : undefined;
+      const message = getOAuthErrorMessage(detail, e, true);
+      if (message) {
+        setError("root", { message });
+      }
+    }
+  };
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
@@ -61,7 +158,22 @@ export default function LogInContainer() {
   };
 
   return (
-    <div className="Log-In w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4">
+    <div className="Log-In relative w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4 min-h-dvh">
+      {isOAuthLoading && (
+        <div
+          className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative h-12 w-12" aria-hidden>
+              <div className="absolute inset-0 rounded-full border-4 border-[#2A2A2A]" />
+              <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#EF6262]" />
+            </div>
+            <div className="text-sm text-[#8E8E8E]">Signing you in…</div>
+          </div>
+        </div>
+      )}
       <div className="Sign-Up-Box flex flex-col justify-center items-center p-4 sm:p-6 md:p-[40px] gap-2 sm:gap-[10px] w-full max-w-[482px] bg-[#0A0A0A] border border-[#282828] rounded-[15px] transition-all duration-300 ease-out">
         <div className="Frame-25 flex flex-col items-start gap-3 sm:gap-4 md:gap-[40px] w-full max-w-[402px]">
           <div className="Frame-19 flex flex-col items-center w-full max-w-[402px]">
@@ -102,12 +214,11 @@ export default function LogInContainer() {
                       </div>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
                     <input
                       id="email-input"
                       type="email"
-                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-[rgba(174,58,58,0.4)] focus:outline-none"
-                      placeholder="Enter your email"
+                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
                       {...register("userEmail", {
                         required: "Email is required",
                         pattern: {
@@ -135,12 +246,11 @@ export default function LogInContainer() {
                       </span>
                     )}
                   </div>
-                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-[rgba(174,58,58,0.4)]">
+                  <div className="Frame-10 flex flex-row items-center gap-3 sm:gap-[12px] w-full h-[40px] px-3 sm:px-[14px] py-[11px] bg-[#0A0A0A] border border-[#282828] shadow-[0_4px_4px_#00000040] rounded-[8px] focus-within:border-primary-accent">
                     <input
                       id="password-input"
                       type={showPassword ? "text" : "password"}
-                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-[rgba(174,58,58,0.4)] focus:outline-none"
-                      placeholder="Enter your password"
+                      className="peer bg-transparent flex-1 text-white text-[14px] outline-none focus:border-primary-accent focus:outline-none"
                       {...register("userPassword", {
                         required: "Password is required",
                       })}
@@ -215,23 +325,33 @@ export default function LogInContainer() {
           </div>
 
           <div className="Frame-26 flex justify-center items-center gap-[10px] w-full max-w-[402px] h-[16px]">
-            <div className="Rectangle-2 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
+            <div className="Rectangle-2 w-[182px] h-px bg-[#232323] grow"></div>
             <p className="OR w-[18px] h-[16px] font-geist font-semibold text-[12px] leading-[16px] flex items-center text-center tracking-[0.5px] text-[#8E8E8E]">
               OR
             </p>
-            <div className="Rectangle-1 w-[182px] h-[1px] bg-[#232323] flex-grow"></div>
+            <div className="Rectangle-1 w-[182px] h-px bg-[#232323] grow"></div>
           </div>
 
           <div className="Frame-24 flex flex-col items-center gap-6 sm:gap-[40px] w-full max-w-[402px]">
             <div className="Frame-27 flex justify-between items-center gap-4 sm:gap-[24px] w-full max-w-[402px] h-[40px]">
-              <button className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => loginWithGoogleCode()}
+                aria-label="Sign in with Google"
+                className="Frame-20 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer"
+              >
                 <img
                   src={googleLogo}
                   alt="Google logo"
                   className="h-5 w-5 object-contain"
                 />
               </button>
-              <button className="Frame-24 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => loginWithMicrosoft()}
+                aria-label="Sign in with Microsoft"
+                className="Frame-24 flex justify-center items-center gap-[10px] w-[192px] h-[40px] px-[14px] mx-auto border border-[#242424] rounded-[8px] hover:border-white hover:scale-102 duration-600 cursor-pointer"
+              >
                 <img
                   src={microsoftLogo}
                   alt="Microsoft logo"

@@ -1,3 +1,4 @@
+import { useMsal } from "@azure/msal-react";
 import {
   createContext,
   useState,
@@ -20,6 +21,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -35,9 +37,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [checkingRefresh, setCheckingRefresh] = useState(true);
   const didAttemptRefresh = useRef(false);
   const navigate = useNavigate();
+  const { instance } = useMsal();
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);
+    // If a token is explicitly set (e.g., from OAuth), stop checking refresh
+    if (token) {
+      setCheckingRefresh(false);
+    }
   };
 
   useEffect(() => {
@@ -73,10 +80,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await publicApi.post(AUTH.LOGOUT, {}, { withCredentials: true });
     } catch (error) {
       console.error("Logout error:", error);
-    } finally {
-      setAccessToken(null);
-      navigate("/login");
+      // Continue with logout even if backend call fails
     }
+    
+    // Clear MSAL cache silently
+    const accounts = instance.getAllAccounts();
+    if (accounts.length > 0) {
+      instance.setActiveAccount(null);
+      instance.clearCache();
+    }
+    
+    // Clear local state and navigate
+    setAccessToken(null);
+    navigate("/login");
   };
 
   return (

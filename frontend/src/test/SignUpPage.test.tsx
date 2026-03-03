@@ -38,12 +38,34 @@ vi.mock('react-router-dom', async (importOriginal) => {
     }
 })
 
+// Mock Google OAuth
+let mockOAuthConfig: { onSuccess?: (data: { code: string }) => void; onError?: () => void } | null = null;
+const mockGoogleLoginFunction = vi.fn();
+
+vi.mock('@react-oauth/google', () => ({
+    useGoogleLogin: vi.fn((config) => {
+        mockOAuthConfig = config;
+        return mockGoogleLoginFunction;
+    }),
+    GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+}));
+
+const mockLoginPopup = vi.fn();
+vi.mock('@azure/msal-react', () => ({
+    useMsal: () => ({
+        instance: { loginPopup: mockLoginPopup },
+        accounts: [],
+        inProgress: 0,
+    }),
+}));
+
 describe("SignUpContainer", () => {
     const mockSetAccessToken = vi.fn()
     const mockNavigate = vi.fn()
     
     beforeEach(() => {
         vi.clearAllMocks()
+        mockOAuthConfig = null;
         
         vi.mocked(useAuth).mockReturnValue({
             setAccessToken: mockSetAccessToken,
@@ -60,15 +82,15 @@ describe("SignUpContainer", () => {
             pathname: '/sign-up',
             search: '',
             hash: '',
-            key: 'default'
-        })
+            key: 'default',
+        } as ReturnType<typeof useLocation>)
     })
 
     // Basic rendering tests
     describe("Rendering", () => {
         it("renders the SignUpContainer with the correct title", () => {
             render(<SignUpContainer />)
-            expect(screen.getByText("Complete Your Account!")).toBeInTheDocument()
+            expect(screen.getByRole("heading", { name: "Sign Up" })).toBeInTheDocument()
         })
 
         it("renders all form fields", () => {
@@ -79,19 +101,153 @@ describe("SignUpContainer", () => {
             expect(screen.getByLabelText("Password")).toBeInTheDocument()
         })
 
-        it("renders the create account button", () => {
+        it("renders the sign up button", () => {
             render(<SignUpContainer />)
-            expect(screen.getByText("Create Account")).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: "Sign Up" })).toBeInTheDocument()
         })
 
-        it("renders social login buttons as disabled", () => {
+        it("renders social login buttons", () => {
+            render(<SignUpContainer />)
+
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+
+            expect(googleButton).toBeInTheDocument()
+            expect(microsoftButton).toBeInTheDocument()
+            expect(microsoftButton).not.toBeDisabled()
+        })
+    })
+
+    // OAuth Tests
+    describe("Google OAuth Sign-Up", () => {
+        it("calls Google login when Google button is clicked", async () => {
             render(<SignUpContainer />)
             
             const googleButton = screen.getByLabelText("Sign up with Google")
-            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(googleButton)
             
-            expect(googleButton).toBeDisabled()
-            expect(microsoftButton).toBeDisabled()
+            expect(mockGoogleLoginFunction).toHaveBeenCalled()
+        })
+
+        it("handles successful OAuth sign-up for new user", async () => {
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: {
+                    email: "newuser@gmail.com",
+                    first_name: "New",
+                    last_name: "User",
+                    role: "student",
+                    tokens: { access: "mock_access_token" }
+                }
+            })
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_GOOGLE,
+                    { code: "mock_oauth_code", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles OAuth sign-up when user already exists (account linking)", async () => {
+            // Backend returns tokens even when user exists (account linking)
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: {
+                    email: "existing@gmail.com",
+                    first_name: "Existing",
+                    last_name: "User",
+                    role: "student",
+                    tokens: { access: "mock_access_token" }
+                }
+            })
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_GOOGLE,
+                    { code: "mock_oauth_code", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles OAuth error", async () => {
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth error callback
+            if (mockOAuthConfig?.onError) {
+                mockOAuthConfig.onError();
+            }
+            
+            await waitFor(() => {
+                expect(screen.getByText(/Google sign-up cancelled or failed/i)).toBeInTheDocument()
+            })
+        })
+
+        it("handles OAuth API error", async () => {
+            vi.mocked(publicApi.post).mockRejectedValueOnce(new Error("OAuth failed"))
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback (which will then fail on API call)
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(screen.getByText(/Google sign-up failed/i)).toBeInTheDocument()
+            })
+        })
+
+        it("redirects to role selection if no role is provided", async () => {
+            vi.mocked(useLocation).mockReturnValue({
+                state: null, // No role provided
+                pathname: '/sign-up',
+                search: '',
+                hash: '',
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
+
+            render(<SignUpContainer />)
+            
+            const googleButton = screen.getByLabelText("Sign up with Google")
+            await userEvent.click(googleButton)
+            
+            // Trigger the OAuth success callback (but should redirect due to no role)
+            if (mockOAuthConfig?.onSuccess) {
+                mockOAuthConfig.onSuccess({ code: "mock_oauth_code" });
+            }
+            
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            })
         })
 
         it("renders OR divider", () => {
@@ -111,6 +267,88 @@ describe("SignUpContainer", () => {
         })
     })
 
+    describe("Microsoft OAuth Sign-Up", () => {
+        it("calls loginPopup when Microsoft button is clicked", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: { tokens: { access: "mock_access_token" } },
+            })
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            expect(mockLoginPopup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    scopes: ["openid", "profile", "email", "User.Read"],
+                    overrideInteractionInProgress: true,
+                })
+            )
+        })
+
+        it("handles successful Microsoft OAuth sign-up with role", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockResolvedValueOnce({
+                data: { tokens: { access: "mock_access_token" } },
+            })
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(publicApi.post).toHaveBeenCalledWith(
+                    AUTH.OAUTH_MICROSOFT,
+                    { access_token: "mock_ms_token", role: "student" }
+                )
+                expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
+                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+            })
+        })
+
+        it("handles Microsoft sign-up API error", async () => {
+            mockLoginPopup.mockResolvedValueOnce({ accessToken: "mock_ms_token" })
+            vi.mocked(publicApi.post).mockRejectedValueOnce(new Error("OAuth failed"))
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(screen.getByText(/Sign-up failed. Please try again./i)).toBeInTheDocument()
+            })
+        })
+
+        it("redirects to role selection when Microsoft is clicked without role", async () => {
+            vi.mocked(useLocation).mockReturnValue({
+                state: null,
+                pathname: "/sign-up",
+                search: "",
+                hash: "",
+                key: "default",
+            } as ReturnType<typeof useLocation>)
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            expect(mockLoginPopup).not.toHaveBeenCalled()
+            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+        })
+
+        it("handles Microsoft popup rejection", async () => {
+            mockLoginPopup.mockRejectedValueOnce(new Error("User closed popup"))
+
+            render(<SignUpContainer />)
+            const microsoftButton = screen.getByLabelText("Sign up with Microsoft")
+            await userEvent.click(microsoftButton)
+
+            await waitFor(() => {
+                expect(screen.getByText(/Sign-up failed. Please try again./i)).toBeInTheDocument()
+            })
+        })
+    })
+
     // Role state handling
     describe("Role State Handling", () => {
         it("redirects to home if no role is provided", () => {
@@ -119,8 +357,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -133,8 +371,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -147,8 +385,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -164,8 +402,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             const { rerender } = render(<SignUpContainer />)
             
@@ -175,8 +413,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             rerender(<SignUpContainer />)
             
@@ -185,7 +423,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -200,7 +438,7 @@ describe("SignUpContainer", () => {
             const user = userEvent.setup()
             render(<SignUpContainer />)
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -225,7 +463,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "pass1!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -247,7 +485,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "password!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -269,7 +507,7 @@ describe("SignUpContainer", () => {
             await user.type(emailInput, "john@example.com")
             await user.type(passwordInput, "password123")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -293,7 +531,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -322,7 +560,7 @@ describe("SignUpContainer", () => {
             render(<SignUpContainer />)
             
             const passwordInput = screen.getByLabelText("Password") as HTMLInputElement
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             
             expect(passwordInput.type).toBe("password")
             
@@ -332,7 +570,7 @@ describe("SignUpContainer", () => {
             
             await user.click(screen.getByLabelText("Hide password"))
             expect(passwordInput.type).toBe("password")
-            expect(screen.getByLabelText("Show password")).toBeInTheDocument()
+            expect(screen.getByLabelText("Show characters")).toBeInTheDocument()
         })
 
         it("submits form with valid data and student role", async () => {
@@ -351,7 +589,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -381,8 +619,8 @@ describe("SignUpContainer", () => {
                 pathname: '/sign-up',
                 search: '',
                 hash: '',
-                key: 'default'
-            })
+                key: 'default',
+            } as ReturnType<typeof useLocation>)
             
             render(<SignUpContainer />)
             
@@ -391,7 +629,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "jane@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -420,7 +658,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             expect(screen.getByText("Creating account...")).toBeInTheDocument()
@@ -443,7 +681,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -462,7 +700,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -481,7 +719,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -506,7 +744,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -533,7 +771,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -555,7 +793,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -581,7 +819,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -607,7 +845,7 @@ describe("SignUpContainer", () => {
         it("password toggle button has accessible label", () => {
             render(<SignUpContainer />)
             
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             expect(toggleButton).toHaveAttribute("type", "button")
         })
 
@@ -650,9 +888,9 @@ describe("SignUpContainer", () => {
         it("password toggle button has focus-visible styles", () => {
             render(<SignUpContainer />)
             
-            const toggleButton = screen.getByLabelText("Show password")
+            const toggleButton = screen.getByLabelText("Show characters")
             expect(toggleButton).toHaveClass("focus-visible:ring-2")
-            expect(toggleButton).toHaveClass("focus-visible:ring-primary-accent")
+            expect(toggleButton).toHaveClass("focus-visible:ring-[#ae3a3a]")
         })
 
         it("form can be submitted with Enter key", async () => {
@@ -730,7 +968,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "jean@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -772,7 +1010,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "!@#$%^&*()1")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {
@@ -799,7 +1037,7 @@ describe("SignUpContainer", () => {
             await user.type(screen.getByLabelText("Email"), "john@example.com")
             await user.type(screen.getByLabelText("Password"), "password123!")
             
-            const submitButton = screen.getByText("Create Account")
+            const submitButton = screen.getByRole("button", { name: "Sign Up" })
             await user.click(submitButton)
             
             await waitFor(() => {

@@ -15,7 +15,6 @@ from .models import Course, CourseMembership, CourseRole
 from .permissions import (
     IsCourseMember,
     IsCourseOwnerOrInstructor,
-    IsCourseStaff,
 )
 from .serializers import (
     CourseCreateSerializer,
@@ -61,6 +60,21 @@ class CourseViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(status=status_param)
             else:
                 qs = qs.exclude(status=Course.CourseStatus.ARCHIVED)
+
+            # Always exclude DRAFT courses for non-staff members (students/TA can't see drafts)
+            # This applies regardless of status parameter to prevent bypassing security
+            from .models import CourseMembership, CourseRole
+
+            # Get all memberships for this user to check roles efficiently
+            user_memberships = CourseMembership.objects.filter(user=user).select_related('course')
+            draft_course_ids_to_exclude = []
+
+            for membership in user_memberships:
+                if membership.course.status == Course.CourseStatus.DRAFT and membership.role not in {CourseRole.OWNER, CourseRole.INSTRUCTOR}:
+                    draft_course_ids_to_exclude.append(membership.course.id)
+
+            if draft_course_ids_to_exclude:
+                qs = qs.exclude(id__in=draft_course_ids_to_exclude)
             return qs
 
         status_param = self.request.query_params.get("status")
@@ -85,13 +99,23 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         course = self.get_object()
-        # Must be a member to see course detail (even DRAFT).
+        # Must be a member to see course detail
         self.check_object_permissions(request, course)
         if not IsCourseMember().has_object_permission(request, self, course):
             return Response(
                 {"detail": "Not a member."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        # Block non-staff from accessing DRAFT courses
+        if course.status == Course.CourseStatus.DRAFT:
+            from .models import CourseRole
+            from .permissions import user_role
+            role = user_role(request.user, course)
+            if role not in {CourseRole.OWNER, CourseRole.INSTRUCTOR}:
+                return Response(
+                    {"detail": "Draft courses are only accessible to course owners and instructors."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         return super().retrieve(request, *args, **kwargs)
 
     # --- Lifecycle actions -------------------------------------------------
@@ -199,7 +223,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=["get"],
         url_path="members",
-        permission_classes=[IsAuthenticated, IsCourseStaff],
+        permission_classes=[IsAuthenticated, IsCourseMember],
     )
     def members(self, request: Request, pk: Any = None) -> Response:  # noqa: ARG002
         _ = (request, pk)
@@ -303,11 +327,49 @@ class CourseViewSet(viewsets.ModelViewSet):
 class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     """
     /api/enrollment/join/ endpoint for joining via join_code.
+    /api/enrollment/preview/ endpoint for previewing course details by join_code.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = JoinCourseSerializer
     queryset = Course.objects.none()
+
+    @action(detail=False, methods=["post"], url_path="preview")
+    def preview(self, request: Request) -> Response:
+        """
+        Preview course details by join_code without joining.
+        Returns course information if the code is valid and enabled.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data["join_code"].strip().upper()
+
+        course = Course.objects.filter(
+            join_code=code,
+            status=Course.CourseStatus.ACTIVE,
+            join_code_enabled=True,
+        ).annotate(member_count=Count("memberships")).first()
+
+        if not course:
+            return Response(
+                {"detail": "Invalid or disabled join code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if user is already a member
+        is_member = CourseMembership.objects.filter(
+            course=course, user=request.user
+        ).exists()
+
+        serializer = CourseSerializer(course)
+        return Response(
+            {
+                **serializer.data,
+                "is_member": is_member,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"], url_path="join")
     def join(self, request: Request) -> Response:
@@ -337,6 +399,7 @@ class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         return Response(
             {
                 "course_id": str(course.id),
+                "course_slug": course.slug,
                 "role": membership.role,
                 "created": created,
             },

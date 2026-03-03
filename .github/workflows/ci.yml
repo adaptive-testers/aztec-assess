@@ -38,7 +38,7 @@ jobs:
       - name: Create Neon Branch
         if: github.event_name == 'pull_request'
         id: create_neon_branch
-        uses: neondatabase/create-branch-action@v6.1.1
+        uses: neondatabase/create-branch-action@v6.4.0
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: preview/pr-${{ github.event.number }}-${{ github.event.pull_request.head.ref }}
@@ -67,7 +67,7 @@ jobs:
           virtualenvs-in-project: true
       - name: Load cached venv
         id: cached-poetry-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
             path: backend/.venv
             key: venv-${{ runner.os }}-${{ env.PY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
@@ -81,7 +81,7 @@ jobs:
       - name: Run migrations
         run: poetry run python manage.py migrate --noinput --settings=adaptive_testing.settings.ci
       - name: Run tests
-        run: poetry run pytest --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=html --ds=adaptive_testing.settings.ci
+        run: poetry run pytest -n 4 --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=term-missing --ds=adaptive_testing.settings.ci
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
