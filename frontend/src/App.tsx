@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { MantineProvider } from '@mantine/core';
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
@@ -27,71 +27,69 @@ function AuthInterceptorsInitializer() {
 function App() {
   return (
     <MantineProvider>
-      <BrowserRouter>
-        <AuthInterceptorsInitializer />
-        <Routes>
+      <AuthInterceptorsInitializer />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+                <LogInPage />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+                <LogInPage />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/sign-up"
+          element={
+            <PublicRoute>
+              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+                <SignUpPage />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/role-select"
+          element={
+            <PublicRoute>
+              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
+                <RoleSelectionPage />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route
-            path="/"
-            element={
-              <PublicRoute>
-                <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                  <LogInPage />
-                </div>
-              </PublicRoute>
-            }
+            path="/dashboard"
+            element={<div className="text-primary-text">Dashboard</div>}
           />
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                  <LogInPage />
-                </div>
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/sign-up"
-            element={
-              <PublicRoute>
-                <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                  <SignUpPage />
-                </div>
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/role-select"
-            element={
-              <PublicRoute>
-                <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                  <RoleSelectionPage />
-                </div>
-              </PublicRoute>
-            }
-          />
-          <Route
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route
-              path="/dashboard"
-              element={<div className="text-primary-text">Dashboard</div>}
-            />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/courses/create" element={<CourseCreationPage />} />
-            <Route path="/courses/:courseId" element={<CoursePage />} />
-            <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
-            <Route path="/join-course" element={<JoinCoursePage />} />
-            <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
-            <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
-            <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/courses/create" element={<CourseCreationPage />} />
+          <Route path="/courses/:courseId" element={<CoursePage />} />
+          <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
+          <Route path="/join-course" element={<JoinCoursePage />} />
+          <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
+          <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
+          <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
+        </Route>
+      </Routes>
     </MantineProvider>
   );
 }
