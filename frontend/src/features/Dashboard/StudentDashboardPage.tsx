@@ -62,17 +62,28 @@ export default function StudentDashboardPage() {
       
       setQuizzes(allQuizzes);
 
-      const completedQuizzes = allQuizzes.filter(
-        (quiz) => quiz.attempt_status === 'COMPLETED' && quiz.attempt_id !== null
+      // Fetch all attempts for quizzes that have been started
+      const quizzesWithAttempt = allQuizzes.filter(
+        (quiz) => quiz.attempt_id !== null && quiz.attempt_id !== undefined
       );
       
-      const attemptPromises = completedQuizzes.map((quiz) =>
+      if (quizzesWithAttempt.length === 0) {
+        setCompletedAttempts([]);
+        return;
+      }
+      
+      const attemptPromises = quizzesWithAttempt.map((quiz) =>
         privateApi.get(QUIZZES.ATTEMPT_DETAIL(quiz.attempt_id!))
       );
 
       const attemptResponses = await Promise.all(attemptPromises);
-      const attempts: QuizAttempt[] = attemptResponses.map((res) => res.data);
-      setCompletedAttempts(attempts);
+      const allAttempts: QuizAttempt[] = attemptResponses.map((res) => res.data);
+      
+      // Filter for completed attempts based on QuizAttempt.status
+      const completedAttempts = allAttempts.filter(
+        (attempt) => attempt.status === 'COMPLETED'
+      );
+      setCompletedAttempts(completedAttempts);
 
     } catch (err) {
       setError('Failed to load dashboard data');
@@ -104,9 +115,10 @@ export default function StudentDashboardPage() {
   }, []);
 
   const totalQuizzes = quizzes.length;
-  const completedQuizzesCount = quizzes.filter((q) => q.attempt_status === 'COMPLETED').length;
-  const inProgressQuizzesCount = quizzes.filter((q) => q.attempt_status === 'IN_PROGRESS').length;
-  const notStartedQuizzesCount = quizzes.filter((q) => q.attempt_status === null).length;
+  
+  // Create a Set of quiz IDs that have completed attempts
+  const completedQuizIds = new Set(completedAttempts.map(attempt => attempt.quiz));
+  const completedQuizzesCount = completedQuizIds.size;
 
   const overallAverage = completedAttempts.length > 0
     ? completedAttempts.reduce((sum, attempt) => sum + (attempt.score_percent || 0), 0) / completedAttempts.length
@@ -116,13 +128,16 @@ export default function StudentDashboardPage() {
     ? (completedQuizzesCount / totalQuizzes) * 100 
     : 0;
 
-  const upcomingQuizzes = quizzes.filter((q) => q.attempt_status === null).slice(0, 5);
+  // Filter out quizzes that have been completed (based on QuizAttempt status)
+  const upcomingQuizzes = quizzes
+    .filter((q) => !completedQuizIds.has(q.id))
+    .slice(0, 5);
 
   const recentAttempts = [...completedAttempts]
     .sort((a, b) => new Date(b.ended_at || b.started_at).getTime() - new Date(a.ended_at || a.started_at).getTime())
     .slice(0, 5);
 
-  if (loading) {
+  if (loading) {    
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-primary-background">
         <div className="text-primary-text text-xl">Loading dashboard...</div>
@@ -139,7 +154,7 @@ export default function StudentDashboardPage() {
   }
 
  return <>
- <div className="grid grid-rows-[auto_auto_1fr_1fr] grid-cols-2 min-h-screen w-full gap-4 geist-font">
+ <div className="grid grid-rows-[auto_auto_1fr_auto] grid-cols-2 min-h-screen w-full gap-4 geist-font">
     
     <div className="row-span-1 col-span-2 text-primary-text flex flex-col items-center">
        <div className="tracking-wide font-medium text-3xl">Welcome Back, {userName}!</div>
@@ -234,7 +249,7 @@ export default function StudentDashboardPage() {
             No upcoming quizzes available
           </div>
         ) : (
-          <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px]">
+          <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] scrollbar-hide">
             {upcomingQuizzes.map((quiz) => (
               <div key={quiz.id} className="bg-secondary-background w-full border-2 border-primary-border rounded-2xl">
                 <div className="flex flex-col gap-2 p-4">
