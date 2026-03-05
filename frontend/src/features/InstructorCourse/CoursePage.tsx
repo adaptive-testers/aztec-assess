@@ -505,6 +505,11 @@ export default function CoursePage() {
     null,
   );
 
+  // ---------- MOCK TOPICS (remove when API ready) ----------
+  const MOCK_TOPIC_OPTIONS = ["Algebra", "Geometry", "Calculus", "Statistics"];
+  const [topicOptions, setTopicOptions] = useState<string[]>(MOCK_TOPIC_OPTIONS);
+  // --------------------------------------------------------
+
   // ---------- ADD CHAPTER MODAL ----------
   const [addChapterOpen, setAddChapterOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
@@ -1242,12 +1247,21 @@ export default function CoursePage() {
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[18px] font-normal leading-[24px] tracking-[-0.1504px] text-[#F87171]">
-              {loading ? (
-                <div className="skeleton-shimmer inline-block h-[24px] w-[200px] rounded" />
-              ) : (
-                `${questionBankCounts.total} questions available`
-              )}
+            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {loading ? (
+                  <div className="skeleton-shimmer inline-block h-[20px] w-[200px] rounded" />
+                ) : (
+                  `${questionBankCounts.total} questions available`
+                )}
+              </div>
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {loading ? (
+                  <div className="skeleton-shimmer inline-block h-[20px] w-[120px] rounded" />
+                ) : (
+                  `${topicOptions.length} topics`
+                )}
+              </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
               {loading ? (
@@ -1381,6 +1395,20 @@ export default function CoursePage() {
           onUpdateQuestion={handleUpdateQuestion}
           onDeleteQuestion={handleDeleteQuestion}
           onCloseCreateQuestion={() => setEditingQuestion(null)}
+          topicOptions={topicOptions}
+          onCreateTopic={(topicName) => {
+            const cleaned = topicName.trim();
+            if (!cleaned) return;
+            setTopicOptions((prev) => {
+              const lower = cleaned.toLowerCase();
+              if (prev.some((t) => t.trim().toLowerCase() === lower)) return prev;
+              return [...prev, cleaned];
+            });
+          }}
+          onDeleteTopics={(topicNames) => {
+            if (!Array.isArray(topicNames) || topicNames.length === 0) return;
+            setTopicOptions((prev) => prev.filter((t) => !topicNames.includes(t)));
+          }}
         />
         <QuestionImportModal
           open={questionImportOpen}
