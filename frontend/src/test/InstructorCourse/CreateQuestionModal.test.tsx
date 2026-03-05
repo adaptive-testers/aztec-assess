@@ -14,9 +14,19 @@ type OnDeleteHandler = NonNullable<CreateQuestionModalProps["onDelete"]>;
 
 // Keep tests stable regardless of icon implementation.
 vi.mock("react-icons/fi", () => ({
+  FiChevronDown: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="fi-chevron-down" {...props} />
+  ),
   FiX: (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="fi-x" {...props} />
   ),
+}));
+
+vi.mock("../../features/InstructorCourse/TopicModal", () => ({
+  __esModule: true,
+  default: function TopicModal() {
+    return null;
+  },
 }));
 
 function renderModal(
@@ -44,8 +54,8 @@ function getChoiceInput(n: 1 | 2 | 3 | 4) {
   return screen.getByPlaceholderText(`Choice ${n}`);
 }
 
-function getMarkChoiceButton(n: 1 | 2 | 3 | 4) {
-  return screen.getByRole("button", { name: new RegExp(`mark choice ${n} as correct`, "i") });
+function getMarkChoiceRadio(n: 1 | 2 | 3 | 4) {
+  return screen.getByRole("radio", { name: new RegExp(`mark choice ${n} as correct`, "i") });
 }
 
 describe("CreateQuestionModal", () => {
@@ -165,9 +175,9 @@ describe("CreateQuestionModal", () => {
     expect((getChoiceInput(3) as HTMLInputElement).value).toBe("C");
     expect((getChoiceInput(4) as HTMLInputElement).value).toBe("D");
 
-    // Correct choice should be marked via aria-pressed
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "false");
+    // Correct choice should be marked via radio checked
+    expect(getMarkChoiceRadio(3)).toBeChecked();
+    expect(getMarkChoiceRadio(1)).not.toBeChecked();
 
     // Status checkbox
     expect(
@@ -183,31 +193,31 @@ describe("CreateQuestionModal", () => {
   it("clamps correctIndex from initialValue to the range [0,3]", () => {
     // Too large => clamps to 3
     renderModal({ initialValue: { correctIndex: 999 } });
-    expect(getMarkChoiceButton(4)).toHaveAttribute("aria-pressed", "true");
+    expect(getMarkChoiceRadio(4)).toBeChecked();
 
     cleanup();
 
     // Negative => clamps to 0
     renderModal({ initialValue: { correctIndex: -10 } });
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "true");
+    expect(getMarkChoiceRadio(1)).toBeChecked();
   });
 
-  it("lets the user set the correct choice by clicking the choice row or its input", async () => {
+  it("lets the user set the correct choice by clicking the radio or its input", async () => {
     const user = userEvent.setup();
     renderModal();
 
     // Default is choice 1
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "true");
+    expect(getMarkChoiceRadio(1)).toBeChecked();
 
-    // Click choice 3 button wrapper
-    await user.click(getMarkChoiceButton(3));
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "false");
+    // Click choice 3 radio
+    await user.click(getMarkChoiceRadio(3));
+    expect(getMarkChoiceRadio(3)).toBeChecked();
+    expect(getMarkChoiceRadio(1)).not.toBeChecked();
 
-    // Click directly into choice 4 input; should also set correctIndex to 3 via bubbling
-    await user.click(getChoiceInput(4));
-    expect(getMarkChoiceButton(4)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "false");
+    // Click choice 4 radio
+    await user.click(getMarkChoiceRadio(4));
+    expect(getMarkChoiceRadio(4)).toBeChecked();
+    expect(getMarkChoiceRadio(3)).not.toBeChecked();
   });
 
   it("updates prompt and choice text as the user types", async () => {
@@ -270,7 +280,7 @@ describe("CreateQuestionModal", () => {
     await user.type(getChoiceInput(3), "C");
     await user.type(getChoiceInput(4), "D");
 
-    await user.click(getMarkChoiceButton(2)); // correctIndex = 1
+    await user.click(getMarkChoiceRadio(2)); // correctIndex = 1
     await user.click(screen.getByRole("button", { name: /medium/i }));
 
     await user.click(screen.getByRole("button", { name: /^create$/i }));
@@ -280,7 +290,7 @@ describe("CreateQuestionModal", () => {
     const [payload, id] = onSave.mock.calls[0];
     expect(id).toBeUndefined();
 
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       prompt: "Prompt text",
       choices: ["A", "B", "C", "D"],
       correctIndex: 1,
@@ -302,10 +312,13 @@ describe("CreateQuestionModal", () => {
       },
     });
 
+    await waitFor(() => {
+      expect((getPromptTextarea() as HTMLTextAreaElement).value).toBe("Old");
+    });
     await user.clear(getPromptTextarea());
     await user.type(getPromptTextarea(), "New prompt");
 
-    await user.click(getMarkChoiceButton(4));
+    await user.click(getMarkChoiceRadio(4));
     await user.click(screen.getByRole("button", { name: /hard/i }));
 
     await user.click(screen.getByRole("button", { name: /^update$/i }));
