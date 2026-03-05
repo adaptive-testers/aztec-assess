@@ -96,6 +96,7 @@ vi.mock("react-icons/fi", () => ({
   FiFilter: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-filter" {...props} />,
   FiSearch: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-search" {...props} />,
   FiSliders: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-sliders" {...props} />,
+  FiTag: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-tag" {...props} />,
   FiX: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-x" {...props} />,
 }));
 
