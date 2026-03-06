@@ -1,7 +1,7 @@
-import React from "react";
-import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import React from "react";
+import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 
 import TopicModal from "../../features/InstructorCourse/TopicModal";
@@ -22,8 +22,8 @@ function makeProps(overrides: Partial<Props> = {}): Props {
     onClose: vi.fn(),
     onApply: vi.fn(),
     onClearAll: vi.fn(),
-    onCreateTopic: vi.fn(async (_topicName: string) => undefined),
-    onDeleteTopics: vi.fn(async (_topicNames: string[]) => undefined),
+    onCreateTopic: vi.fn(async () => undefined),
+    onDeleteTopics: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -168,7 +168,7 @@ describe("TopicModal", () => {
 
   it("Add Topic flow: shows input, focuses it, Add creates topic, selects it, and calls onCreateTopic with trimmed name", async () => {
     const user = userEvent.setup();
-    const onCreateTopic = vi.fn(async (_topicName: string) => undefined);
+    const onCreateTopic = vi.fn(async () => undefined);
 
     renderModal({
       topics: ["A"],
@@ -190,15 +190,6 @@ describe("TopicModal", () => {
 
     // Newly created topic chip should be visible
     expect(await screen.findByRole("button", { name: "New Topic" })).toBeInTheDocument();
-
-    // Re-apply should include New Topic (selected automatically)
-    const onApply = vi.fn();
-    const onClose = vi.fn();
-    // rerender with new callbacks to check selection payload
-    const { rerender } = renderModal({ topics: ["A"], onCreateTopic });
-    // This rerender creates a new instance, so instead keep it in one instance:
-    // We'll just click Apply now in the current instance by updating props isn't possible.
-    // Instead, verify selection by starting delete which uses selected snapshot:
   });
 
   it("Add Topic input: Escape or Cancel closes input and clears typed text", async () => {
@@ -233,7 +224,7 @@ describe("TopicModal", () => {
 
   it("Add Topic: Enter key submits, empty/whitespace is ignored", async () => {
     const user = userEvent.setup();
-    const onCreateTopic = vi.fn(async (_topicName: string) => undefined);
+    const onCreateTopic = vi.fn(async () => undefined);
 
     renderModal({ topics: ["A"], onCreateTopic });
     await waitForInit(["A"]);
@@ -254,7 +245,7 @@ describe("TopicModal", () => {
 
   it("Add Topic: case-insensitive duplicates do not call onCreateTopic and selects existing exact name", async () => {
     const user = userEvent.setup();
-    const onCreateTopic = vi.fn(async (_topicName: string) => undefined);
+    const onCreateTopic = vi.fn(async () => undefined);
     const onApply = vi.fn();
     const onClose = vi.fn();
 
@@ -289,7 +280,7 @@ describe("TopicModal", () => {
 
   it("Delete flow: Delete -> Confirm? -> confirm removes topics, clears selection, and calls onDeleteTopics(snapshot)", async () => {
     const user = userEvent.setup();
-    const onDeleteTopics = vi.fn(async (_topics: string[]) => undefined);
+    const onDeleteTopics = vi.fn(async () => undefined);
 
     renderModal({
       topics: ["A", "B", "C"],
@@ -324,7 +315,7 @@ describe("TopicModal", () => {
 
   it("Delete uses snapshot selection: if selection changes after starting delete, confirmation deletes the original snapshot", async () => {
     const user = userEvent.setup();
-    const onDeleteTopics = vi.fn(async (_topics: string[]) => undefined);
+    const onDeleteTopics = vi.fn(async () => undefined);
 
     renderModal({
       topics: ["A", "B", "C"],
