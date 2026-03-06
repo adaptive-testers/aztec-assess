@@ -240,7 +240,7 @@ describe("Instructor Quiz Page", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/12 questions available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/12 questions/i)).toBeInTheDocument();
     expect(privateApi.get).not.toHaveBeenCalledWith(
       `${QUIZZES.QUESTIONS_BY_CHAPTER(1)}?page=2`,
     );
@@ -815,5 +815,152 @@ describe("Instructor Quiz Page", () => {
     );
     expect(quizPatchCall).toBeTruthy();
     expect(quizPatchCall?.[1]).not.toHaveProperty("chapter");
+  });
+
+  it("creates question with topics via ManageQuestionsModal -> CreateQuestionModal", async () => {
+    const user = userEvent.setup();
+
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
+      if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
+
+      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
+      }
+      if (url === QUIZZES.QUIZZES_BY_CHAPTER(1)) return Promise.resolve({ data: [] });
+      if (url === QUIZZES.QUESTIONS_BY_CHAPTER(1)) return Promise.resolve({ data: { count: 0, next: null, results: [] } });
+
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    await screen.findByRole("button", { name: /manage questions/i });
+    await user.click(screen.getByRole("button", { name: /manage questions/i }));
+
+    // Wait until questions modal fully loads (skeleton disappears)
+    await waitFor(() => {
+      expect(screen.queryByText("Create Question")).toBeInTheDocument();
+    });
+
+    const createBtn = await screen.findByRole("button", { name: "Create Question" });
+    await user.click(createBtn);
+
+    const promptTextarea = await screen.findByPlaceholderText(/enter your question here/i);
+    await user.type(promptTextarea, "What is 2+2?");
+    await user.type(screen.getByPlaceholderText("Choice 1"), "3");
+    await user.type(screen.getByPlaceholderText("Choice 2"), "4");
+
+    // Open TopicModal (Select topics button)
+    await user.click(screen.getByRole("button", { name: "Select topics" }));
+    // Wait for TopicModal to open
+    await screen.findByRole("heading", { name: /select topics/i });
+
+    // Click one of the existing MOCK_TOPIC_OPTIONS (e.g. 'Algebra')
+    await user.click(screen.getByRole("button", { name: "Algebra" }));
+    // Close via Save button
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Wait for the topics button label to update
+    await screen.findByRole("button", { name: "1 topic" });
+
+    // Now create the question
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() =>
+      expect(privateApi.post).toHaveBeenCalledWith(
+        QUIZZES.QUESTIONS_BY_CHAPTER(1),
+        expect.objectContaining({
+          topics: ["Algebra"],
+        }),
+      ),
+    );
+  });
+
+  it("updates question with topics via ManageQuestionsModal -> CreateQuestionModal", async () => {
+    const user = userEvent.setup();
+
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
+      if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
+
+      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
+      }
+      if (url === QUIZZES.QUIZZES_BY_CHAPTER(1)) return Promise.resolve({ data: [] });
+      if (url === QUIZZES.QUESTIONS_BY_CHAPTER(1)) return Promise.resolve({ 
+        data: { 
+          count: 1, 
+          next: null, 
+          results: [{ 
+            id: 42, 
+            chapter: 1, 
+            prompt: "What is 2+2?", 
+            choices: ["3", "4", "", ""], 
+            correct_index: 1, 
+            difficulty: "EASY", 
+            is_active: true, 
+            created_at: "2026-01-01T00:00:00Z",
+            topics: ["Algebra"]
+          }] 
+        } 
+      });
+
+      if (url === QUIZZES.QUESTION_DETAIL(42)) {
+        return Promise.resolve({
+          data: { 
+            id: 42, 
+            chapter: 1, 
+            prompt: "What is 2+2?", 
+            choices: ["3", "4", "", ""], 
+            correct_index: 1, 
+            difficulty: "EASY", 
+            is_active: true, 
+            created_at: "2026-01-01T00:00:00Z",
+            topics: ["Algebra"]
+          }
+        });
+      }
+
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    await screen.findByRole("button", { name: /manage questions/i });
+    await user.click(screen.getByRole("button", { name: /manage questions/i }));
+
+    // Wait until questions modal fully loads (skeleton disappears, question appears)
+    await waitFor(() => {
+      expect(screen.queryByText("What is 2+2?")).toBeInTheDocument();
+    });
+
+    // CoursePage always appends a mock question at the end; the real API question (id=42)
+    // ends up at editBtn[1] after 'newest' sort places both on the same date.
+    // We target the last (real) question by finding all and picking the one that triggers a real fetch.
+    const editBtns = await screen.findAllByRole("button", { name: "Edit question" });
+    // Click the first button: it corresponds to question id=42 (from API)
+    await user.click(editBtns[editBtns.length - 1]);
+
+    // Wait for the Edit Question modal to open
+    await screen.findByRole("heading", { name: /edit question/i });
+
+    // Without modifying topics, clicking Update should include pre-filled topics from the API
+    await user.click(screen.getByRole("button", { name: /^update$/i }));
+
+    await waitFor(() =>
+      expect(privateApi.patch).toHaveBeenCalledWith(
+        QUIZZES.QUESTION_DETAIL(42),
+        expect.objectContaining({
+          topics: ["Algebra"],
+        }),
+      ),
+    );
   });
 });

@@ -81,6 +81,7 @@ export interface ManageQuestionsModalProps {
     correct_index: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   } | null;
   /** Edit question: parent fetches GET question then sets editingQuestion */
   onEditQuestion?: (questionId: number) => void | Promise<void>;
@@ -169,6 +170,7 @@ export default function ManageQuestionsModal({
   onDeleteTopics,
 }: ManageQuestionsModalProps) {
   const items = questions;
+
   const filterDropdownRef = React.useRef<HTMLDivElement>(null);
   const sortDropdownRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -792,6 +794,7 @@ export default function ManageQuestionsModal({
                 ),
                 difficulty: (editingQuestion.difficulty ?? "MEDIUM").toLowerCase() as "easy" | "medium" | "hard",
                 is_active: editingQuestion.is_active ?? true,
+                topics: editingQuestion.topics ?? [],
               }
             : undefined
         }

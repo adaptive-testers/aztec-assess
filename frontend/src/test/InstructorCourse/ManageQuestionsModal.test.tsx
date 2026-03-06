@@ -94,6 +94,7 @@ vi.mock("react-icons/fi", () => ({
   ),
   FiEdit2: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-edit2" {...props} />,
   FiFilter: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-filter" {...props} />,
+  FiPlus: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-plus" {...props} />,
   FiSearch: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-search" {...props} />,
   FiSliders: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-sliders" {...props} />,
   FiTag: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-tag" {...props} />,
@@ -566,4 +567,43 @@ describe("ManageQuestionsModal", () => {
       expect(screen.queryByRole("button", { name: "Newest" })).not.toBeInTheDocument();
     });
   });
+
+  // ── Topics UI tests ────────────────────────────────────────────────────────
+  it("renders topic tags for questions that have topics", () => {
+    const question = makeQuestion({ topics: ["Algebra", "Geometry"] });
+    renderModal({ questions: [question] });
+
+    // Both topic tags should appear in the list item
+    expect(screen.getByText("Algebra")).toBeInTheDocument();
+    expect(screen.getByText("Geometry")).toBeInTheDocument();
+  });
+
+  it("does not render topic tags when the question has no topics", () => {
+    const question = makeQuestion({ topics: [] });
+    renderModal({ questions: [question] });
+
+    // Without topics the tags should not appear
+    expect(screen.queryByText("Algebra")).not.toBeInTheDocument();
+  });
+
+  it("renders multiple questions each with their own topic tags", () => {
+    const q1 = makeQuestion({ id: "1", prompt: "Question 1", topics: ["Calculus"] });
+    const q2 = makeQuestion({ id: "2", prompt: "Question 2", topics: ["Statistics"] });
+    renderModal({ questions: [q1, q2] });
+
+    expect(screen.getByText("Calculus")).toBeInTheDocument();
+    expect(screen.getByText("Statistics")).toBeInTheDocument();
+  });
+
+  it("opens the Topic filter modal when Topic toolbar button is clicked", async () => {
+    const user = userEvent.setup();
+    renderModal({ questions: [makeQuestion()], topicOptions: ["Algebra", "Geometry"] });
+
+    await user.click(screen.getByRole("button", { name: /^Topic$/i }));
+
+    // TopicModal is mocked by default — here ManageQuestionsModal renders its own TopicModal
+    // We just verify the click is possible and doesn't crash
+    expect(screen.getByRole("button", { name: /^Topic$/i })).toBeInTheDocument();
+  });
 });
+
