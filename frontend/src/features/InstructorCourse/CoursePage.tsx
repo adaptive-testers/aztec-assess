@@ -120,6 +120,7 @@ function apiQuestionToManageItem(
     source: "manual",
     difficulty,
     prompt: q.prompt,
+    topics: q.topics,
     choices,
     created_by: q.created_by,
     created_by_name: q.created_by != null ? creatorNameById[q.created_by] : undefined,
@@ -449,7 +450,26 @@ export default function CoursePage() {
 
   // ---------- DERIVED DATA ----------
   const manageQuestionItems: ManageQuestionItem[] = useMemo(
-    () => chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById)),
+    () => {
+      const apiQuestions = chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById));
+      // Mock question to display topics since backend isn't ready
+      const mockTopicQuestion: ManageQuestionItem = {
+        id: "mock-with-topics",
+        source: "manual",
+        difficulty: "medium",
+        prompt: "(Mock) What is the derivative of x^2?",
+        topics: ["Calculus", "Algebra"],
+        choices: [
+          { label: "A", text: "x" },
+          { label: "B", text: "2x", isCorrect: true },
+          { label: "C", text: "x^2" },
+          { label: "D", text: "2" },
+        ],
+        created_at: new Date().toISOString(),
+        is_active: true,
+      };
+      return [...apiQuestions, mockTopicQuestion];
+    },
     [chapterQuestions, creatorNameById],
   );
 
@@ -905,6 +925,7 @@ export default function CoursePage() {
     correctIndex: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   }) {
     if (!activeChapterId) return;
     const difficulty =
@@ -922,6 +943,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.post(QUIZZES.QUESTIONS_BY_CHAPTER(activeChapterId), body);
@@ -967,6 +989,7 @@ export default function CoursePage() {
       correctIndex: number;
       difficulty: string;
       is_active?: boolean;
+      topics?: string[];
     },
   ) {
     const difficulty =
@@ -983,6 +1006,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.patch(QUIZZES.QUESTION_DETAIL(questionId), body);
@@ -1121,7 +1145,7 @@ export default function CoursePage() {
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
               <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
-                {questionBankCounts.total} questions available
+                {questionBankCounts.total} questions
               </div>
               <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
                 {topicOptions.length} topics

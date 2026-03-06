@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom";
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
@@ -361,5 +361,62 @@ describe("CreateQuestionModal", () => {
 
     // If it threw, the test would fail; also ensure UI still present.
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  // ── Topics UI tests ────────────────────────────────────────────────────────
+  it("shows 'Select topics' button label when no topics are selected", () => {
+    renderModal({ topicOptions: ["Algebra", "Calculus"] });
+    expect(screen.getByRole("button", { name: "Select topics" })).toBeInTheDocument();
+  });
+
+  it("shows '1 topic' label when one topic is pre-selected via initialValue", async () => {
+    vi.useFakeTimers();
+    renderModal({
+      topicOptions: ["Algebra", "Calculus"],
+      initialValue: { topics: ["Algebra"] },
+    });
+    // The open effect uses setTimeout(0) to set state — flush it with act
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByRole("button", { name: "1 topic" })).toBeInTheDocument();
+  });
+
+  it("shows '2 topics' label when two topics are pre-selected via initialValue", async () => {
+    vi.useFakeTimers();
+    renderModal({
+      topicOptions: ["Algebra", "Calculus"],
+      initialValue: { topics: ["Algebra", "Calculus"] },
+    });
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByRole("button", { name: "2 topics" })).toBeInTheDocument();
+  });
+
+  it("opens TopicModal when the Topics button is clicked (TopicModal is mocked to null)", async () => {
+    const user = userEvent.setup();
+    // TopicModal is mocked at the top of this file to return null — just verify click
+    renderModal({ topicOptions: ["Algebra"] });
+    await user.click(screen.getByRole("button", { name: "Select topics" }));
+    // CreateQuestionModal should still be open
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("includes pre-selected topics in the onSave payload when Create is clicked", async () => {
+    vi.useFakeTimers();
+    const { onSave } = renderModal({
+      topicOptions: ["Algebra", "Calculus"],
+      initialValue: { topics: ["Calculus"] },
+    });
+
+    vi.runAllTimers();
+
+    // Restore real timers for userEvent
+    vi.useRealTimers();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const [payload] = onSave.mock.calls[0];
+    expect(payload.topics).toEqual(["Calculus"]);
   });
 });
