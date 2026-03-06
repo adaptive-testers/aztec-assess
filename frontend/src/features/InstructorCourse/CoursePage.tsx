@@ -120,6 +120,7 @@ function apiQuestionToManageItem(
     source: "manual",
     difficulty,
     prompt: q.prompt,
+    topics: q.topics,
     choices,
     created_by: q.created_by,
     created_by_name: q.created_by != null ? creatorNameById[q.created_by] : undefined,
@@ -438,13 +439,37 @@ export default function CoursePage() {
     null,
   );
 
+  // ---------- MOCK TOPICS (remove when API ready) ----------
+  const MOCK_TOPIC_OPTIONS = ["Algebra", "Geometry", "Calculus", "Statistics"];
+  const [topicOptions, setTopicOptions] = useState<string[]>(MOCK_TOPIC_OPTIONS);
+  // --------------------------------------------------------
+
   // ---------- ADD CHAPTER MODAL ----------
   const [addChapterOpen, setAddChapterOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
 
   // ---------- DERIVED DATA ----------
   const manageQuestionItems: ManageQuestionItem[] = useMemo(
-    () => chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById)),
+    () => {
+      const apiQuestions = chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById));
+      // Mock question to display topics since backend isn't ready
+      const mockTopicQuestion: ManageQuestionItem = {
+        id: "mock-with-topics",
+        source: "manual",
+        difficulty: "medium",
+        prompt: "(Mock) What is the derivative of x^2?",
+        topics: ["Calculus", "Algebra"],
+        choices: [
+          { label: "A", text: "x" },
+          { label: "B", text: "2x", isCorrect: true },
+          { label: "C", text: "x^2" },
+          { label: "D", text: "2" },
+        ],
+        created_at: new Date().toISOString(),
+        is_active: true,
+      };
+      return [...apiQuestions, mockTopicQuestion];
+    },
     [chapterQuestions, creatorNameById],
   );
 
@@ -900,6 +925,7 @@ export default function CoursePage() {
     correctIndex: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   }) {
     if (!activeChapterId) return;
     const difficulty =
@@ -917,6 +943,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.post(QUIZZES.QUESTIONS_BY_CHAPTER(activeChapterId), body);
@@ -962,6 +989,7 @@ export default function CoursePage() {
       correctIndex: number;
       difficulty: string;
       is_active?: boolean;
+      topics?: string[];
     },
   ) {
     const difficulty =
@@ -978,6 +1006,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.patch(QUIZZES.QUESTION_DETAIL(questionId), body);
@@ -1114,8 +1143,13 @@ export default function CoursePage() {
             </button>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[18px] font-normal leading-[24px] tracking-[-0.1504px] text-[#F87171]">
-              {questionBankCounts.total} questions available
+            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {questionBankCounts.total} questions
+              </div>
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {topicOptions.length} topics
+              </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
               <div
@@ -1240,6 +1274,20 @@ export default function CoursePage() {
           onUpdateQuestion={handleUpdateQuestion}
           onDeleteQuestion={handleDeleteQuestion}
           onCloseCreateQuestion={() => setEditingQuestion(null)}
+          topicOptions={topicOptions}
+          onCreateTopic={(topicName) => {
+            const cleaned = topicName.trim();
+            if (!cleaned) return;
+            setTopicOptions((prev) => {
+              const lower = cleaned.toLowerCase();
+              if (prev.some((t) => t.trim().toLowerCase() === lower)) return prev;
+              return [...prev, cleaned];
+            });
+          }}
+          onDeleteTopics={(topicNames) => {
+            if (!Array.isArray(topicNames) || topicNames.length === 0) return;
+            setTopicOptions((prev) => prev.filter((t) => !topicNames.includes(t)));
+          }}
         />
         {addChapterOpen && (
           <CreateChapterModal

@@ -7,10 +7,12 @@ import {
   FiFilter,
   FiSearch,
   FiSliders,
+  FiTag,
   FiX,
 } from "react-icons/fi";
 
 import CreateQuestionModal from "./CreateQuestionModal";
+import TopicModal from "./TopicModal";
 
 type QuestionSource = "ai" | "manual";
 type Difficulty = "easy" | "medium" | "hard";
@@ -27,6 +29,7 @@ export interface ManageQuestionItem {
   source: QuestionSource;
   difficulty: Difficulty;
   prompt: string;
+  topics?: string[];
   choices?: ManageQuestionChoice[];
   created_by?: number;
   created_by_name?: string;
@@ -53,6 +56,7 @@ export interface ManageQuestionsModalProps {
     correctIndex: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   }) => void | Promise<void>;
   /** Update question: PATCH when saving in edit mode */
   onUpdateQuestion?: (
@@ -63,6 +67,7 @@ export interface ManageQuestionsModalProps {
       correctIndex: number;
       difficulty: string;
       is_active?: boolean;
+      topics?: string[];
     },
   ) => void | Promise<void>;
   /** Delete question by ID (API soft-delete) */
@@ -76,6 +81,7 @@ export interface ManageQuestionsModalProps {
     correct_index: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   } | null;
   /** Edit question: parent fetches GET question then sets editingQuestion */
   onEditQuestion?: (questionId: number) => void | Promise<void>;
@@ -89,6 +95,13 @@ export interface ManageQuestionsModalProps {
   onSort?: () => void;
   onLoadMore?: () => void | Promise<void>;
   onEnsureAllQuestionsLoaded?: () => void | Promise<void>;
+
+  /** Optional topic list for Create Question modal and Topic filter modal (no API yet) */
+  topicOptions?: string[];
+  /** Optional topic creation handler (no API required). */
+  onCreateTopic?: (topicName: string) => void | Promise<void>;
+  /** Optional topic deletion handler (no API required). */
+  onDeleteTopics?: (topicNames: string[]) => void | Promise<void>;
 }
 
 const DIFFICULTY_ORDER: Record<Difficulty, number> = {
@@ -152,8 +165,12 @@ export default function ManageQuestionsModal({
   onCreateQuestion,
   onLoadMore,
   onEnsureAllQuestionsLoaded,
+  topicOptions = [],
+  onCreateTopic,
+  onDeleteTopics,
 }: ManageQuestionsModalProps) {
   const items = questions;
+
   const filterDropdownRef = React.useRef<HTMLDivElement>(null);
   const sortDropdownRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -168,6 +185,8 @@ export default function ManageQuestionsModal({
   const [sortBy, setSortBy] = React.useState<SortOption>("newest");
 
   const [createQuestionOpen, setCreateQuestionOpen] = React.useState(false);
+  const [topicFilterModalOpen, setTopicFilterModalOpen] = React.useState(false);
+  const [selectedTopicFilters, setSelectedTopicFilters] = React.useState<string[]>([]);
 
   const hasActiveFilters = difficultyFilters.size > 0;
   const isLoadingMore = loadingMore && hasMore;
@@ -227,6 +246,7 @@ export default function ManageQuestionsModal({
       setQuery("");
       setDebouncedQuery("");
       setDifficultyFilters(new Set());
+      setSelectedTopicFilters([]);
       setFilterOpen(false);
       setSortOpen(false);
       setSortBy("newest");
@@ -315,6 +335,26 @@ export default function ManageQuestionsModal({
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {/* Topic filter button */}
+                    <button
+                      type="button"
+                      onClick={() => setTopicFilterModalOpen(true)}
+                      className={
+                        "inline-flex h-[39px] items-center gap-2 rounded-[6px] border px-4 text-[14px] font-medium leading-[21px] transition-colors " +
+                        (selectedTopicFilters.length > 0
+                          ? "border-[#F87171]/60 bg-[#F87171]/10 text-[#F1F5F9]"
+                          : "border-[#404040] bg-transparent text-[#A1A1AA] hover:bg-[#202020]")
+                      }
+                    >
+                      <FiTag className="h-4 w-4" />
+                      Topic
+                      {selectedTopicFilters.length > 0 && (
+                        <span className="ml-1 rounded bg-[#F87171]/20 px-1.5 py-0.5 text-[11px] text-[#F87171]">
+                          {selectedTopicFilters.length}
+                        </span>
+                      )}
+                    </button>
+
                     {/* Filter dropdown */}
                     <div ref={filterDropdownRef} className="relative">
                       <button
@@ -545,6 +585,16 @@ export default function ManageQuestionsModal({
                                   >
                                     {labelForDifficulty(q.difficulty)}
                                   </span>
+
+                                  {(q.topics ?? []).map((t) => (
+                                    <span
+                                      key={t}
+                                      className="inline-flex h-[26px] items-center rounded-[4px] bg-[#262626] px-2 text-[12px] font-medium leading-[18px] text-[#F1F5F9] border border-[#404040]"
+                                      title={t}
+                                    >
+                                      {t}
+                                    </span>
+                                  ))}
                                   {q.is_active === false && (
                                     <span className="inline-flex h-[26px] items-center rounded-[4px] px-2 text-[12px] font-medium leading-[18px] bg-[#404040]/50 text-[#A1A1AA]">
                                       Inactive
@@ -744,6 +794,7 @@ export default function ManageQuestionsModal({
                 ),
                 difficulty: (editingQuestion.difficulty ?? "MEDIUM").toLowerCase() as "easy" | "medium" | "hard",
                 is_active: editingQuestion.is_active ?? true,
+                topics: editingQuestion.topics ?? [],
               }
             : undefined
         }
@@ -765,6 +816,24 @@ export default function ManageQuestionsModal({
               }
             : undefined
         }
+        topicOptions={topicOptions}
+        onCreateTopic={onCreateTopic}
+        onDeleteTopics={onDeleteTopics}
+      />
+
+      <TopicModal
+        open={topicFilterModalOpen}
+        mode="filter"
+        topics={topicOptions}
+        initialSelectedTopics={selectedTopicFilters}
+        onClose={() => setTopicFilterModalOpen(false)}
+        onApply={(selected) => {
+          setSelectedTopicFilters(selected);
+          setTopicFilterModalOpen(false);
+        }}
+        onClearAll={() => setSelectedTopicFilters([])}
+        onCreateTopic={onCreateTopic}
+        onDeleteTopics={onDeleteTopics}
       />
     </div>
   );

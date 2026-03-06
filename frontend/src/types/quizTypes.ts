@@ -42,6 +42,7 @@ export interface Question {
   prompt: string;
   choices: string[];
   difficulty: Difficulty;
+  topics?: string[];
 }
 
 export interface InstructorQuestion {
@@ -54,6 +55,7 @@ export interface InstructorQuestion {
   created_by?: number;
   is_active: boolean;
   created_at: string;
+  topics?: string[];
 }
 
 export interface QuizAttempt {
