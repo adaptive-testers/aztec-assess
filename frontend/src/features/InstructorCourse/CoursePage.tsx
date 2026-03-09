@@ -48,6 +48,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 interface CourseForSlugLookup {
   id: string;
   slug: string;
+  title: string;
+  status: string;
 }
 
 interface CourseMemberForDisplay {
@@ -360,6 +362,7 @@ export default function CoursePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [courseTitle, setCourseTitle] = useState<string | null>(null);
+  const [courseStatus, setCourseStatus] = useState<string | null>(null);
   const [courseTitleLoading, setCourseTitleLoading] = useState(true);
   const [creatorNameById, setCreatorNameById] = useState<Record<number, string>>({});
 
@@ -394,6 +397,9 @@ export default function CoursePage() {
 
         if (matchingCourse) {
           setResolvedCourseId(matchingCourse.id);
+          setCourseTitle(matchingCourse.title);
+          setCourseStatus(matchingCourse.status);
+          setCourseTitleLoading(false);
           return;
         }
 
@@ -502,8 +508,9 @@ export default function CoursePage() {
 
   // ---------- COURSE TITLE (for header) ----------
   useEffect(() => {
-    if (!effectiveCourseId) {
-      setCourseTitle(null);
+    // Only fetch when we have a resolved UUID (not slug)
+    if (!effectiveCourseId || !UUID_REGEX.test(effectiveCourseId)) {
+      if (!effectiveCourseId) setCourseTitle(null);
       return;
     }
 
@@ -511,7 +518,9 @@ export default function CoursePage() {
       try {
         const response = await privateApi.get(COURSES.DETAIL(effectiveCourseId));
         const title = response.data?.title ?? null;
+        const status = response.data?.status ?? null;
         setCourseTitle(title);
+        if (status) setCourseStatus(status);
       } catch {
         setCourseTitle(null);
       } finally {
@@ -523,8 +532,9 @@ export default function CoursePage() {
   }, [effectiveCourseId]);
 
   useEffect(() => {
-    if (!effectiveCourseId) {
-      setCreatorNameById({});
+    // Only fetch when we have a resolved UUID (not slug)
+    if (!effectiveCourseId || !UUID_REGEX.test(effectiveCourseId)) {
+      if (!effectiveCourseId) setCreatorNameById({});
       return;
     }
 
@@ -1033,19 +1043,36 @@ export default function CoursePage() {
         {/* Page header */}
         <div className="flex items-center justify-between gap-4">
           {courseTitleLoading ? (
-            <div className="skeleton-shimmer h-7 w-48 rounded" />
+            <div className="flex items-center gap-4 w-full">
+              <div className="skeleton-shimmer h-9 w-32 rounded" />
+            </div>
           ) : (
-            <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-              {courseTitle ?? "Course"}
-            </h1>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-4">
+                <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
+                  {courseTitle ?? "Course"}
+                </h1>
+                {isStaff && courseStatus && (
+                  <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide ${
+                    courseStatus === 'ACTIVE'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                      : courseStatus === 'ARCHIVED'
+                        ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                        : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
+                  }`}>
+                    {courseStatus}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
         {/* Top nav */}
-        <div className="mt-4 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
+        <div className="mt-4 mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
           {roleLoading ? (
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {[0, 1, 2].map((i) => (
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-12 rounded-xl bg-[#232323]" />
               ))}
             </div>
@@ -1060,9 +1087,14 @@ export default function CoursePage() {
             {!isStudent && (
               <button
                 type="button"
+                onClick={() => {
+                  if (effectiveCourseId) {
+                    navigate(`/courses/${effectiveCourseId}/students`);
+                  }
+                }}
                 className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
               >
-                Students
+                Members
               </button>
             )}
             <button
@@ -1088,17 +1120,11 @@ export default function CoursePage() {
 
         {error ? (
           <div className="mt-4 text-[#A1A1AA]">{error}</div>
-        ) : roleLoading ? (
-          <div className="mt-4 space-y-4">
-            <div className="skeleton-shimmer h-24 rounded-xl" />
-            <div className="skeleton-shimmer h-[76px] rounded-lg" />
-            <div className="skeleton-shimmer h-[76px] rounded-lg" />
-          </div>
-        ) : isStudent ? (
+        ) : isStudent && !roleLoading ? (
           <div className="mt-4">
             <StudentQuizList courseId={resolvedCourseId ?? undefined} />
           </div>
-        ) : isStaff ? (
+        ) : isStaff || roleLoading ? (
           <>
         {/* Filters */}
         <div className="mt-4 grid grid-cols-1 items-center gap-2 sm:grid-cols-3">
@@ -1113,18 +1139,22 @@ export default function CoursePage() {
             </button>
           </div>
           <div className="flex justify-center">
-            <ChapterSelector
-              chapters={chapters}
-              value={activeChapterId}
-              onChange={(chapterId) => setActiveChapterId(chapterId)}
-              onAddChapter={() => {
-                setEditingChapter(null);
-                setAddChapterOpen(true);
-              }}
-              onEditChapter={(chapter) => {
-                void openEditChapterModal(chapter.id);
-              }}
-            />
+            {roleLoading || loading ? (
+              <div className="skeleton-shimmer h-10 w-full max-w-[420px] rounded-[8px]" />
+            ) : (
+              <ChapterSelector
+                chapters={chapters}
+                value={activeChapterId}
+                onChange={(chapterId) => setActiveChapterId(chapterId)}
+                onAddChapter={() => {
+                  setEditingChapter(null);
+                  setAddChapterOpen(true);
+                }}
+                onEditChapter={(chapter) => {
+                  void openEditChapterModal(chapter.id);
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -1144,26 +1174,45 @@ export default function CoursePage() {
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
-              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
-                {questionBankCounts.total} questions
-              </div>
-              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
-                {topicOptions.length} topics
-              </div>
+              {roleLoading || loading ? (
+                <>
+                  <div className="skeleton-shimmer h-[37px] w-[120px] rounded-md" />
+                  <div className="skeleton-shimmer h-[37px] w-[100px] rounded-md" />
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                    {questionBankCounts.total} questions
+                  </div>
+                  <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                    {topicOptions.length} topics
+                  </div>
+                </>
+              )}
+            </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <div
-                title="Source not in API"
-                className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-              >
-                {questionBankCounts.ai} AI Generated
-              </div>
-              <div
-                title="Source not in API"
-                className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-              >
-                {questionBankCounts.manual} Manual
-              </div>
+              {roleLoading || loading ? (
+                <>
+                  <div className="skeleton-shimmer h-[37px] w-[140px] rounded-md" />
+                  <div className="skeleton-shimmer h-[37px] w-[100px] rounded-md" />
+                </>
+              ) : (
+                <>
+                  <div
+                    title="Source not in API"
+                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
+                  >
+                    {questionBankCounts.ai} AI Generated
+                  </div>
+                  <div
+                    title="Source not in API"
+                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
+                  >
+                    {questionBankCounts.manual} Manual
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1180,7 +1229,7 @@ export default function CoursePage() {
               Create New Quiz
             </button>
 
-            {loading ? (
+            {loading || roleLoading ? (
               <div className="space-y-3">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="skeleton-shimmer h-[72px] rounded-lg" />

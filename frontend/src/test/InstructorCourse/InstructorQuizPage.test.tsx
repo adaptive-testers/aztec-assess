@@ -261,8 +261,13 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
     renderPage();
 
-    // wait for page hydration
+    // wait for page hydration (role resolves, instructor UI visible)
     await screen.findByRole("button", { name: /create new quiz/i });
+
+    // Also wait for role loading to complete so nav tabs are visible
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^course info$/i })).toBeInTheDocument();
+    });
 
     await user.click(screen.getByRole("button", { name: /^course info$/i }));
     expect(await screen.findByText(`Settings Page for ${COURSE_ID}`)).toBeInTheDocument();
@@ -308,11 +313,13 @@ describe("Instructor Quiz Page", () => {
   it("when courseId route param is already a UUID, it does not call COURSES.LIST slug lookup", async () => {
     renderPageAt(`/courses/${COURSE_ID}`);
 
-    await screen.findByRole("button", { name: /create new quiz/i });
+    // Wait until chapters are fetched and displayed (instructor UI fully loaded)
+    await waitFor(() => {
+      expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID));
+    });
 
     expect(privateApi.get).not.toHaveBeenCalledWith(COURSES.LIST);
     expect(privateApi.get).not.toHaveBeenCalledWith(`${COURSES.LIST}?status=ARCHIVED`);
-    expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID));
   });
 
   it("falls back to archived courses when slug is not found in active courses list", async () => {
@@ -345,7 +352,10 @@ describe("Instructor Quiz Page", () => {
     renderPage();
 
     // Wait until role resolves and instructor UI (Create New Quiz) is visible
-    await screen.findByRole("button", { name: /create new quiz/i });
+    await waitFor(() => {
+      expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(ARCHIVED_ID));
+    });
+
     expect(
       screen.getByRole("heading", { name: "Archived Course" }),
     ).toBeInTheDocument();
