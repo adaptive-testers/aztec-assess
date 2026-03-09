@@ -23,7 +23,7 @@ drf-spectacular-sidecar = "^2026.3.1"
 requests = "^2.32.5"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.15.4"
+ruff = "^0.15.5"
 mypy = "^1.19.1"
 pre-commit = "^4.5.1"
 django-stubs = "^5.2.9"
