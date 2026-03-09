@@ -1,7 +1,7 @@
 from typing import Any
 
 from django.db import IntegrityError
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Subquery, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -202,10 +202,21 @@ class StudentQuizListView(generics.ListAPIView):
 
     def get_queryset(self) -> QuerySet[Quiz]:
         user = self.request.user
+
+        # Subquery: latest attempt by this student for each quiz
+        latest_attempt = QuizAttempt.objects.filter(
+            quiz=OuterRef("pk"),
+            student=user,
+        ).order_by("-started_at")
+
         qs = Quiz.objects.filter(
             is_published=True,
             chapter__course__memberships__user=user,
+        ).annotate(
+            latest_attempt_id=Subquery(latest_attempt.values("pk")[:1]),
+            latest_attempt_status=Subquery(latest_attempt.values("status")[:1]),
         ).distinct()
+
         course_id = self.request.query_params.get("course")
         chapter_id = self.request.query_params.get("chapter")
         if course_id:

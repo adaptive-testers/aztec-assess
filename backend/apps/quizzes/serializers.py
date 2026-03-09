@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 from rest_framework import serializers
 
@@ -73,8 +73,12 @@ class QuizStudentSerializer(serializers.ModelSerializer):
     """Quiz list for students: includes nested chapter and attempt status for routing (continue/view results)."""
 
     chapter = ChapterStudentSerializer(read_only=True)
-    attempt_status = serializers.SerializerMethodField()
-    attempt_id = serializers.SerializerMethodField()
+    attempt_status = serializers.CharField(
+        source="latest_attempt_status", read_only=True, allow_null=True, default=None
+    )
+    attempt_id = serializers.IntegerField(
+        source="latest_attempt_id", read_only=True, allow_null=True, default=None
+    )
 
     class Meta:
         model = Quiz
@@ -89,34 +93,6 @@ class QuizStudentSerializer(serializers.ModelSerializer):
             "attempt_id",
         )
         read_only_fields = ("id", "created_at")
-
-    def get_attempt_status(self, obj: Quiz) -> str | None:
-        """Return the current user's latest attempt status for this quiz, or None if no attempt."""
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-        attempts = obj.attempts  # type: ignore[attr-defined]
-        value = (
-            attempts.filter(student=request.user)
-            .order_by("-started_at")
-            .values_list("status", flat=True)
-            .first()
-        )
-        return cast("str | None", value)
-
-    def get_attempt_id(self, obj: Quiz) -> int | None:
-        """Return the current user's latest attempt id for this quiz, or None if no attempt."""
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-        attempts = obj.attempts  # type: ignore[attr-defined]
-        value = (
-            attempts.filter(student=request.user)
-            .order_by("-started_at")
-            .values_list("pk", flat=True)
-            .first()
-        )
-        return cast("int | None", value)
 
 
 class AttemptDetailSerializer(serializers.ModelSerializer):
