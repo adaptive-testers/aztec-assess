@@ -11,7 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from .models import Course, CourseMembership, CourseRole
+from .models import Course, CourseMembership, CourseRole, Topic
 from .permissions import (
     IsCourseMember,
     IsCourseOwnerOrInstructor,
@@ -21,6 +21,8 @@ from .serializers import (
     CourseMembershipSerializer,
     CourseSerializer,
     JoinCourseSerializer,
+    TopicCreateSerializer,
+    TopicSerializer,
 )
 from .utils import generate_join_code
 
@@ -41,6 +43,8 @@ class CourseViewSet(viewsets.ModelViewSet):
     - GET  {id}/members/
     - POST {id}/members/add/
     - POST {id}/members/remove/
+    - GET  {id}/topics/
+    - POST {id}/topics/
     """
 
     # Baseline permission; we override for specific actions in get_permissions.
@@ -322,6 +326,70 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # --- Topics actions ------------------------------------------------
+
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="topics",
+        permission_classes=[IsAuthenticated],
+    )
+    def topics(self, request: Request, pk: Any = None) -> Response:  # noqa: ARG002
+        course = self.get_object()
+        if not IsCourseMember().has_object_permission(request, self, course):
+            return Response(
+                {"detail": "Not a member."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if request.method == "GET":
+            qs = Topic.objects.filter(course=course).order_by("name")
+            serializer = TopicSerializer(qs, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # POST: create topic (owner/instructor only)
+        if not IsCourseOwnerOrInstructor().has_object_permission(request, self, course):
+            return Response(
+                {"detail": "Only owners and instructors can create topics."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = TopicCreateSerializer(
+            data=request.data,
+            context={"request": request, "course": course},
+        )
+        serializer.is_valid(raise_exception=True)
+        topic = serializer.save(course=course)
+        return Response(
+            TopicSerializer(topic).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class TopicViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Retrieve, update, and delete topics. List/create are under /courses/{id}/topics/."""
+
+    serializer_class = TopicSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Topic.objects.select_related("course").all()
+    lookup_url_kwarg = "pk"
+
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action == "retrieve":
+            return [IsAuthenticated(), IsCourseMember()]
+        return [IsAuthenticated(), IsCourseOwnerOrInstructor()]
+
+    def check_object_permissions(self, request: Request, obj: Topic) -> None:
+        """Topic permissions are checked against topic.course (Course)."""
+        for permission in self.get_permissions():
+            if not permission.has_object_permission(request, self, obj.course):
+                self.permission_denied(
+                    request,
+                    message=getattr(permission, "message", None),
+                )
 
 
 class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):

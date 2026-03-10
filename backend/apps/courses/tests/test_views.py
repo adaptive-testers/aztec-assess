@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
-from apps.courses.models import Course, CourseMembership, CourseRole
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
 
 UserModel = cast("type[User]", get_user_model())
 
@@ -715,6 +715,150 @@ class TestCourseViewSetMembership:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not CourseMembership.objects.filter(course=course, user=student).exists()
+
+
+# ===============================
+# CourseViewSet - Topics Actions
+# ===============================
+class TestCourseTopics:
+    """Test topic list and create under /courses/{id}/topics/."""
+
+    def test_list_topics_as_member(self, owner, course):
+        """Test that course members can list topics."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        Topic.objects.create(course=course, name="Algebra")
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+        assert response.data[0]["name"] == "Algebra"
+
+    def test_list_topics_as_non_member_forbidden(self, non_member, course):
+        """Test that non-members cannot list topics."""
+        Topic.objects.create(course=course, name="Algebra")
+
+        client = APIClient()
+        client.force_authenticate(user=non_member)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_topic_as_owner(self, owner, course):
+        """Test that owner can create a topic."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "Calculus"}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["name"] == "Calculus"
+        assert Topic.objects.filter(course=course, name="Calculus").exists()
+
+    def test_create_topic_as_instructor(self, instructor, course):
+        """Test that instructor can create a topic."""
+        CourseMembership.objects.create(
+            course=course, user=instructor, role=CourseRole.INSTRUCTOR
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=instructor)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "Physics"}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["name"] == "Physics"
+
+    def test_create_topic_as_student_forbidden(self, student, course):
+        """Test that students cannot create topics."""
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "Biology"}, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_topic_duplicate_name_rejected(self, owner, course):
+        """Test that duplicate topic name in same course returns 400."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        Topic.objects.create(course=course, name="Chemistry")
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "Chemistry"}, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "name" in response.data
+
+
+# ===============================
+# TopicViewSet - retrieve, update, delete
+# ===============================
+class TestTopicViewSet:
+    """Test TopicViewSet retrieve, PATCH, DELETE."""
+
+    def test_retrieve_topic_as_member(self, owner, course):
+        """Test that members can retrieve a topic."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="Trigonometry")
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "Trigonometry"
+
+    def test_patch_topic_as_owner(self, owner, course):
+        """Test that owner can update a topic."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="Geometry")
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.patch(url, {"name": "Advanced Geometry"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "Advanced Geometry"
+        topic.refresh_from_db()
+        assert topic.name == "Advanced Geometry"
+
+    def test_delete_topic_as_owner(self, owner, course):
+        """Test that owner can delete a topic."""
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="Statistics")
+        topic_id = topic.id
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.delete(url)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Topic.objects.filter(id=topic_id).exists()
+
+    def test_delete_topic_as_student_forbidden(self, student, course):
+        """Test that students cannot delete topics."""
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        topic = Topic.objects.create(course=course, name="Linear Algebra")
+
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.delete(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 # ===============================

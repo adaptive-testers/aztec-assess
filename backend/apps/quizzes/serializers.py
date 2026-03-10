@@ -2,6 +2,8 @@ from typing import Any, cast
 
 from rest_framework import serializers
 
+from apps.courses.models import Topic
+
 from .models import Chapter, Question, Quiz, QuizAttempt
 
 
@@ -21,6 +23,13 @@ class ChapterStudentSerializer(serializers.ModelSerializer):
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
+    topics = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Topic.objects.all(),
+        required=False,
+        allow_empty=True,
+    )
+
     class Meta:
         model = Question
         fields = (
@@ -32,6 +41,7 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
             "difficulty",
             "created_by",
             "is_active",
+            "topics",
             "created_at",
         )
         read_only_fields = ("id", "chapter", "created_by", "created_at")
@@ -45,6 +55,36 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         if value < 0 or value > 3:
             raise serializers.ValidationError("correct_index must be between 0 and 3.")
         return value
+
+    def validate_topics(self, value: list[Topic]) -> list[Topic]:
+        chapter = self.context.get("chapter")
+        instance = self.instance
+        if chapter:
+            course_id = chapter.course_id
+        elif instance:
+            course_id = instance.chapter.course_id
+        else:
+            return value
+        for topic in value:
+            if topic.course_id != course_id:
+                raise serializers.ValidationError(
+                    f"Topic {topic.name} does not belong to this course."
+                )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", [])
+        question = super().create(validated_data)
+        if topics:
+            question.topics.set(topics)
+        return question
+
+    def update(self, instance: Question, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", None)
+        question = super().update(instance, validated_data)
+        if topics is not None:
+            question.topics.set(topics)
+        return question
 
 
 class QuestionStudentSerializer(serializers.ModelSerializer):

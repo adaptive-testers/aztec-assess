@@ -97,7 +97,16 @@ class QuestionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self) -> QuerySet[Question]:
         chapter = self.get_chapter()
-        return Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        qs = Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        topic_id = self.request.query_params.get("topic")
+        if topic_id:
+            qs = qs.filter(topics__id=topic_id).distinct()
+        return qs
+
+    def get_serializer_context(self) -> dict[str, Any]:
+        context = super().get_serializer_context()
+        context["chapter"] = self.get_chapter()
+        return context
 
     def list(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         chapter = self.get_chapter()
@@ -120,7 +129,7 @@ class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     serializer_class = QuestionCreateUpdateSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Question.objects.all()
+    queryset = Question.objects.prefetch_related("topics").all()
 
     def retrieve(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         question = self.get_object()
