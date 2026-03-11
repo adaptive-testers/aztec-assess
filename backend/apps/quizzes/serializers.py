@@ -66,7 +66,7 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         else:
             return value
         for topic in value:
-            if topic.course_id != course_id:
+            if topic.course.pk != course_id:
                 raise serializers.ValidationError(
                     f"Topic {topic.name} does not belong to this course."
                 )
@@ -74,14 +74,14 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict[str, Any]) -> Question:
         topics = validated_data.pop("topics", [])
-        question = super().create(validated_data)
+        question: Question = super().create(validated_data)
         if topics:
             question.topics.set(topics)
         return question
 
     def update(self, instance: Question, validated_data: dict[str, Any]) -> Question:
         topics = validated_data.pop("topics", None)
-        question = super().update(instance, validated_data)
+        question: Question = super().update(instance, validated_data)
         if topics is not None:
             question.topics.set(topics)
         return question

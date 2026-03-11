@@ -352,12 +352,12 @@ class CourseViewSet(viewsets.ModelViewSet):
                 {"detail": "Only owners and instructors can create topics."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        serializer = TopicCreateSerializer(
+        create_serializer = TopicCreateSerializer(
             data=request.data,
             context={"request": request, "course": course},
         )
-        serializer.is_valid(raise_exception=True)
-        topic = serializer.save(course=course)
+        create_serializer.is_valid(raise_exception=True)
+        topic = create_serializer.save(course=course)
         return Response(
             TopicSerializer(topic).data,
             status=status.HTTP_201_CREATED,
