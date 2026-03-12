@@ -61,6 +61,12 @@ LOGGING = {
 DEBUG = False
 SECRET_KEY = "ci-secret-key-for-testing-only"
 
+# Disable HTTPS redirect and HSTS so test client requests (HTTP) don't get 301s
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
 # Disable CORS for CI
 CORS_ALLOW_ALL_ORIGINS = True
 
