@@ -11,7 +11,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-django = "^5.2.11"
+django = "^5.2.12"
 djangorestframework = "^3.16.1"
 django-cors-headers = "^4.9.0"
 psycopg2-binary = "^2.9.11"
@@ -23,7 +23,7 @@ drf-spectacular-sidecar = "^2026.3.1"
 requests = "^2.32.5"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.15.4"
+ruff = "^0.15.5"
 mypy = "^1.19.1"
 pre-commit = "^4.5.1"
 django-stubs = "^5.2.9"
