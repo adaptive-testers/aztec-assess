@@ -1,7 +1,7 @@
 from typing import Any
 
 from django.db import IntegrityError
-from django.db.models import QuerySet, Subquery, OuterRef
+from django.db.models import OuterRef, QuerySet, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
