@@ -1,5 +1,6 @@
 import { Progress } from '@mantine/core';
 import { useCallback, useEffect, useState } from 'react';
+
 import { privateApi } from '../../api/axios';
 import { AUTH, QUIZZES } from '../../api/endpoints';
 import type { Quiz, QuizAttempt } from '../../types/quizTypes';
@@ -112,7 +113,7 @@ export default function StudentDashboardPage() {
         if (profile.first_name) {
           setUserName(profile.first_name);
         }
-      } catch (error) {
+      } catch {
         // Silent fail for profile fetch
       }
     };
@@ -169,7 +170,7 @@ export default function StudentDashboardPage() {
 
       <div className="row-span-1 col-span-2 text-primary-text flex flex-col items-center">
         <div className="tracking-wide font-medium text-3xl">Welcome Back, {userName}!</div>
-        <div className="tracking-wide text-secondary-text text-lg"> Here's what's happening in your courses.</div>
+        <div className="tracking-wide text-secondary-text text-lg"> Here&apos;s what&apos;s happening in your courses.</div>
       </div>
 
       <div className="flex flex-col row-span-2 col-span-1 bg-secondary-background w-full h-full border-2 border-primary-border rounded-2xl p-6 gap-8">

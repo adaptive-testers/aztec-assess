@@ -1,5 +1,5 @@
-import { Routes, Route } from "react-router-dom";
 import { MantineProvider } from '@mantine/core';
+import { Routes, Route } from "react-router-dom";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 
