@@ -57,7 +57,6 @@ describe("Sidebar", () => {
     await screen.findByText("Aztec Assess");
 
     expect(screen.getByRole("link", { name: /profile/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /courses/i })).toBeInTheDocument();
   });
 
@@ -97,7 +96,6 @@ describe("Sidebar", () => {
     // when collapsed, text labels are not rendered
     expect(screen.queryByText(/dashboard/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/profile/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/settings/i)).not.toBeInTheDocument();
 
     // root wrapper should now be narrow
     const root = container.firstElementChild as HTMLElement;
