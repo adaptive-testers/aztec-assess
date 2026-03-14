@@ -408,6 +408,151 @@ class QuestionDetailViewTests(TestCase):
         self.assertFalse(self.question.is_active)
 
 
+class QuestionBulkImportViewTests(TestCase):
+    """Test bulk question import endpoint for staff users."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.course, self.chapter = make_course_and_chapter()
+        self.owner = self.course.owner
+        self.student = User.objects.create_user(
+            email="student@example.com",
+            password="pass123",
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=self.owner, role=CourseRole.OWNER
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=self.student, role=CourseRole.STUDENT
+        )
+        self.url = reverse("question-bulk-import", kwargs={"chapter_id": self.chapter.id})
+
+    def test_bulk_import_creates_questions_for_staff(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = {
+            "questions": [
+                {
+                    "prompt": "What is 2+2?",
+                    "choices": ["1", "2", "3", "4"],
+                    "correct_index": 3,
+                    "difficulty": "EASY",
+                },
+                {
+                    "prompt": "What is 3+4?",
+                    "choices": ["6", "7", "8", "9"],
+                    "correct_index": 1,
+                    "difficulty": "MEDIUM",
+                },
+            ]
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["created"], 2)
+        self.assertEqual(response.data["summary"]["failed"], 0)
+        self.assertEqual(Question.objects.filter(chapter=self.chapter).count(), 2)
+
+    def test_bulk_import_reports_invalid_rows_and_continues(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = {
+            "questions": [
+                {
+                    "prompt": "Valid",
+                    "choices": ["A", "B", "C", "D"],
+                    "correct_index": 0,
+                    "difficulty": "EASY",
+                },
+                {
+                    "prompt": "Invalid",
+                    "choices": ["A", "B"],
+                    "correct_index": 0,
+                    "difficulty": "EASY",
+                },
+            ]
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["created"], 1)
+        self.assertEqual(response.data["summary"]["failed"], 1)
+        statuses = [row["status"] for row in response.data["results"]]
+        self.assertIn("created", statuses)
+        self.assertIn("error", statuses)
+
+    def test_bulk_import_skips_duplicate_prompt_by_default(self):
+        self.client.force_authenticate(user=self.owner)
+        make_question(
+            self.chapter,
+            prompt="Duplicate prompt",
+            choices=["A", "B", "C", "D"],
+            correct_index=0,
+            difficulty=Difficulty.EASY,
+        )
+        payload = {
+            "questions": [
+                {
+                    "prompt": "Duplicate prompt",
+                    "choices": ["D", "C", "B", "A"],
+                    "correct_index": 1,
+                    "difficulty": "HARD",
+                }
+            ]
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["skipped"], 1)
+        self.assertEqual(response.data["summary"]["updated"], 0)
+
+        existing = Question.objects.get(chapter=self.chapter, prompt="Duplicate prompt")
+        self.assertEqual(existing.correct_index, 0)
+        self.assertEqual(existing.difficulty, Difficulty.EASY)
+
+    def test_bulk_import_overwrites_duplicate_when_flag_set(self):
+        self.client.force_authenticate(user=self.owner)
+        existing = make_question(
+            self.chapter,
+            prompt="Overwrite me",
+            choices=["A", "B", "C", "D"],
+            correct_index=0,
+            difficulty=Difficulty.EASY,
+        )
+
+        payload = {
+            "overwrite_existing": True,
+            "questions": [
+                {
+                    "prompt": "Overwrite me",
+                    "choices": ["1", "2", "3", "4"],
+                    "correct_index": 2,
+                    "difficulty": "HARD",
+                }
+            ],
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["summary"]["updated"], 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.correct_index, 2)
+        self.assertEqual(existing.difficulty, Difficulty.HARD)
+
+    def test_bulk_import_forbidden_for_non_staff(self):
+        self.client.force_authenticate(user=self.student)
+        payload = {
+            "questions": [
+                {
+                    "prompt": "What is 2+2?",
+                    "choices": ["1", "2", "3", "4"],
+                    "correct_index": 3,
+                    "difficulty": "EASY",
+                }
+            ]
+        }
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class QuizListCreateViewTests(TestCase):
     """Test quiz list and create (staff only)."""
 
