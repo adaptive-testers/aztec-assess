@@ -3,7 +3,8 @@ Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer)
 """
 from django.test import TestCase
 
-from apps.quizzes.models import Difficulty
+from apps.courses.models import Course, Topic
+from apps.quizzes.models import Chapter, Difficulty
 from apps.quizzes.serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
@@ -93,6 +94,116 @@ class QuestionCreateUpdateSerializerTests(TestCase):
             }
         )
         self.assertTrue(serializer.is_valid())
+
+
+class QuestionTopicValidationTests(TestCase):
+    """Test QuestionCreateUpdateSerializer topic validation (cross-course prevention)."""
+
+    def setUp(self):
+        self.course, self.chapter = make_course_and_chapter()
+        self.topic_same_course = Topic.objects.create(
+            course=self.course, name="Algebra"
+        )
+
+    def test_create_question_with_valid_topics_same_course(self):
+        """Question create with topic from same course succeeds."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_create_question_with_topic_from_different_course_fails(self):
+        """Question create with topic from different course fails validation."""
+        other_course = Course.objects.create(
+            title="Other Course",
+            owner=self.course.owner,
+            slug="other-course",
+        )
+        Chapter.objects.create(course=other_course, title="Other Chapter")
+        topic_other = Topic.objects.create(course=other_course, name="Other Topic")
+
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(topic_other.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("topics", serializer.errors)
+
+    def test_create_question_with_zero_topics_allowed(self):
+        """Question create with no topics is allowed."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_create_question_with_multiple_topics_allowed(self):
+        """Question create with multiple topics from same course succeeds."""
+        topic2 = Topic.objects.create(course=self.course, name="Geometry")
+
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id), str(topic2.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_update_question_with_cross_course_topic_fails(self):
+        """Question update with topic from different course fails validation."""
+        question = make_question(self.chapter, prompt="Original")
+        question.topics.add(self.topic_same_course)
+
+        other_course = Course.objects.create(
+            title="Other Course",
+            owner=self.course.owner,
+            slug="other-course",
+        )
+        Chapter.objects.create(course=other_course, title="Other Chapter")
+        topic_other = Topic.objects.create(course=other_course, name="Other Topic")
+
+        serializer = QuestionCreateUpdateSerializer(
+            instance=question,
+            data={
+                "prompt": "Updated?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(topic_other.id)],
+            },
+            partial=True,
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("topics", serializer.errors)
+
+    def test_create_question_topics_without_context_allows_validation(self):
+        """Question create without chapter/instance context does not apply course check."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id)],
+            },
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
 class QuestionStudentSerializerTests(TestCase):

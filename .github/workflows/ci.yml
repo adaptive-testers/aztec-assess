@@ -31,6 +31,9 @@ jobs:
       PY_VERSION: '3.13.7'
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Get branch expiration date (2 weeks from now)
         if: github.event_name == 'pull_request'
@@ -93,6 +96,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true
+        env:
+          CC_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CC_BRANCH: ${{ github.head_ref || github.ref_name }}
+          CC_PR: ${{ github.event.pull_request.number || '' }}
 
       - name: Cleanup stray test databases
         if: always()

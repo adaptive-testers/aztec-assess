@@ -7,7 +7,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.courses.models import CourseMembership, CourseRole
+from apps.courses.models import CourseMembership, CourseRole, Topic
 from apps.quizzes.models import Chapter, Difficulty, Question, Quiz
 from apps.quizzes.tests.test_utils import (
     make_attempt,
@@ -272,6 +272,65 @@ class QuestionListCreateViewTests(TestCase):
         self.assertIn(q1.id, ids)
         self.assertNotIn(q2.id, ids)
 
+    def test_create_question_with_topics_associates_topics(self):
+        """Test that creating a question with topic_ids associates topics correctly."""
+        topic = Topic.objects.create(course=self.course, name="Algebra")
+        self.client.force_authenticate(user=self.owner)
+        url = reverse(
+            "question-list-create",
+            kwargs={"chapter_id": self.chapter.id},
+        )
+        res = self.client.post(
+            url,
+            data={
+                "prompt": "Solve for x",
+                "choices": ["1", "2", "3", "4"],
+                "correct_index": 0,
+                "topics": [str(topic.id)],
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertIn("topics", res.data)
+        self.assertEqual(len(res.data["topics"]), 1)
+        q = Question.objects.get(prompt="Solve for x")
+        self.assertEqual(list(q.topics.values_list("id", flat=True)), [topic.id])
+
+    def test_list_questions_filter_by_topic(self):
+        """Test that ?topic= param filters questions by topic."""
+        topic1 = Topic.objects.create(course=self.course, name="Algebra")
+        topic2 = Topic.objects.create(course=self.course, name="Geometry")
+        q1 = make_question(self.chapter, prompt="Algebra Q", correct_index=0)
+        q1.topics.add(topic1)
+        q2 = make_question(self.chapter, prompt="Geometry Q", correct_index=0)
+        q2.topics.add(topic2)
+        q3 = make_question(self.chapter, prompt="Both", correct_index=0)
+        q3.topics.add(topic1, topic2)
+
+        self.client.force_authenticate(user=self.owner)
+        url = reverse(
+            "question-list-create",
+            kwargs={"chapter_id": self.chapter.id},
+        )
+        res = self.client.get(url, {"topic": str(topic1.id)})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = res.data.get("results", res.data) if isinstance(res.data, dict) else res.data
+        ids = [q["id"] for q in results]
+        self.assertIn(q1.id, ids)
+        self.assertIn(q3.id, ids)
+        self.assertNotIn(q2.id, ids)
+
+    def test_list_questions_invalid_topic_uuid_returns_400(self):
+        """Test that invalid ?topic= value returns 400."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse(
+            "question-list-create",
+            kwargs={"chapter_id": self.chapter.id},
+        )
+        res = self.client.get(url, {"topic": "not-a-uuid"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("topic", res.data)
+
 
 class QuestionDetailViewTests(TestCase):
     """Test question retrieve, update, destroy (staff only)."""
@@ -320,6 +379,24 @@ class QuestionDetailViewTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.question.refresh_from_db()
         self.assertEqual(self.question.prompt, "Updated prompt")
+
+    def test_update_question_topics(self):
+        """Test that staff can update question topics via PATCH."""
+        topic1 = Topic.objects.create(course=self.course, name="Algebra")
+        topic2 = Topic.objects.create(course=self.course, name="Geometry")
+        self.question.topics.add(topic1)
+
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("question-detail", kwargs={"pk": self.question.pk})
+        res = self.client.patch(
+            url,
+            data={"topics": [str(topic1.id), str(topic2.id)]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.question.refresh_from_db()
+        topic_ids = list(self.question.topics.values_list("id", flat=True))
+        self.assertEqual(set(topic_ids), {topic1.id, topic2.id})
 
     def test_destroy_question_as_staff_soft_deletes_returns_204(self):
         """Test that staff destroy sets is_active=False."""

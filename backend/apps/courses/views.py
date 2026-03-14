@@ -11,20 +11,29 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from .models import Course, CourseMembership, CourseRole
+from .models import Course, CourseMembership, CourseRole, Topic
 from .permissions import (
     IsCourseMember,
     IsCourseOwnerOrInstructor,
+    user_role,
 )
 from .serializers import (
     CourseCreateSerializer,
     CourseMembershipSerializer,
     CourseSerializer,
     JoinCourseSerializer,
+    TopicCreateSerializer,
+    TopicSerializer,
 )
 from .utils import generate_join_code
 
 User = get_user_model()
+
+
+def can_access_draft_course(user: Any, course: Course) -> bool:
+    """Return True when the user can access draft-only course content."""
+    role = user_role(user, course)
+    return role in {CourseRole.OWNER, CourseRole.INSTRUCTOR}
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -41,6 +50,8 @@ class CourseViewSet(viewsets.ModelViewSet):
     - GET  {id}/members/
     - POST {id}/members/add/
     - POST {id}/members/remove/
+    - GET  {id}/topics/
+    - POST {id}/topics/
     """
 
     # Baseline permission; we override for specific actions in get_permissions.
@@ -107,15 +118,14 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         # Block non-staff from accessing DRAFT courses
-        if course.status == Course.CourseStatus.DRAFT:
-            from .models import CourseRole
-            from .permissions import user_role
-            role = user_role(request.user, course)
-            if role not in {CourseRole.OWNER, CourseRole.INSTRUCTOR}:
-                return Response(
-                    {"detail": "Draft courses are only accessible to course owners and instructors."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+        if (
+            course.status == Course.CourseStatus.DRAFT
+            and not can_access_draft_course(request.user, course)
+        ):
+            return Response(
+                {"detail": "Draft courses are only accessible to course owners and instructors."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().retrieve(request, *args, **kwargs)
 
     # --- Lifecycle actions -------------------------------------------------
@@ -322,6 +332,87 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # --- Topics actions ------------------------------------------------
+
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="topics",
+        permission_classes=[IsAuthenticated],
+    )
+    def topics(self, request: Request, pk: Any = None) -> Response:  # noqa: ARG002
+        course = self.get_object()
+        if not IsCourseMember().has_object_permission(request, self, course):
+            return Response(
+                {"detail": "Not a member."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if request.method == "GET":
+            if (
+                course.status == Course.CourseStatus.DRAFT
+                and not can_access_draft_course(request.user, course)
+            ):
+                return Response(
+                    {"detail": "Draft courses are only accessible to course owners and instructors."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            qs = Topic.objects.filter(course=course).order_by("name")
+            serializer = TopicSerializer(qs, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # POST: create topic (owner/instructor only)
+        if not IsCourseOwnerOrInstructor().has_object_permission(request, self, course):
+            return Response(
+                {"detail": "Only owners and instructors can create topics."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        create_serializer = TopicCreateSerializer(
+            data=request.data,
+            context={"request": request, "course": course},
+        )
+        create_serializer.is_valid(raise_exception=True)
+        topic = create_serializer.save(course=course)
+        return Response(
+            TopicSerializer(topic).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class TopicViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Retrieve, update, and delete topics. List/create are under /courses/{id}/topics/."""
+
+    serializer_class = TopicSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Topic.objects.select_related("course").all()
+    lookup_url_kwarg = "pk"
+
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action == "retrieve":
+            return [IsAuthenticated(), IsCourseMember()]
+        return [IsAuthenticated(), IsCourseOwnerOrInstructor()]
+
+    def check_object_permissions(self, request: Request, obj: Topic) -> None:
+        """Topic permissions are checked against topic.course (Course)."""
+        for permission in self.get_permissions():
+            if not permission.has_object_permission(request, self, obj.course):
+                self.permission_denied(
+                    request,
+                    message=getattr(permission, "message", None),
+                )
+        if (
+            self.action == "retrieve"
+            and obj.course.status == Course.CourseStatus.DRAFT
+            and not can_access_draft_course(request.user, obj.course)
+        ):
+            self.permission_denied(
+                request,
+                message="Draft courses are only accessible to course owners and instructors.",
+            )
 
 
 class EnrollmentViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):

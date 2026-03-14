@@ -1,10 +1,13 @@
 from typing import Any
+from uuid import UUID
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -97,7 +100,23 @@ class QuestionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self) -> QuerySet[Question]:
         chapter = self.get_chapter()
-        return Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        qs = Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        topic_id = self.request.query_params.get("topic")
+        if topic_id:
+            try:
+                topic_uuid = UUID(topic_id)
+            except (ValueError, AttributeError) as exc:
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
+            try:
+                qs = qs.filter(topics__id=topic_uuid).distinct()
+            except DjangoValidationError as exc:  # pragma: no cover - defensive
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
+        return qs
+
+    def get_serializer_context(self) -> dict[str, Any]:
+        context = super().get_serializer_context()
+        context["chapter"] = self.get_chapter()
+        return context
 
     def list(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         chapter = self.get_chapter()
@@ -120,7 +139,7 @@ class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     serializer_class = QuestionCreateUpdateSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Question.objects.all()
+    queryset = Question.objects.prefetch_related("topics").all()
 
     def retrieve(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         question = self.get_object()
