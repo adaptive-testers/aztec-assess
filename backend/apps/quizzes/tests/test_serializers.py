@@ -193,6 +193,18 @@ class QuestionTopicValidationTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("topics", serializer.errors)
 
+    def test_create_question_topics_without_context_allows_validation(self):
+        """Question create without chapter/instance context does not apply course check."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id)],
+            },
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
 
 class QuestionStudentSerializerTests(TestCase):
     """Test QuestionStudentSerializer (no correct_index exposed)."""
