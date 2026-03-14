@@ -1,10 +1,13 @@
 from typing import Any
+from uuid import UUID
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -100,7 +103,14 @@ class QuestionListCreateView(generics.ListCreateAPIView):
         qs = Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
         topic_id = self.request.query_params.get("topic")
         if topic_id:
-            qs = qs.filter(topics__id=topic_id).distinct()
+            try:
+                topic_uuid = UUID(topic_id)
+            except (ValueError, AttributeError) as exc:
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
+            try:
+                qs = qs.filter(topics__id=topic_uuid).distinct()
+            except DjangoValidationError as exc:  # pragma: no cover - defensive
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
         return qs
 
     def get_serializer_context(self) -> dict[str, Any]:

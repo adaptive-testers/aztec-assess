@@ -320,6 +320,17 @@ class QuestionListCreateViewTests(TestCase):
         self.assertIn(q3.id, ids)
         self.assertNotIn(q2.id, ids)
 
+    def test_list_questions_invalid_topic_uuid_returns_400(self):
+        """Test that invalid ?topic= value returns 400."""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse(
+            "question-list-create",
+            kwargs={"chapter_id": self.chapter.id},
+        )
+        res = self.client.get(url, {"topic": "not-a-uuid"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("topic", res.data)
+
 
 class QuestionDetailViewTests(TestCase):
     """Test question retrieve, update, destroy (staff only)."""
