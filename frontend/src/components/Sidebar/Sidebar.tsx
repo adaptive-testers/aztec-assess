@@ -3,7 +3,6 @@ import { FaBook } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
 import { IoIosArrowUp } from "react-icons/io";
 import { IoMdPerson } from "react-icons/io";
-import { IoMdSettings } from "react-icons/io";
 import { IoHome } from "react-icons/io5";
 import { IoLogOut } from "react-icons/io5";
 import { NavLink } from "react-router-dom";
@@ -341,43 +340,6 @@ export default function Sidebar() {
                   }`}
                 >
                   Profile
-                </span>
-              )}
-            </>
-          )}
-        </NavLink>
-
-        {/* Settings */}
-        <NavLink
-          to="/settings"
-          className={({ isActive }) =>
-            `group relative flex items-center h-[39px] rounded-[7px] transition-colors duration-200 
-            ${collapsed ? "w-[43px]" : "w-full"}
-            ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <IoMdSettings
-                className={`ml-[13px] h-[17px] w-[17px] transition-colors duration-200 ${
-                  isActive
-                    ? "text-white"
-                    : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                }`}
-              />
-              {!collapsed && (
-                <span
-                  className={`ml-[25px] font-geist text-[15px] font-medium leading-[22px] transition-[opacity,transform] duration-200 ease-out ${
-                    collapsed
-                      ? "opacity-0 -translate-x-1"
-                      : "opacity-100 translate-x-0"
-                  } ${
-                    isActive
-                      ? "text-white"
-                      : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                  }`}
-                >
-                  Settings
                 </span>
               )}
             </>

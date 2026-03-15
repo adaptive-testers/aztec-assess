@@ -123,3 +123,44 @@ class User(AbstractUser):
         """Override save to ensure email is lowercase"""
         self.email = self.email.lower()
         super().save(*args, **kwargs)
+
+
+class SignupAllowlist(models.Model):
+    """Allowlist rules for environment-gated signup flows."""
+
+    email: models.EmailField = models.EmailField(
+        unique=True,
+        help_text="Email allowed to create new accounts.",
+    )
+    student_allowed: models.BooleanField = models.BooleanField(
+        default=True,
+        help_text="Whether this email can sign up as student.",
+    )
+    instructor_allowed: models.BooleanField = models.BooleanField(
+        default=False,
+        help_text="Whether this email can sign up as instructor.",
+    )
+    is_active: models.BooleanField = models.BooleanField(
+        default=True,
+        help_text="Whether this allowlist entry is active when allowlist checks are enabled.",
+    )
+    notes: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional operational note about this entry.",
+    )
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["email"]
+        verbose_name = "Signup Allowlist Entry"
+        verbose_name_plural = "Signup Allowlist Entries"
+
+    def __str__(self) -> str:
+        return str(self.email)
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Normalize email before persisting."""
+        self.email = self.email.lower().strip()
+        super().save(*args, **kwargs)

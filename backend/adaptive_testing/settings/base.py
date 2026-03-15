@@ -37,6 +37,8 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv(
 # Defaults to enabled in development and disabled when DEBUG=False.
 ENABLE_DJANGO_ADMIN = config("ENABLE_DJANGO_ADMIN", default=DEBUG, cast=bool)
 ENABLE_API_DOCS = config("ENABLE_API_DOCS", default=DEBUG, cast=bool)
+SIGNUP_ALLOWLIST_ENABLED = config("SIGNUP_ALLOWLIST_ENABLED", default=False, cast=bool)
+STUDENT_MODE_ONLY = config("STUDENT_MODE_ONLY", default=False, cast=bool)
 
 # Application definition
 DJANGO_APPS = [

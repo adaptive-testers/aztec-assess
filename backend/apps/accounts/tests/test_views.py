@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -26,7 +27,7 @@ class TestUserRegistrationView:
             "password": "StrongP@ssw0rd!",
             "first_name": "New",
             "last_name": "User",
-            "role": "student",  # valid: admin | instructor | student
+            "role": "student",
         }
         resp = client.post(url, payload, format="json")
         assert resp.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
@@ -121,6 +122,116 @@ class TestUserRegistrationView:
         assert resp.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
 
         assert UserModel.objects.filter(email="newuser@example.com").exists()
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
+    def test_register_rejects_non_allowlisted_email_when_allowlist_enabled(self):
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "blocked@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Blocked",
+            "last_name": "User",
+            "role": "student",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "Signup is not enabled for this email."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
+    def test_register_allows_allowlisted_student(self):
+        from apps.accounts.models import SignupAllowlist
+
+        SignupAllowlist.objects.create(email="student@example.com", student_allowed=True)
+
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "student@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Student",
+            "last_name": "Allowed",
+            "role": "student",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
+        assert UserModel.objects.filter(email="student@example.com").exists()
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
+    def test_register_rejects_instructor_without_instructor_allow(self):
+        from apps.accounts.models import SignupAllowlist
+
+        SignupAllowlist.objects.create(
+            email="instructor@example.com",
+            student_allowed=True,
+            instructor_allowed=False,
+        )
+
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "instructor@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Inst",
+            "last_name": "Denied",
+            "role": "instructor",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "This email is not allowed to sign up as an instructor."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=True)
+    def test_register_rejects_instructor_when_student_mode_only(self):
+        from apps.accounts.models import SignupAllowlist
+
+        SignupAllowlist.objects.create(
+            email="instructor@example.com",
+            student_allowed=True,
+            instructor_allowed=True,
+        )
+
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "instructor@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Inst",
+            "last_name": "Denied",
+            "role": "instructor",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "Only student signup is currently enabled."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=False, STUDENT_MODE_ONLY=False)
+    def test_register_rejects_admin_signup(self):
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "admin-signup@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Admin",
+            "last_name": "Blocked",
+            "role": "admin",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "Admin signup is not available."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=False, STUDENT_MODE_ONLY=True)
+    def test_register_rejects_instructor_when_student_mode_only_without_allowlist(self):
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "instructor-student-mode@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Instructor",
+            "last_name": "Blocked",
+            "role": "instructor",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "Only student signup is currently enabled."
 
     def test_register_invalid_email_format(self):
         client = APIClient()
