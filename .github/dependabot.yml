@@ -36,6 +36,19 @@ updates:
           - "minor"
           - "patch"
     ignore:
+      # Defer Vite 8+ until Tailwind's stable Vite plugin supports it
+      - dependency-name: "vite"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@vitejs/plugin-react"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@tailwindcss/vite"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "vitest"
+        update-types:
+          - "version-update:semver-major"
       # Pin until plugins (react, import, typescript-eslint) support ESLint 10
       - dependency-name: "eslint"
       - dependency-name: "@eslint/js"
