@@ -124,3 +124,9 @@ def test_signup_allowlist_defaults():
     assert entry.student_allowed is True
     assert entry.instructor_allowed is False
     assert entry.is_active is True
+
+
+@pytest.mark.django_db
+def test_signup_allowlist_str_returns_email():
+    entry = SignupAllowlist.objects.create(email="student@example.com")
+    assert str(entry) == "student@example.com"

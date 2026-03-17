@@ -158,6 +158,29 @@ class TestUserRegistrationView:
         assert UserModel.objects.filter(email="student@example.com").exists()
 
     @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
+    def test_register_rejects_student_without_student_allow(self):
+        from apps.accounts.models import SignupAllowlist
+
+        SignupAllowlist.objects.create(
+            email="student-blocked@example.com",
+            student_allowed=False,
+            instructor_allowed=True,
+        )
+
+        client = APIClient()
+        url = reverse("accounts:register")
+        payload = {
+            "email": "student-blocked@example.com",
+            "password": "StrongP@ssw0rd!",
+            "first_name": "Student",
+            "last_name": "Blocked",
+            "role": "student",
+        }
+        resp = client.post(url, payload, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert resp.data["detail"] == "This email is not allowed to sign up as a student."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
     def test_register_rejects_instructor_without_instructor_allow(self):
         from apps.accounts.models import SignupAllowlist
 
