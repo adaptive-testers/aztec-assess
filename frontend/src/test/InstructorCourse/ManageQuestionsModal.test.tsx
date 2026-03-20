@@ -97,6 +97,11 @@ vi.mock("react-icons/fi", () => ({
   FiSearch: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-search" {...props} />,
   FiSliders: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-sliders" {...props} />,
   FiX: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-x" {...props} />,
+  FiUploadCloud: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-upload-cloud" {...props} />,
+  FiTrash2: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-trash2" {...props} />,
+  FiPlus: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-plus" {...props} />,
+  FiCalendar: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-calendar" {...props} />,
+  FiFileText: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-file-text" {...props} />,
 }));
 
 type Props = React.ComponentProps<typeof ManageQuestionsModal>;
@@ -139,6 +144,8 @@ function makeProps(overrides: Partial<Props> = {}): Props {
     onCreateQuestion: vi.fn(),
     onLoadMore: vi.fn(async () => undefined),
     onEnsureAllQuestionsLoaded: vi.fn(async () => undefined),
+    chapterId: undefined,
+    onQuestionsGenerated: vi.fn(),
     ...overrides,
   };
 }
@@ -173,7 +180,7 @@ describe("ManageQuestionsModal", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "Create Question" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate Question" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate Question" })).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "Filter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort" })).toBeInTheDocument();
@@ -296,6 +303,23 @@ describe("ManageQuestionsModal", () => {
     const after = screen.getAllByText(/Older|Newer/).map((n) => n.textContent);
     expect(after[0]).toBe("Older");
     expect(after[1]).toBe("Newer");
+  });
+
+  it("Generate Question button is disabled when chapterId is null; enabled when provided", () => {
+    const { rerender } = renderModal({ chapterId: null });
+    expect(screen.getByRole("button", { name: "Generate Question" })).toBeDisabled();
+
+    rerender(<ManageQuestionsModal {...makeProps({ chapterId: 1 })} />);
+    expect(screen.getByRole("button", { name: "Generate Question" })).not.toBeDisabled();
+  });
+
+  it("clicking Generate Question button opens GenerateQuestionsModal", async () => {
+    const user = userEvent.setup();
+    renderModal({ chapterId: 1 });
+
+    await user.click(screen.getByRole("button", { name: "Generate Question" }));
+    // GenerateQuestionsModal is not mocked in this test, so we look for its internal text
+    expect(await screen.findByText("Generate Questions with AI")).toBeInTheDocument();
   });
 
   it("shows tags for source, difficulty, and inactive state", () => {

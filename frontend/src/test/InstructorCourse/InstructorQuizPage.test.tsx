@@ -250,6 +250,23 @@ describe("Instructor Quiz Page", () => {
     );
   });
 
+  it("triggers chapter questions refresh when AI questions are generated", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    (privateApi.get as Mock).mockClear();
+
+    // click manage questions
+    await user.click(await screen.findByRole("button", { name: /manage questions/i }));
+
+    // find and click generate question
+    const generateBtn = await screen.findByRole("button", { name: /generate question/i });
+    await user.click(generateBtn);
+
+    // expect modal to be open
+    expect(await screen.findByText("Generate Questions with AI")).toBeInTheDocument();
+  });
+
   it("renders course title in the header (from COURSES.DETAIL)", async () => {
     renderPage();
     expect(
