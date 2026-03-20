@@ -1226,6 +1226,12 @@ export default function CoursePage() {
             setManageQuestionsOpen(false);
             setEditingQuestion(null);
           }}
+          chapterId={activeChapterId}
+          onQuestionsGenerated={() => {
+            if (activeChapterId) {
+              void fetchChapterQuestions(activeChapterId);
+            }
+          }}
           questions={manageQuestionItems}
           loading={chapterQuestionsLoading}
           loadingMore={chapterQuestionsLoadingMore}

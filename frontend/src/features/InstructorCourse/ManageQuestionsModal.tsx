@@ -11,6 +11,8 @@ import {
 } from "react-icons/fi";
 
 import CreateQuestionModal from "./CreateQuestionModal";
+import GenerateQuestionsModal from "./GenerateQuestionModal";
+
 
 type QuestionSource = "ai" | "manual";
 type Difficulty = "easy" | "medium" | "hard";
@@ -37,6 +39,8 @@ export interface ManageQuestionItem {
 export interface ManageQuestionsModalProps {
   open: boolean;
   onClose: () => void;
+  chapterId?: number | null;
+  onQuestionsGenerated?: () => void;
 
   /** Questions from API  */
   questions?: ManageQuestionItem[];
@@ -137,6 +141,8 @@ function formatQuestionDate(iso: string): string {
 export default function ManageQuestionsModal({
   open,
   onClose,
+  chapterId,
+  onQuestionsGenerated,
   questions = [],
   loading = false,
   loadingMore = false,
@@ -168,6 +174,8 @@ export default function ManageQuestionsModal({
   const [sortBy, setSortBy] = React.useState<SortOption>("newest");
 
   const [createQuestionOpen, setCreateQuestionOpen] = React.useState(false);
+  const [generateQuestionOpen, setGenerateQuestionOpen] = React.useState(false);
+
 
   const hasActiveFilters = difficultyFilters.size > 0;
   const isLoadingMore = loadingMore && hasMore;
@@ -306,12 +314,13 @@ export default function ManageQuestionsModal({
 
                     <button
                       type="button"
-                      disabled
-                      title="Not in API"
-                      className="h-[39px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] cursor-not-allowed opacity-60 pointer-events-none"
+                      onClick={() => setGenerateQuestionOpen(true)}
+                      disabled={!chapterId}
+                      className="h-[39px] rounded-[6px] border border-[#404040] bg-transparent px-4 text-[14px] font-medium leading-[21px] text-[#A1A1AA] hover:bg-[#202020] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Generate Question
                     </button>
+
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -766,6 +775,14 @@ export default function ManageQuestionsModal({
             : undefined
         }
       />
+
+      <GenerateQuestionsModal
+        open={generateQuestionOpen}
+        onClose={() => setGenerateQuestionOpen(false)}
+        chapterId={chapterId}
+        onSuccess={onQuestionsGenerated}
+      />
     </div>
+
   );
 }
