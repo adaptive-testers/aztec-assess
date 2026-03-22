@@ -76,7 +76,7 @@ export default function LogInContainer() {
 
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           setError("root", { message: OAUTH_ERRORS.signInFailed });
         }
@@ -114,7 +114,7 @@ export default function LogInContainer() {
 
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           const detail = res.data?.detail || res.data?.message;
           setError("root", {
@@ -142,7 +142,7 @@ export default function LogInContainer() {
       });
 
       if (res?.tokens?.access) setAccessToken(res.tokens.access);
-      navigate("/profile");
+      navigate("/dashboard");
     } catch (error) {
       if (axios.isAxiosError(error)) {
         // Extract error message from backend response

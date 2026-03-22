@@ -27,12 +27,11 @@ export default function PublicRoute({ children }: PublicRouteProps) {
     );
   }
 
-  // If authenticated, redirect to profile (later change to dashboard once implemented)
+  // If authenticated, redirect to dashboard.
   if (accessToken) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   // If not authenticated, show the public page
   return <>{children}</>;
 }
-
