@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -1341,3 +1342,155 @@ class TestMicrosoftOAuthView:
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "detail" in response.data
         assert "Failed to create user account" in response.data["detail"]
+
+
+class TestOAuthAllowlistGating:
+    """Targeted allowlist + student-mode signup gating tests for OAuth flows."""
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=False)
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.requests.get")
+    def test_google_signup_rejects_non_allowlisted_email(self, mock_get, mock_post, mock_config):
+        mock_config.side_effect = lambda key, default="": {
+            "GOOGLE_CLIENT_ID": "test_client_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "GOOGLE_REDIRECT_URI": "http://localhost:5173",
+        }.get(key, default)
+
+        token_response = Mock()
+        token_response.json.return_value = MOCK_GOOGLE_TOKEN_RESPONSE
+        token_response.raise_for_status = Mock()
+        mock_post.return_value = token_response
+
+        user_info_response = Mock()
+        user_info = dict(MOCK_GOOGLE_USER_INFO)
+        user_info["email"] = "not-allowed@example.com"
+        user_info_response.json.return_value = user_info
+        user_info_response.raise_for_status = Mock()
+        mock_get.return_value = user_info_response
+
+        client = APIClient()
+        response = client.post(
+            reverse("accounts:oauth_google"),
+            {"code": "mock_authorization_code", "role": "student"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data["detail"] == "Signup is not enabled for this email."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=True, STUDENT_MODE_ONLY=True)
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.get")
+    def test_microsoft_signup_rejects_instructor_in_student_mode(
+        self, mock_get, mock_config
+    ):
+        from apps.accounts.models import SignupAllowlist
+
+        SignupAllowlist.objects.create(
+            email="testuser@gmail.com",
+            student_allowed=True,
+            instructor_allowed=True,
+        )
+
+        mock_config.side_effect = lambda key, default="": {
+            "MICROSOFT_CLIENT_ID": "test_client_id",
+        }.get(key, default)
+
+        user_info_response = Mock()
+        user_info_response.json.return_value = MOCK_MICROSOFT_USER_INFO
+        user_info_response.raise_for_status = Mock()
+        mock_get.return_value = user_info_response
+
+        client = APIClient()
+        response = client.post(
+            reverse("accounts:oauth_microsoft"),
+            {"access_token": "mock_access_token_12345", "role": "instructor"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data["detail"] == "Only student signup is currently enabled."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=False, STUDENT_MODE_ONLY=False)
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.requests.get")
+    def test_google_signup_rejects_admin_role(self, mock_get, mock_post, mock_config):
+        mock_config.side_effect = lambda key, default="": {
+            "GOOGLE_CLIENT_ID": "test_client_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "GOOGLE_REDIRECT_URI": "http://localhost:5173",
+        }.get(key, default)
+
+        token_response = Mock()
+        token_response.json.return_value = MOCK_GOOGLE_TOKEN_RESPONSE
+        token_response.raise_for_status = Mock()
+        mock_post.return_value = token_response
+
+        user_info_response = Mock()
+        user_info_response.json.return_value = MOCK_GOOGLE_USER_INFO
+        user_info_response.raise_for_status = Mock()
+        mock_get.return_value = user_info_response
+
+        client = APIClient()
+        response = client.post(
+            reverse("accounts:oauth_google"),
+            {"code": "mock_authorization_code", "role": "admin"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data["detail"] == "Admin signup is not available."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=False, STUDENT_MODE_ONLY=False)
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.get")
+    def test_microsoft_signup_rejects_admin_role(self, mock_get, mock_config):
+        mock_config.side_effect = lambda key, default="": {
+            "MICROSOFT_CLIENT_ID": "test_client_id",
+        }.get(key, default)
+
+        user_info_response = Mock()
+        user_info_response.json.return_value = MOCK_MICROSOFT_USER_INFO
+        user_info_response.raise_for_status = Mock()
+        mock_get.return_value = user_info_response
+
+        client = APIClient()
+        response = client.post(
+            reverse("accounts:oauth_microsoft"),
+            {"access_token": "mock_access_token_12345", "role": "admin"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data["detail"] == "Admin signup is not available."
+
+    @override_settings(SIGNUP_ALLOWLIST_ENABLED=False, STUDENT_MODE_ONLY=True)
+    @patch("apps.accounts.views.config")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.requests.get")
+    def test_google_signup_rejects_instructor_when_student_mode_only_without_allowlist(
+        self, mock_get, mock_post, mock_config
+    ):
+        mock_config.side_effect = lambda key, default="": {
+            "GOOGLE_CLIENT_ID": "test_client_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "GOOGLE_REDIRECT_URI": "http://localhost:5173",
+        }.get(key, default)
+
+        token_response = Mock()
+        token_response.json.return_value = MOCK_GOOGLE_TOKEN_RESPONSE
+        token_response.raise_for_status = Mock()
+        mock_post.return_value = token_response
+
+        user_info_response = Mock()
+        user_info_response.json.return_value = MOCK_GOOGLE_USER_INFO
+        user_info_response.raise_for_status = Mock()
+        mock_get.return_value = user_info_response
+
+        client = APIClient()
+        response = client.post(
+            reverse("accounts:oauth_google"),
+            {"code": "mock_authorization_code", "role": "instructor"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data["detail"] == "Only student signup is currently enabled."

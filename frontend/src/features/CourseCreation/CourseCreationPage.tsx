@@ -19,7 +19,7 @@ export default function CourseCreationPage() {
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     const handleCancel = () => {
-        navigate("/profile");
+        navigate("/dashboard");
     };
 
     const onSubmit: SubmitHandler<FormFields> = async (data) => {

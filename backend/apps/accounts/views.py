@@ -19,7 +19,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User
+from .models import SignupAllowlist, User, UserRole
 from .serializers import (
     GoogleOAuthSerializer,
     MicrosoftOAuthSerializer,
@@ -55,6 +55,40 @@ class TokenRefreshRateThrottle(_BaseAuthEndpointRateThrottle):
     scope = "token_refresh"
 
 
+def _validate_signup_permissions(email: str, role: str) -> str | None:
+    """
+    Return an error message when signup is not allowed, otherwise None.
+
+    Existing users are handled elsewhere and bypass this check.
+    """
+    normalized_email = email.lower().strip()
+    normalized_role = role.lower().strip()
+
+    if normalized_role == UserRole.ADMIN:
+        return "Admin signup is not available."
+
+    if getattr(settings, "STUDENT_MODE_ONLY", False) and normalized_role != UserRole.STUDENT:
+        return "Only student signup is currently enabled."
+
+    if not getattr(settings, "SIGNUP_ALLOWLIST_ENABLED", False):
+        return None
+
+    allow_entry = SignupAllowlist.objects.filter(
+        email=normalized_email,
+        is_active=True,
+    ).first()
+    if allow_entry is None:
+        return "Signup is not enabled for this email."
+
+    if normalized_role == UserRole.STUDENT and not allow_entry.student_allowed:
+        return "This email is not allowed to sign up as a student."
+
+    if normalized_role != UserRole.STUDENT and not allow_entry.instructor_allowed:
+        return "This email is not allowed to sign up as an instructor."
+
+    return None
+
+
 class UserRegistrationView(generics.CreateAPIView):
     """
     User registration endpoint.
@@ -79,6 +113,13 @@ class UserRegistrationView(generics.CreateAPIView):
         # 1. Validate serializer
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        signup_error = _validate_signup_permissions(
+            email=serializer.validated_data["email"],
+            role=serializer.validated_data["role"],
+        )
+        if signup_error:
+            return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
         # 2. Create user
         user = serializer.save()
@@ -403,6 +444,9 @@ def google_oauth_view(request: Request) -> Response:
                     {"detail": "Role is required for new user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            signup_error = _validate_signup_permissions(email=email, role=role)
+            if signup_error:
+                return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
             if not first_name:
                 first_name = email.split("@")[0]  # Fallback to email prefix
@@ -538,6 +582,9 @@ def microsoft_oauth_view(request: Request) -> Response:
                     {"detail": "Role is required for new user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            signup_error = _validate_signup_permissions(email=email, role=role)
+            if signup_error:
+                return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
             if not first_name:
                 first_name = email.split("@")[0] # Fallback to email prefix

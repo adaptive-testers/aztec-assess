@@ -349,7 +349,7 @@ describe("CourseCreationPage", () => {
     await user.click(cancelButton);
 
     // Navigation should happen immediately
-    expect(mockNavigate).toHaveBeenCalledWith("/profile");
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
   });
 });
 
