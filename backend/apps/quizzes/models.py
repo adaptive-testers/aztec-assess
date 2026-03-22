@@ -27,6 +27,11 @@ class Question(models.Model):
     difficulty = models.CharField(max_length=6, choices=Difficulty.choices, default=Difficulty.MEDIUM)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     is_active = models.BooleanField(default=True)
+    topics = models.ManyToManyField(
+        "courses.Topic",
+        related_name="questions",
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

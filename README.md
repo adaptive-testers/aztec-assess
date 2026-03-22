@@ -97,6 +97,8 @@ SECRET_KEY=your-secret-key-here-make-it-long-and-random
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1,backend
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+SIGNUP_ALLOWLIST_ENABLED=False
+STUDENT_MODE_ONLY=False
 
 # Google OAuth (optional - for Google sign-in)
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -108,6 +110,31 @@ GOOGLE_REDIRECT_URI=http://localhost:5173
 - **SECRET_KEY**: Generate one with: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
 - **Google OAuth**: Optional - only needed if you want Google sign-in. Leave blank if not using.
 - Never commit the `.env` file to version control
+
+**Staging/Public Deployment Overrides (recommended):**
+```bash
+DEBUG=False
+ENABLE_DJANGO_ADMIN=False
+ENABLE_API_DOCS=False
+
+# Endpoint-specific auth throttles
+AUTH_THROTTLE_LOGIN_RATE=60/hour
+AUTH_THROTTLE_REGISTER_RATE=30/hour
+AUTH_THROTTLE_OAUTH_RATE=60/hour
+AUTH_THROTTLE_TOKEN_REFRESH_RATE=600/hour
+
+# HTTPS / proxy hardening
+COOKIE_SECURE=True
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+USE_X_FORWARDED_HOST=True
+SECURE_SSL_REDIRECT=True
+SECURE_HSTS_SECONDS=31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+SECURE_HSTS_PRELOAD=True
+SECURE_REFERRER_POLICY=strict-origin-when-cross-origin
+```
 
 #### Step 4: Start the Application
 
