@@ -27,7 +27,7 @@ gunicorn = "^25.2.0"
 ruff = "^0.15.7"
 mypy = "^1.19.1"
 pre-commit = "^4.5.1"
-django-stubs = "^5.2.9"
+django-stubs = "^6.0.1"
 djangorestframework-stubs = "^3.16.8"
 types-requests = "^2.32.0"
 
