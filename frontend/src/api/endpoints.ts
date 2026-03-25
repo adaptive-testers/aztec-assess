@@ -42,6 +42,7 @@ export const QUIZZES = {
   CHAPTERS_BY_COURSE: (courseId: string) => `/courses/${courseId}/chapters/`,
   CHAPTER_DETAIL: (chapterId: number | string) => `/chapters/${chapterId}/`,
   QUESTIONS_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/questions/`,
+  QUESTION_IMPORT_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/questions/import/`,
   QUESTION_DETAIL: (questionId: number | string) => `/questions/${questionId}/`,
   QUIZZES_BY_CHAPTER: (chapterId: number | string) => `/chapters/${chapterId}/quizzes/`,
   QUIZ_DETAIL: (quizId: number | string) => `/quizzes/${quizId}/`,

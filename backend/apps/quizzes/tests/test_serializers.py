@@ -2,6 +2,7 @@
 Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer).
 """
 from django.test import TestCase
+from rest_framework import serializers
 
 from apps.courses.models import Course, Topic
 from apps.quizzes.models import Chapter, Difficulty
@@ -9,7 +10,9 @@ from apps.quizzes.serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
     ChapterSerializer,
+    QuestionBulkImportSerializer,
     QuestionCreateUpdateSerializer,
+    QuestionImportItemSerializer,
     QuestionStudentSerializer,
     QuizSerializer,
     QuizStudentSerializer,
@@ -94,6 +97,52 @@ class QuestionCreateUpdateSerializerTests(TestCase):
             }
         )
         self.assertTrue(serializer.is_valid())
+
+
+class QuestionImportItemSerializerTests(TestCase):
+    """Target line-level validation paths for bulk import item serializer."""
+
+    def test_validate_prompt_rejects_blank_after_trim(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_prompt("   ")
+
+    def test_validate_prompt_returns_trimmed_value(self):
+        serializer = QuestionImportItemSerializer()
+        self.assertEqual(serializer.validate_prompt("  Prompt  "), "Prompt")
+
+    def test_validate_choices_rejects_non_string_choice(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_choices(["A", "B", 3, "D"])
+
+    def test_validate_choices_rejects_wrong_length(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_choices(["A", "B", "C"])
+
+    def test_validate_choices_returns_trimmed_choices(self):
+        serializer = QuestionImportItemSerializer()
+        self.assertEqual(
+            serializer.validate_choices([" A ", "B", " C", "D "]),
+            ["A", "B", "C", "D"],
+        )
+
+    def test_bulk_import_serializer_defaults_overwrite_existing(self):
+        serializer = QuestionBulkImportSerializer(
+            data={
+                "questions": [
+                    {
+                        "prompt": "What is 2 + 2?",
+                        "choices": ["1", "2", "3", "4"],
+                        "correct_index": 3,
+                        "difficulty": "EASY",
+                    }
+                ]
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.validated_data["overwrite_existing"])
 
 
 class QuestionTopicValidationTests(TestCase):
@@ -245,9 +294,23 @@ class QuizSerializerTests(TestCase):
         data = serializer.data
         self.assertIn("id", data)
         self.assertIn("chapter", data)
+        self.assertIn("adaptive_enabled", data)
+        self.assertIn("selection_mode", data)
         self.assertEqual(data["title"], "Quiz 1")
         self.assertEqual(data["num_questions"], 10)
         self.assertTrue(data["is_published"])
+
+    def test_quiz_serializer_meta_fields_and_read_only_configuration(self):
+        serializer = QuizSerializer(self.quiz)
+        self.assertIn("id", QuizSerializer.Meta.fields)
+        self.assertIn("is_published", QuizSerializer.Meta.fields)
+        self.assertEqual(
+            QuizSerializer.Meta.read_only_fields,
+            ("id", "chapter", "created_at"),
+        )
+        self.assertTrue(serializer.fields["id"].read_only)
+        self.assertTrue(serializer.fields["chapter"].read_only)
+        self.assertTrue(serializer.fields["created_at"].read_only)
 
 
 class QuizStudentSerializerTests(TestCase):

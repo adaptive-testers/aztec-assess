@@ -27,6 +27,10 @@ import DraftQuizzesModal, { type DraftQuiz } from "./DraftQuizzesModal";
 import ManageQuestionsModal, {
   type ManageQuestionItem,
 } from "./ManageQuestionsModal";
+import QuestionImportModal, {
+  type QuestionImportPayload,
+  type QuestionImportResponse,
+} from "./QuestionImportModal";
 
 // =============================================================================
 // TYPES
@@ -434,6 +438,7 @@ export default function CoursePage() {
 
   // ---------- MANAGE QUESTIONS MODAL (questions for current chapter) ----------
   const [manageQuestionsOpen, setManageQuestionsOpen] = useState(false);
+  const [questionImportOpen, setQuestionImportOpen] = useState(false);
   const [chapterQuestions, setChapterQuestions] = useState<ApiQuestion[]>([]);
   const [chapterQuestionsLoading, setChapterQuestionsLoading] = useState(false);
   const [chapterQuestionsLoadingMore, setChapterQuestionsLoadingMore] = useState(false);
@@ -1037,6 +1042,25 @@ export default function CoursePage() {
     else setChapterQuestions([]);
   }
 
+  async function handleQuestionImport(
+    payload: QuestionImportPayload,
+  ): Promise<QuestionImportResponse> {
+    if (!activeChapterId) {
+      throw new Error("Select a chapter before importing questions.");
+    }
+
+    try {
+      const response = await privateApi.post<QuestionImportResponse>(
+        QUIZZES.QUESTION_IMPORT_BY_CHAPTER(activeChapterId),
+        payload,
+      );
+      await fetchChapterQuestions(activeChapterId);
+      return response.data;
+    } catch (err) {
+      throw new Error(formatApiError(err, "Failed to import questions."));
+    }
+  }
+
   // ---------- RENDER ----------
   return (
     <section className="w-full bg-[#0A0A0A] text-[#F1F5F9]">
@@ -1165,13 +1189,23 @@ export default function CoursePage() {
             <h3 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">
               Question Bank
             </h3>
-            <button
-              type="button"
-              onClick={openManageQuestionsModal}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] hover:bg-[#262626] transition"
-            >
-              Manage Questions
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuestionImportOpen(true)}
+                disabled={!activeChapterId}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] transition hover:bg-[#262626] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Import Questions
+              </button>
+              <button
+                type="button"
+                onClick={openManageQuestionsModal}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] hover:bg-[#262626] transition"
+              >
+                Manage Questions
+              </button>
+            </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
@@ -1347,6 +1381,12 @@ export default function CoursePage() {
               setChapterQuestionsError(formatApiError(err, "Failed to delete topics."));
             }
           }}
+        />
+        <QuestionImportModal
+          open={questionImportOpen}
+          chapterTitle={chapters.find((chapter) => chapter.id === activeChapterId)?.title}
+          onClose={() => setQuestionImportOpen(false)}
+          onImport={handleQuestionImport}
         />
         {addChapterOpen && (
           <CreateChapterModal
