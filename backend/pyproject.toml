@@ -24,7 +24,7 @@ requests = "^2.32.5"
 gunicorn = "^25.1.0"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.15.5"
+ruff = "^0.15.6"
 mypy = "^1.19.1"
 pre-commit = "^4.5.1"
 django-stubs = "^5.2.9"
