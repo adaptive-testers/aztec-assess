@@ -3,6 +3,7 @@ updates:
   # Backend dependencies (production and development combined)
   - package-ecosystem: "pip"
     directory: "/backend"
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -23,6 +24,7 @@ updates:
   # Frontend dependencies (production and development combined)
   - package-ecosystem: "npm"
     directory: "/frontend"
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -60,6 +62,7 @@ updates:
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
