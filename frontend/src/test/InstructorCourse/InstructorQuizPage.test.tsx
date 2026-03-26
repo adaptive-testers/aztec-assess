@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { privateApi } from "../../api/axios";
 import { AUTH, COURSES, QUIZZES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
+import { CourseRoleProvider } from "../../context/CourseRoleContext";
+import { ProfileRoleProvider } from "../../context/ProfileRoleContext";
 import CoursePage from "../../features/InstructorCourse/CoursePage";
 
 vi.mock("../../api/axios", () => ({
@@ -79,10 +81,14 @@ const SettingsPage = () => {
 const renderPageAt = (entry: string) => {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/courses/:courseId" element={<CoursePage />} />
-        <Route path="/courses/:courseId/settings" element={<SettingsPage />} />
-      </Routes>
+      <ProfileRoleProvider>
+        <CourseRoleProvider>
+          <Routes>
+            <Route path="/courses/:courseId" element={<CoursePage />} />
+            <Route path="/courses/:courseId/settings" element={<SettingsPage />} />
+          </Routes>
+        </CourseRoleProvider>
+      </ProfileRoleProvider>
     </MemoryRouter>,
   );
 };
@@ -308,6 +314,45 @@ describe("Instructor Quiz Page", () => {
 
     expect(await screen.findByText("Available Quizzes")).toBeInTheDocument();
     expect(screen.getByText("Track your quizzes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^members$/i })).toBeInTheDocument();
+  });
+
+  it("does not render instructor actions when course role resolves to non-staff", async () => {
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID, role: "instructor" } });
+      if (url === COURSES.LIST) {
+        return Promise.resolve({
+          data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }],
+        });
+      }
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) {
+        return Promise.resolve({ data: { id: COURSE_ID, title: "Course" } });
+      }
+      if (url === COURSES.MEMBERS(COURSE_ID)) {
+        return Promise.resolve({
+          data: [
+            {
+              id: "mem-1",
+              user_id: "different-user",
+              user_email: "other@example.com",
+              role: "OWNER",
+              joined_at: "2024-01-01T00:00:00Z",
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByText("You do not have instructor permissions for this course."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /create new quiz/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("when courseId route param is already a UUID, it does not call COURSES.LIST slug lookup", async () => {

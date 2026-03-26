@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { privateApi } from '../../api/axios';
 import { AUTH, COURSES } from '../../api/endpoints';
 import { Toast } from '../../components/Toast';
+import { useProfileRole } from '../../context/ProfileRoleContext';
 
 interface Course {
   id: string;
@@ -39,6 +40,7 @@ export default function CourseDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userCourseRole, setUserCourseRole] = useState<'OWNER' | 'INSTRUCTOR' | 'TA' | 'STUDENT' | null>(null);
+  const [roleResolved, setRoleResolved] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -109,6 +111,7 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     if (!resolvedCourseId) return;
+    setRoleResolved(false);
 
     setIsLoading(true);
     const fetchCourseData = async () => {
@@ -149,6 +152,8 @@ export default function CourseDetailPage() {
         } else {
           setUserCourseRole(null);
         }
+      } finally {
+        setRoleResolved(true);
       }
     };
 
@@ -158,7 +163,11 @@ export default function CourseDetailPage() {
     }
   }, [resolvedCourseId, setValue, currentUserId]);
 
-  const isStudent = userCourseRole === 'STUDENT';
+  const { profileRole, loading: profileRoleLoading } = useProfileRole();
+  const roleLoading = !roleResolved;
+  const showStudentLayout =
+    userCourseRole === 'STUDENT' ||
+    (!profileRoleLoading && userCourseRole === null && profileRole === 'student');
 
   const refreshCourseData = async () => {
     if (!resolvedCourseId) return;
@@ -324,6 +333,7 @@ export default function CourseDetailPage() {
   const isArchived = course?.status === 'ARCHIVED';
   const isStaff = userCourseRole !== null && ['OWNER', 'INSTRUCTOR', 'TA'].includes(userCourseRole);
   const isOwnerOrInstructor = userCourseRole !== null && ['OWNER', 'INSTRUCTOR'].includes(userCourseRole);
+  const canViewMembersTab = isStaff || showStudentLayout;
 
   return (
     <>
@@ -434,83 +444,79 @@ export default function CourseDetailPage() {
       )}
 
 
-
-      {/* Top Header Row above Nav */}
+      {/* Top Header Row: course title; status and Activate only when loaded */}
       <div className="flex items-center justify-between gap-4">
-        {isLoading && userCourseRole === null ? (
-          <div className="flex items-center gap-4 w-full">
-            <div className="skeleton-shimmer h-9 w-32 rounded" />
-          </div>
-        ) : (
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-                Course Info
-              </h1>
-              {course && isStaff && (
-                <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide ${
-                  isActive 
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                    : isArchived
-                      ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-                      : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
-                }`}>
-                  {course.status}
-                </span>
-              )}
-            </div>
-            {isOwnerOrInstructor && !isArchived && !isActive && (
-              <button 
-                onClick={handleActivateCourse}
-                className="px-6 py-2 rounded-lg text-white text-[14px] font-medium tracking-wide transition-colors bg-[#F87171] hover:bg-[#FCA5A5] cursor-pointer"
-              >
-                Activate Course
-              </button>
-            )}
-          </div>
+        <div className="flex items-center gap-4 min-w-0">
+          {isLoading ? (
+            <div className="skeleton-shimmer h-9 w-48 rounded" />
+          ) : (
+            <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9] truncate">
+              {course?.title ?? 'Course'}
+            </h1>
+          )}
+          {!isLoading && course && isStaff && (
+            <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide shrink-0 ${
+              isActive
+                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                : isArchived
+                  ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                  : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
+            }`}>
+              {course.status}
+            </span>
+          )}
+        </div>
+        {!isLoading && isOwnerOrInstructor && !isArchived && !isActive && (
+          <button
+            onClick={handleActivateCourse}
+            className="px-6 py-2 rounded-lg text-white text-[14px] font-medium tracking-wide transition-colors bg-[#F87171] hover:bg-[#FCA5A5] cursor-pointer shrink-0"
+          >
+            Activate Course
+          </button>
         )}
       </div>
 
       {/* Top nav */}
       {effectiveCourseId && (
         <div className="mt-4 mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
-          {isLoading && userCourseRole === null ? (
+          {roleLoading ? (
             <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-12 rounded-xl bg-[#232323]" />
               ))}
             </div>
           ) : (
-          <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
-            <button
-              type="button"
-              onClick={() => navigate(`/courses/${effectiveCourseId}`)}
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Quizzes
-            </button>
-            {!isStudent && (
+            <div className={`grid grid-cols-2 gap-1 ${canViewMembersTab ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+              <button
+                type="button"
+                onClick={() => navigate(`/courses/${effectiveCourseId}`)}
+                className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+              >
+                Quizzes
+              </button>
+              {canViewMembersTab && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/courses/${effectiveCourseId}/students`)}
+                  className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+                >
+                  Members
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate(`/courses/${effectiveCourseId}/students`)}
                 className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
               >
-                Members
+                Grades
               </button>
-            )}
-            <button
-              type="button"
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Grades
-            </button>
-            <button
-              type="button"
-              className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
-            >
-              Course Info
-            </button>
-          </div>
+              <button
+                type="button"
+                className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
+              >
+                Course Info
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -605,7 +611,7 @@ export default function CourseDetailPage() {
         </div>
 
         {/* Join Code Card (Staff only) */}
-        {((isLoading && userCourseRole === null) || (isStaff && !isArchived)) && (
+        {isStaff && !isArchived && (
           <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
             <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
               <div>

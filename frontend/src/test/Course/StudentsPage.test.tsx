@@ -6,7 +6,6 @@ import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { privateApi } from "../../api/axios";
 import { AUTH, COURSES } from "../../api/endpoints";
 import StudentsPage from "../../features/Course/StudentsPage";
-
 import { render } from "../utils";
 
 // Mock utilities
@@ -150,7 +149,7 @@ describe("StudentsPage", () => {
       render(<StudentsPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
         expect(screen.getByText("Manage students and instructors for this course")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "+ Add Member" })).toBeInTheDocument();
       });
@@ -177,7 +176,8 @@ describe("StudentsPage", () => {
       render(<StudentsPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Members" })).toBeInTheDocument();
       });
       // Should not see the Add Member button
       expect(screen.queryByRole("button", { name: "+ Add Member" })).not.toBeInTheDocument();
@@ -198,6 +198,16 @@ describe("StudentsPage", () => {
       expect(screen.getByText("Instructor")).toBeInTheDocument();
       expect(screen.getByText("Student")).toBeInTheDocument();
       expect(screen.getByText("TA")).toBeInTheDocument();
+
+      const memberHeadingOrder = screen
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent?.trim());
+      expect(memberHeadingOrder).toEqual([
+        "Owner User",
+        "Instructor User",
+        "Teaching Assistant",
+        "Student User",
+      ]);
     });
   });
 

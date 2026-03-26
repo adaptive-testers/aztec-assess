@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -30,6 +30,50 @@ interface Member {
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const ROLE_RANK: Record<Member['role'], number> = {
+  OWNER: 0,
+  INSTRUCTOR: 1,
+  TA: 2,
+  STUDENT: 3,
+};
+
+function normalizeRole(role: string): Member['role'] {
+  const upper = role.toUpperCase();
+  if (upper === 'OWNER' || upper === 'INSTRUCTOR' || upper === 'TA' || upper === 'STUDENT') {
+    return upper;
+  }
+  return 'STUDENT';
+}
+
+function roleLabel(role: string): string {
+  const normalized = normalizeRole(role);
+  const roleMap: Record<Member['role'], string> = {
+    OWNER: 'Owner',
+    INSTRUCTOR: 'Instructor',
+    TA: 'TA',
+    STUDENT: 'Student',
+  };
+  return roleMap[normalized];
+}
+
+function roleBadgeClass(role: string): string {
+  const normalized = normalizeRole(role);
+  if (normalized === 'OWNER' || normalized === 'INSTRUCTOR') {
+    return 'bg-blue-500/20 text-blue-500 border border-blue-500/30';
+  }
+  if (normalized === 'TA') {
+    return 'bg-purple-500/20 text-purple-500 border border-purple-500/30';
+  }
+  return 'bg-[#262626] text-[#A1A1AA] border border-[#404040]';
+}
+
+function studentTagLabel(role: string): string | null {
+  const normalized = normalizeRole(role);
+  if (normalized === 'OWNER' || normalized === 'INSTRUCTOR') return 'Instructor';
+  if (normalized === 'TA') return 'TA';
+  return null;
+}
 
 export default function StudentsPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -227,6 +271,18 @@ export default function StudentsPage() {
   const isArchived = course?.status === 'ARCHIVED';
   const isStaff = userCourseRole !== null && ['OWNER', 'INSTRUCTOR', 'TA'].includes(userCourseRole);
   const isOwnerOrInstructor = userCourseRole !== null && ['OWNER', 'INSTRUCTOR'].includes(userCourseRole);
+  const sortedMembers = useMemo(() => {
+    const getDisplayName = (member: Member) =>
+      (member.user_first_name && member.user_last_name
+        ? `${member.user_first_name} ${member.user_last_name}`
+        : member.user_email || `User ${member.user_id.substring(0, 8)}`).trim();
+
+    return [...members].sort((a, b) => {
+      const byRole = ROLE_RANK[normalizeRole(a.role)] - ROLE_RANK[normalizeRole(b.role)];
+      if (byRole !== 0) return byRole;
+      return getDisplayName(a).toLowerCase().localeCompare(getDisplayName(b).toLowerCase());
+    });
+  }, [members]);
 
   return (
     <section className="min-h-screen w-full bg-[#0A0A0A] text-[#F1F5F9] geist-font">
@@ -380,15 +436,15 @@ export default function StudentsPage() {
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          {isLoading && userCourseRole === null ? (
+          {isLoading ? (
             <div className="flex items-center gap-4 w-full">
-              <div className="skeleton-shimmer h-9 w-32 rounded" />
+              <div className="skeleton-shimmer h-9 w-48 rounded" />
             </div>
           ) : (
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
-                <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-                  Members
+                <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9] truncate">
+                  {course?.title ?? 'Course'}
                 </h1>
                 {course && isStaff && (
                   <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide ${
@@ -416,7 +472,7 @@ export default function StudentsPage() {
                 ))}
               </div>
             ) : (
-            <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
               <button
                 type="button"
                 onClick={() => navigate(`/courses/${effectiveCourseId}`)}
@@ -424,14 +480,12 @@ export default function StudentsPage() {
               >
                 Quizzes
               </button>
-              {!isStudent && (
-                <button
-                  type="button"
-                  className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
-                >
-                  Members
-                </button>
-              )}
+              <button
+                type="button"
+                className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
+              >
+                Members
+              </button>
               <button
                 type="button"
                 className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
@@ -477,39 +531,38 @@ export default function StudentsPage() {
                       <p className="text-[#A1A1AA] text-sm">No members in this course yet.</p>
                     </div>
                   ) : (
-                    members.map((member) => {
+                    sortedMembers.map((member) => {
                       const displayName = member.user_first_name && member.user_last_name
                         ? `${member.user_first_name} ${member.user_last_name}`
                         : member.user_email || `User ${member.user_id.substring(0, 8)}`;
                       const avatarLetter = member.user_first_name?.[0] || member.user_email?.[0] || member.user_id[0];
-                      const roleMap: Record<string, string> = {
-                        'OWNER': 'Instructor',
-                        'INSTRUCTOR': 'Instructor',
-                        'TA': 'TA',
-                        'STUDENT': 'Student'
-                      };
-                      const displayRole = roleMap[member.role] || member.role;
-                      const isStaffMember = ['OWNER', 'INSTRUCTOR', 'TA'].includes(member.role);
+                      const normalizedRole = normalizeRole(member.role);
+                      const isStaffMember = ['OWNER', 'INSTRUCTOR', 'TA'].includes(normalizedRole);
+                      const studentVisibleTag = studentTagLabel(member.role);
                       return (
                         <div
                           key={member.id}
-                          className="flex items-center justify-between p-4 bg-[#1A1A1A] border border-[#404040] rounded-lg hover:border-[#F87171]/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#1A1A1A] border border-[#404040] rounded-lg gap-4 transition-colors hover:border-[#F87171]/50"
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-[#F87171] flex items-center justify-center">
-                              <span className="text-[#A1A1AA] font-semibold text-sm">
+                            <div className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#404040] flex items-center justify-center shrink-0">
+                              <span className="text-[#F1F5F9] font-medium text-sm">
                                 {avatarLetter.toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <h3 className="text-[#F1F5F9] font-semibold text-sm">{displayName}</h3>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-[#F1F5F9] font-medium text-[15px] truncate">{displayName}</h3>
+                                {studentVisibleTag && (
+                                  <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${roleBadgeClass(member.role)}`}>
+                                    {studentVisibleTag}
+                                  </span>
+                                )}
+                              </div>
                               {isStaffMember && member.user_email && (
-                                <p className="text-[#A1A1AA] text-xs">{member.user_email}</p>
+                                <p className="text-[#A1A1AA] text-[13px] mt-0.5 truncate">{member.user_email}</p>
                               )}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[#A1A1AA] text-xs">{displayRole}</p>
                           </div>
                         </div>
                       );
@@ -559,37 +612,16 @@ export default function StudentsPage() {
                         <p className="text-[#A1A1AA] text-sm">No members in this course yet.</p>
                       </div>
                     )}
-                    {members.map((member) => {
+                    {sortedMembers.map((member) => {
                       const displayName = member.user_first_name && member.user_last_name
                         ? `${member.user_first_name} ${member.user_last_name}`
                         : member.user_email || `User ${member.user_id.substring(0, 8)}`;
                       const avatarLetter = member.user_first_name?.[0] || member.user_email?.[0] || member.user_id[0];
                       
-                      const formatRole = (role: string) => {
-                        const roleMap: Record<string, string> = {
-                          'OWNER': 'Owner',
-                          'INSTRUCTOR': 'Instructor',
-                          'TA': 'TA',
-                          'STUDENT': 'Student'
-                        };
-
-                        const displayRole = roleMap[role] || role;
-                        
-                        return (
-                          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                            ['OWNER', 'INSTRUCTOR'].includes(role)
-                              ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
-                              : role === 'TA'
-                                ? 'bg-purple-500/20 text-purple-500 border border-purple-500/30'
-                                : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
-                          }`}>
-                            {displayRole}
-                          </span>
-                        );
-                      };
+                      const normalizedRole = normalizeRole(member.role);
 
                       const canRemove = isOwnerOrInstructor && 
-                        member.role !== 'OWNER' && 
+                        normalizedRole !== 'OWNER' && 
                         member.user_id !== currentUserId;
 
                       return (
@@ -608,7 +640,9 @@ export default function StudentsPage() {
                                 <h3 className="text-[#F1F5F9] font-medium text-[15px] truncate">
                                   {displayName}
                                 </h3>
-                                {formatRole(member.role)}
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${roleBadgeClass(member.role)}`}>
+                                  {roleLabel(member.role)}
+                                </span>
                               </div>
                               {member.user_email && (
                                 <p className="text-[#A1A1AA] text-[13px] mt-0.5 truncate">
