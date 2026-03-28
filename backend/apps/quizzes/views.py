@@ -10,9 +10,16 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.courses.models import Course, CourseMembership, CourseRole
-from apps.courses.permissions import user_role
+from apps.courses.permissions import IsCourseOwnerOrInstructor, user_role
 
-from .models import AttemptStatus, Chapter, Question, Quiz, QuizAttempt
+from .models import (
+    AttemptStatus,
+    Chapter,
+    Question,
+    QuestionReviewStatus,
+    Quiz,
+    QuizAttempt,
+)
 from .serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
@@ -141,6 +148,38 @@ class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
         question.is_active = False
         question.save(update_fields=["is_active"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class QuestionApproveView(generics.GenericAPIView):
+    """Owner/instructor approves an AI-generated question for student quizzes."""
+
+    permission_classes = [IsAuthenticated, IsCourseOwnerOrInstructor]
+    serializer_class = QuestionCreateUpdateSerializer
+
+    def post(self, request: Request, pk: int) -> Response:
+        question = get_object_or_404(
+            Question.objects.select_related("chapter__course"),
+            pk=pk,
+        )
+        self.check_object_permissions(request, question.chapter.course)
+        if not question.is_ai_generated:
+            return Response(
+                {"detail": "Only AI-generated questions use the approval workflow."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if question.review_status == QuestionReviewStatus.APPROVED:
+            return Response(
+                QuestionCreateUpdateSerializer(question).data,
+                status=status.HTTP_200_OK,
+            )
+        question.review_status = QuestionReviewStatus.APPROVED
+        question.approved_by = request.user
+        question.approved_at = timezone.now()
+        question.save(update_fields=["review_status", "approved_by", "approved_at"])
+        return Response(
+            QuestionCreateUpdateSerializer(question).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class QuizListCreateView(generics.ListCreateAPIView):

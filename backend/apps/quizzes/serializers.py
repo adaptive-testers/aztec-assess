@@ -2,7 +2,9 @@ from typing import Any, cast
 
 from rest_framework import serializers
 
-from .models import Chapter, Question, Quiz, QuizAttempt
+from apps.courses.models import Topic
+
+from .models import Chapter, Question, QuestionReviewStatus, Quiz, QuizAttempt
 
 
 class ChapterSerializer(serializers.ModelSerializer):
@@ -32,9 +34,23 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
             "difficulty",
             "created_by",
             "is_active",
+            "is_ai_generated",
+            "review_status",
+            "approved_by",
+            "approved_at",
+            "topics",
             "created_at",
         )
-        read_only_fields = ("id", "chapter", "created_by", "created_at")
+        read_only_fields = (
+            "id",
+            "chapter",
+            "created_by",
+            "is_ai_generated",
+            "review_status",
+            "approved_by",
+            "approved_at",
+            "created_at",
+        )
 
     def validate_choices(self, value: object) -> list[Any]:
         if not isinstance(value, list) or len(value) != 4:
@@ -45,6 +61,38 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         if value < 0 or value > 3:
             raise serializers.ValidationError("correct_index must be between 0 and 3.")
         return value
+
+    def validate_topics(self, value: list[Topic]) -> list[Topic]:
+        chapter = self.context.get("chapter")
+        instance = self.instance
+        if chapter:
+            course_id = chapter.course_id
+        elif instance:
+            course_id = instance.chapter.course_id
+        else:
+            return value
+        for topic in value:
+            if topic.course.pk != course_id:
+                raise serializers.ValidationError(
+                    f"Topic {topic.name} does not belong to this course."
+                )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", [])
+        validated_data.setdefault("review_status", QuestionReviewStatus.APPROVED)
+        validated_data.setdefault("is_ai_generated", False)
+        question: Question = super().create(validated_data)
+        if topics:
+            question.topics.set(topics)
+        return question
+
+    def update(self, instance: Question, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", None)
+        question: Question = super().update(instance, validated_data)
+        if topics is not None:
+            question.topics.set(topics)
+        return question
 
 
 class QuestionStudentSerializer(serializers.ModelSerializer):

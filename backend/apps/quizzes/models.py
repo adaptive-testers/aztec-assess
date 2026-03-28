@@ -19,6 +19,14 @@ class Difficulty(models.TextChoices):
     HARD = "HARD", "Hard"
 
 
+class QuestionReviewStatus(models.TextChoices):
+    """AI-generated questions require instructor approval before student exposure."""
+
+    PENDING_REVIEW = "PENDING_REVIEW", "Pending review"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Rejected"
+
+
 class Question(models.Model):
     chapter = models.ForeignKey(Chapter, related_name="questions", on_delete=models.CASCADE)
     prompt = models.TextField()
@@ -27,11 +35,32 @@ class Question(models.Model):
     difficulty = models.CharField(max_length=6, choices=Difficulty.choices, default=Difficulty.MEDIUM)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     is_active = models.BooleanField(default=True)
+    is_ai_generated = models.BooleanField(default=False, db_index=True)
+    review_status = models.CharField(
+        max_length=16,
+        choices=QuestionReviewStatus.choices,
+        default=QuestionReviewStatus.APPROVED,
+        db_index=True,
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_questions",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    topics = models.ManyToManyField(
+        "courses.Topic",
+        related_name="questions",
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["chapter", "difficulty", "is_active"]),
+            models.Index(fields=["chapter", "difficulty", "is_active", "review_status"]),
         ]
 
     def __str__(self) -> str:

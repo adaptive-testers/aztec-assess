@@ -32,4 +32,7 @@ urlpatterns = [
 
     # Quizzes API routes
     path("api/", include("apps.quizzes.urls")),
+
+    # AI (materials, RAG, generation)
+    path("api/", include("apps.ai.urls")),
 ]

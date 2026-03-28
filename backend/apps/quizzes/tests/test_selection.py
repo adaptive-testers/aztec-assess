@@ -4,7 +4,7 @@ Tests for the adaptive question selection service (select_next_question).
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.quizzes.models import Difficulty, Question
+from apps.quizzes.models import Difficulty, Question, QuestionReviewStatus
 from apps.quizzes.services.selection import next_difficulty_after, select_next_question
 from apps.quizzes.tests.test_utils import (
     make_attempt,
@@ -65,6 +65,18 @@ class SelectionServiceTests(TestCase):
         q = select_next_question(self.attempt, [])
         self.assertIsNotNone(q)
         self.assertNotEqual(q.difficulty, Difficulty.MEDIUM)
+
+    def test_skips_ai_pending_review_questions(self):
+        """AI-generated questions in pending_review are not eligible for students."""
+        Question.objects.filter(chapter=self.chapter).delete()
+        pending = make_question(
+            self.chapter, prompt="AI only", difficulty=Difficulty.MEDIUM
+        )
+        pending.is_ai_generated = True
+        pending.review_status = QuestionReviewStatus.PENDING_REVIEW
+        pending.save(update_fields=["is_ai_generated", "review_status"])
+        q = select_next_question(self.attempt, [])
+        self.assertIsNone(q)
 
     def test_fallback_to_any_question_when_all_difficulty_buckets_empty(self):
         """Test final fallback: select any question when target and adjacents are exhausted."""

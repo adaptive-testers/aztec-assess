@@ -19,9 +19,9 @@ Design notes:
 import random
 from typing import cast
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
-from ..models import Difficulty, Question, QuizAttempt
+from ..models import Difficulty, Question, QuestionReviewStatus, QuizAttempt
 
 DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD]
 
@@ -46,6 +46,11 @@ def next_difficulty_after(current: str, was_correct: bool) -> str:
     return current
 
 
+def _student_eligible_q() -> Q:
+    """AI-generated questions must be approved before quiz selection."""
+    return Q(is_ai_generated=False) | Q(review_status=QuestionReviewStatus.APPROVED)
+
+
 def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: list[int]) -> QuerySet:
     """
     Helper: return QuerySet of unused questions in the attempt's chapter with given difficulty,
@@ -57,6 +62,7 @@ def _unused_questions_for(attempt: QuizAttempt, difficulty: str, excluded_ids: l
             difficulty=difficulty,
             is_active=True,
         )
+        .filter(_student_eligible_q())
         .exclude(id__in=excluded_ids)
     )
 
@@ -102,7 +108,7 @@ def select_next_question(attempt: QuizAttempt, answered_question_ids: list[int])
     qs = Question.objects.filter(
         chapter=attempt.quiz.chapter,
         is_active=True,
-    ).exclude(id__in=answered_question_ids)
+    ).filter(_student_eligible_q()).exclude(id__in=answered_question_ids)
     candidate_ids = list(qs.values_list("id", flat=True))
     if candidate_ids:
         return Question.objects.get(id=random.choice(candidate_ids))

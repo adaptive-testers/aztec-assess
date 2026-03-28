@@ -21,6 +21,10 @@ dj-database-url = "^3.1.2"
 drf-spectacular = "^0.29.0"
 drf-spectacular-sidecar = "^2026.3.1"
 requests = "^2.33.0"
+google-cloud-storage = ">=2.14,<3"
+google-generativeai = ">=0.8"
+numpy = "^2.4.3"
+pypdf = "^6.9.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.15.6"
@@ -149,6 +153,18 @@ ignore_errors = true
 module = "apps.quizzes.tests.*"
 disallow_untyped_defs = false
 disable_error_code = ["attr-defined", "union-attr"]
+
+[[tool.mypy.overrides]]
+module = "apps.ai.tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "google.generativeai.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "google.generativeai"
+ignore_missing_imports = true
 
 [tool.django-stubs]
 django_settings_module = "adaptive_testing.settings"
