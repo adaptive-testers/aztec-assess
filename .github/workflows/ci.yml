@@ -88,7 +88,7 @@ jobs:
       - name: Run tests
         run: poetry run pytest -n 4 --cov=adaptive_testing --cov=apps --cov-report=xml --cov-report=term-missing --ds=adaptive_testing.settings.ci
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./backend/coverage.xml
           flags: backend
