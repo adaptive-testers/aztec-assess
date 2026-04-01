@@ -1,5 +1,6 @@
 """API views for materials upload, processing, and AI question generation."""
 
+import logging
 from typing import Any
 
 from django.db.models import QuerySet
@@ -20,6 +21,8 @@ from .services import rag as rag_service
 from .services.gemini_client import generate_question_with_rag
 from .services.question_factory import validate_and_create_question
 from .services.storage import upload_material_file
+
+logger = logging.getLogger(__name__)
 
 
 class CourseMaterialListCreateView(generics.ListCreateAPIView):
@@ -70,13 +73,13 @@ class CourseMaterialListCreateView(generics.ListCreateAPIView):
 
         try:
             material_processing.process_course_material(mat.id)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
+            logger.exception("Course material processing failed")
             mat.refresh_from_db()
             return Response(
                 {
                     "detail": "Processing failed.",
                     "material": CourseMaterialSerializer(mat).data,
-                    "error": str(exc),
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -137,8 +140,17 @@ class AiGenerateQuestionView(generics.GenericAPIView):
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
             raise
-        except ValueError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            logger.warning(
+                "AI question validation failed",
+                exc_info=True,
+            )
+            return Response(
+                {
+                    "detail": "Could not create a question from the AI response.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from apps.quizzes.serializers import QuestionCreateUpdateSerializer
 

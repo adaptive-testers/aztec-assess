@@ -157,6 +157,7 @@ disable_error_code = ["attr-defined", "union-attr"]
 [[tool.mypy.overrides]]
 module = "apps.ai.tests.*"
 disallow_untyped_defs = false
+disable_error_code = ["attr-defined", "union-attr"]
 
 [[tool.mypy.overrides]]
 module = "google.generativeai.*"

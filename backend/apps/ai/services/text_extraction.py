@@ -38,5 +38,7 @@ def _read_bytes(storage_key: str) -> bytes:
         data: bytes = blob.download_as_bytes()
         return data
 
-    path = Path(settings.MEDIA_ROOT) / storage_key
+    from apps.ai.services.storage import resolve_local_storage_path
+
+    path = resolve_local_storage_path(storage_key)
     return path.read_bytes()

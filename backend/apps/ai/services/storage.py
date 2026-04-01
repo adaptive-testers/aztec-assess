@@ -13,6 +13,42 @@ def _use_gcs() -> bool:
     return bool(getattr(settings, "GCS_BUCKET_NAME", ""))
 
 
+def safe_upload_basename(filename: str) -> str:
+    """Use only the final path segment; ignore path traversal in uploaded names."""
+    base = Path(str(filename)).name.strip()
+    if not base or base in {".", ".."}:
+        return "upload"
+    return base
+
+
+def resolve_local_storage_path(storage_key: str) -> Path:
+    """
+    Resolve *storage_key* to an absolute path under MEDIA_ROOT.
+
+    Rejects empty keys, absolute paths, ``..`` segments, and paths that escape
+    MEDIA_ROOT after resolution (path traversal).
+    """
+    if not storage_key or not str(storage_key).strip():
+        msg = "Invalid storage key"
+        raise ValueError(msg)
+    root = Path(settings.MEDIA_ROOT).resolve()
+    rel = Path(storage_key)
+    if rel.is_absolute():
+        msg = "Invalid storage key"
+        raise ValueError(msg)
+    for part in rel.parts:
+        if part == "..":
+            msg = "Invalid storage key"
+            raise ValueError(msg)
+    full = (root / rel).resolve()
+    try:
+        full.relative_to(root)
+    except ValueError:
+        msg = "Invalid storage key"
+        raise ValueError(msg) from None
+    return full
+
+
 def upload_material_file(
     *,
     course_id: str,
@@ -28,7 +64,7 @@ def upload_material_file(
     """
     data = file_obj.read()
     size = len(data)
-    safe_name = Path(filename).name
+    safe_name = safe_upload_basename(filename)
     key = f"course_materials/{course_id}/{uuid.uuid4().hex}_{safe_name}"
 
     if _use_gcs():
@@ -40,8 +76,7 @@ def upload_material_file(
         blob.upload_from_string(data, content_type=content_type or "application/octet-stream")
         return key, size
 
-    media_root = Path(settings.MEDIA_ROOT)
-    dest = media_root / key
+    dest = resolve_local_storage_path(key)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)
     return str(key), size
@@ -58,6 +93,6 @@ def delete_material_file(storage_key: str) -> None:
         blob.delete()
         return
 
-    path = Path(settings.MEDIA_ROOT) / storage_key
+    path = resolve_local_storage_path(storage_key)
     if path.is_file():
         path.unlink()

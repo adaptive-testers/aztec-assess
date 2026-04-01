@@ -241,7 +241,7 @@ class TestCourseMaterialListCreateView:
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["detail"] == "Processing failed."
-        assert "extract failed" in response.data["error"]
+        assert "error" not in response.data
         assert response.data["material"]["original_filename"] == "bad.pdf"
 
 
@@ -348,7 +348,7 @@ class TestAiGenerateQuestionView:
         response = client.post(url, {"query": "x"}, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "detail" in response.data
+        assert response.data["detail"] == "Could not create a question from the AI response."
 
     @patch("apps.ai.views.generate_question_with_rag")
     @patch("apps.ai.views.rag_service.retrieve_context_chunks")
