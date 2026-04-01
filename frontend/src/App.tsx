@@ -8,7 +8,12 @@ import JoinCoursePage from "./features/Course/JoinCoursePage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
 import CoursePage from "./features/InstructorCourse/CoursePage";
+import LandingPage from "./features/Landing/LandingPage";
+import CookiesPage from "./features/Legal/CookiesPage";
+import PrivacyPage from "./features/Legal/PrivacyPage";
+import TermsPage from "./features/Legal/TermsPage";
 import LogInPage from "./features/LogIn/LogInPage";
+import NotFoundPage from "./features/NotFound/NotFoundPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
@@ -30,9 +35,7 @@ function App() {
           path="/"
           element={
             <PublicRoute>
-              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                <LogInPage />
-              </div>
+              <LandingPage />
             </PublicRoute>
           }
         />
@@ -66,6 +69,9 @@ function App() {
             </PublicRoute>
           }
         />
+        <Route path="/legal/privacy" element={<PrivacyPage />} />
+        <Route path="/legal/terms" element={<TermsPage />} />
+        <Route path="/legal/cookies" element={<CookiesPage />} />
         <Route
           element={
             <ProtectedRoute>
@@ -86,6 +92,7 @@ function App() {
           <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
           <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
         </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   );
