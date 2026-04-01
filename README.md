@@ -97,6 +97,8 @@ SECRET_KEY=your-secret-key-here-make-it-long-and-random
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1,backend
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+SIGNUP_ALLOWLIST_ENABLED=False
+STUDENT_MODE_ONLY=False
 
 # Google OAuth (optional - for Google sign-in)
 GOOGLE_CLIENT_ID=your-google-client-id

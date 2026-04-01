@@ -11,13 +11,14 @@ export default function PublicRoute({ children }: PublicRouteProps) {
 
   if (checkingRefresh) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#050505]">
-        <div
-          data-testid="public-route-auth-shell"
-          role="status"
-          aria-label="Checking session"
-          className="h-6 w-6 animate-spin rounded-full border-2 border-[#2A2A2A] border-t-[#6B6B6B]"
-        />
+      <div className="flex h-screen w-full items-center justify-center bg-[#0A0A0A]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-12 w-12">
+            <div className="absolute inset-0 rounded-full border-4 border-[#2A2A2A]" />
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#EF6262]" />
+          </div>
+          <div className="text-sm text-[#8E8E8E]">Loading...</div>
+        </div>
       </div>
     );
   }

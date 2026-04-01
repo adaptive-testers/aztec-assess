@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FaBook } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
 import { IoIosArrowUp } from "react-icons/io";
 import { IoMdPerson } from "react-icons/io";
-import { IoMdSettings } from "react-icons/io";
 import { IoHome } from "react-icons/io5";
 import { IoLogOut } from "react-icons/io5";
 import { NavLink } from "react-router-dom";
@@ -11,6 +10,7 @@ import { NavLink } from "react-router-dom";
 import { privateApi } from "../../api/axios";
 import { AUTH, COURSES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
+import { useCourseRoleContext } from "../../context/CourseRoleContext";
 import BrandLogo from "../Brand/BrandLogo";
 
 interface Course {
@@ -30,6 +30,7 @@ interface BackendCourse {
   name?: string;
   slug?: string;
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  user_role?: string;
 }
 
 const parseCoursesArray = (data: unknown): BackendCourse[] => {
@@ -51,6 +52,58 @@ export default function Sidebar() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserProfile["role"] | null>(null);
   const { logout, checkingRefresh, accessToken } = useAuth();
+  const { replaceRoles, clearRoles } = useCourseRoleContext();
+
+  const fetchCoursesAndRoles = useCallback(async () => {
+    const [activeRes, archivedRes] = await Promise.all([
+      privateApi.get(COURSES.LIST),
+      privateApi.get(`${COURSES.LIST}?status=ARCHIVED`).catch(() => ({ data: [] })),
+    ]);
+    const activeArray = parseCoursesArray(activeRes.data);
+    const archivedArray = parseCoursesArray(archivedRes.data);
+
+    const activeCourses: Course[] = [];
+    const archived: Course[] = [];
+    const archivedIds = new Set<string>();
+    const nextRoles: Record<string, string> = {};
+
+    const mapCourse = (course: BackendCourse): Course => ({
+      id: course.id,
+      name: course.title || course.name || "Untitled Course",
+      path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
+      status: course.status,
+    });
+
+    const trackRole = (course: BackendCourse) => {
+      if (!course.user_role) return;
+      nextRoles[String(course.id)] = course.user_role;
+      if (course.slug) nextRoles[course.slug] = course.user_role;
+    };
+
+    activeArray.forEach((course) => {
+      trackRole(course);
+      const mapped = mapCourse(course);
+      if (course.status === "ARCHIVED") {
+        const key = String(course.id);
+        if (!archivedIds.has(key)) {
+          archivedIds.add(key);
+          archived.push(mapped);
+        }
+      } else {
+        activeCourses.push(mapped);
+      }
+    });
+
+    archivedArray.forEach((course) => {
+      trackRole(course);
+      const key = String(course.id);
+      if (archivedIds.has(key)) return;
+      archivedIds.add(key);
+      archived.push(mapCourse(course));
+    });
+
+    return { activeCourses, archived, nextRoles };
+  }, []);
 
   const toggleSidebar = () => {
     if (!collapsed) {
@@ -70,7 +123,9 @@ export default function Sidebar() {
     if (!accessToken) {
       setLoading(false);
       setCourses([]);
+      setArchivedCourses([]);
       setUserRole(null);
+      clearRoles();
       return;
     }
 
@@ -89,37 +144,18 @@ export default function Sidebar() {
     const fetchCourses = async () => {
       if (!mounted) return;
       try {
-        const res = await privateApi.get(COURSES.LIST);
+        const { activeCourses, archived, nextRoles } = await fetchCoursesAndRoles();
         if (!mounted) return;
-
-        const coursesArray = parseCoursesArray(res.data);
-
-        const activeCourses: Course[] = [];
-        const archived: Course[] = [];
-
-        coursesArray.forEach((course: BackendCourse) => {
-          const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
-          const mappedCourse = {
-            id: course.id,
-            name: course.title || course.name || "Untitled Course",
-            path: coursePath,
-            status: course.status,
-          };
-          
-          if (course.status === 'ARCHIVED') {
-            archived.push(mappedCourse);
-          } else {
-            activeCourses.push(mappedCourse);
-          }
-        });
 
         setCourses(activeCourses);
         setArchivedCourses(archived);
+        replaceRoles(nextRoles);
       } catch (error) {
         if (!mounted) return;
         console.error("Failed to fetch courses:", error);
         setCourses([]);
         setArchivedCourses([]);
+        replaceRoles({});
       } finally {
         if (mounted) setLoading(false);
       }
@@ -130,91 +166,22 @@ export default function Sidebar() {
     return () => {
       mounted = false;
     };
-  }, [checkingRefresh, accessToken]);
-
-  useEffect(() => {
-    if (accessToken && !checkingRefresh && !loading) {
-      let mounted = true;
-      const fetchArchivedCourses = async () => {
-        if (!mounted) return;
-        try {
-          const res = await privateApi.get(COURSES.LIST + '?status=ARCHIVED');
-          if (!mounted) return;
-
-          const coursesArray = parseCoursesArray(res.data);
-
-          const mappedCourses = coursesArray.map((course: BackendCourse) => ({
-            id: course.id,
-            name: course.title || course.name || "Untitled Course",
-            path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
-            status: course.status,
-          }));
-          
-          if (mounted) {
-            setArchivedCourses(mappedCourses);
-          }
-        } catch (error) {
-          if (!mounted) return;
-          console.error("Failed to fetch archived courses:", error);
-        }
-      };
-
-      void fetchArchivedCourses();
-      return () => {
-        mounted = false;
-      };
-    }
-  }, [accessToken, checkingRefresh, loading]);
+  }, [checkingRefresh, accessToken, fetchCoursesAndRoles, replaceRoles, clearRoles]);
 
   useEffect(() => {
     const handleCourseDeleted = () => {
       if (accessToken && !checkingRefresh) {
         const fetchCourses = async () => {
           try {
-            const res = await privateApi.get(COURSES.LIST);
-            const coursesArray = parseCoursesArray(res.data);
-
-            const activeCourses: Course[] = [];
-            const archived: Course[] = [];
-
-            coursesArray.forEach((course: BackendCourse) => {
-              const coursePath = course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`;
-              const mappedCourse = {
-                id: course.id,
-                name: course.title || course.name || "Untitled Course",
-                path: coursePath,
-                status: course.status,
-              };
-              
-              if (course.status === 'ARCHIVED') {
-                archived.push(mappedCourse);
-              } else {
-                activeCourses.push(mappedCourse);
-              }
-            });
-
+            const { activeCourses, archived, nextRoles } = await fetchCoursesAndRoles();
             setCourses(activeCourses);
-            
-            try {
-              const archivedRes = await privateApi.get(COURSES.LIST + '?status=ARCHIVED');
-              const archivedArray = parseCoursesArray(archivedRes.data);
-
-              const mappedArchived = archivedArray.map((course: BackendCourse) => ({
-                id: course.id,
-                name: course.title || course.name || "Untitled Course",
-                path: course.slug ? `/courses/${course.slug}` : `/courses/${course.id}`,
-                status: course.status,
-              }));
-              
-              setArchivedCourses(mappedArchived);
-            } catch (archivedError) {
-              console.error("Failed to fetch archived courses:", archivedError);
-              setArchivedCourses(archived);
-            }
+            setArchivedCourses(archived);
+            replaceRoles(nextRoles);
           } catch (error) {
             console.error("Failed to refresh courses:", error);
             setCourses([]);
             setArchivedCourses([]);
+            replaceRoles({});
           }
         };
 
@@ -233,7 +200,7 @@ export default function Sidebar() {
       window.removeEventListener('courseDeleted', handleCourseDeleted);
       window.removeEventListener('courseArchived', handleCourseArchived);
     };
-  }, [accessToken, checkingRefresh]);
+  }, [accessToken, checkingRefresh, fetchCoursesAndRoles, replaceRoles]);
 
   return (
     <aside
@@ -317,31 +284,6 @@ export default function Sidebar() {
                 } ${isActive ? "text-white" : "text-[rgba(241,245,249,0.7)] group-hover:text-white"}`}
               >
                 Profile
-              </span>
-            </>
-          )}
-        </NavLink>
-
-        <NavLink
-          to="/settings"
-          className={({ isActive }) =>
-            `group relative flex h-[39px] w-full items-center overflow-hidden rounded-[7px] transition-colors duration-200
-            ${isActive ? "bg-[#F87171]" : "hover:bg-[#F87171]"}`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <IoMdSettings
-                className={`ml-[13px] h-[17px] w-[17px] shrink-0 transition-colors duration-200 ${
-                  isActive ? "text-white" : "text-[rgba(241,245,249,0.7)] group-hover:text-white"
-                }`}
-              />
-              <span
-                className={`ml-[13px] whitespace-nowrap font-geist text-[15px] font-medium leading-[22px] transition-[opacity,max-width] duration-200 ease-out ${
-                  collapsed ? "max-w-0 overflow-hidden opacity-0" : "max-w-[160px] opacity-100"
-                } ${isActive ? "text-white" : "text-[rgba(241,245,249,0.7)] group-hover:text-white"}`}
-              >
-                Settings
               </span>
             </>
           )}

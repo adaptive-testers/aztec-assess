@@ -167,7 +167,7 @@ describe("LogInContainer", () => {
 
     await waitFor(() => {
       expect(setAccessTokenMock).toHaveBeenCalledWith("test-token");
-      expect(navigateMock).toHaveBeenCalledWith("/profile");
+      expect(navigateMock).toHaveBeenCalledWith("/dashboard");
     });
   });
 
@@ -242,7 +242,7 @@ describe("LogInContainer", () => {
           { code: "mock_oauth_code" }
         );
         expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
-        expect(navigateMock).toHaveBeenCalledWith("/profile");
+        expect(navigateMock).toHaveBeenCalledWith("/dashboard");
       });
     });
 
@@ -338,7 +338,7 @@ describe("LogInContainer", () => {
           { access_token: "mock_ms_token" }
         );
         expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
-        expect(navigateMock).toHaveBeenCalledWith("/profile");
+        expect(navigateMock).toHaveBeenCalledWith("/dashboard");
       });
     });
 

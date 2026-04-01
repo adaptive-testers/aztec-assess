@@ -2,13 +2,13 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
-import { FaTrash } from 'react-icons/fa';
 import { FiCopy, FiRefreshCw, FiX } from 'react-icons/fi';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { privateApi } from '../../api/axios';
 import { AUTH, COURSES } from '../../api/endpoints';
 import { Toast } from '../../components/Toast';
+import { useProfileRole } from '../../context/ProfileRoleContext';
 
 interface Course {
   id: string;
@@ -22,16 +22,6 @@ interface Course {
   updated_at: string;
 }
 
-interface Member {
-  id: string;
-  user_id: string;
-  user_email: string;
-  user_first_name: string;
-  user_last_name: string;
-  role: 'OWNER' | 'INSTRUCTOR' | 'TA' | 'STUDENT';
-  joined_at: string;
-}
-
 interface FormFields {
   title: string;
 }
@@ -40,28 +30,21 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormFields>();
   const watchedTitle = watch('title');
 
-  const [activeTab, setActiveTab] = useState<'details' | 'members'>('details');
   const [course, setCourse] = useState<Course | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [resolvedCourseId, setResolvedCourseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [memberEmail, setMemberEmail] = useState('');
-  const [isAddingMember, setIsAddingMember] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userCourseRole, setUserCourseRole] = useState<'OWNER' | 'INSTRUCTOR' | 'TA' | 'STUDENT' | null>(null);
+  const [roleResolved, setRoleResolved] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
 
   const effectiveCourseId = resolvedCourseId ?? courseId ?? null;
 
@@ -128,6 +111,7 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     if (!resolvedCourseId) return;
+    setRoleResolved(false);
 
     setIsLoading(true);
     const fetchCourseData = async () => {
@@ -144,49 +128,47 @@ export default function CourseDetailPage() {
       }
     };
 
-    const fetchMembers = async () => {
+    const fetchCourseRole = async () => {
       try {
-        const response = await privateApi.get(COURSES.MEMBERS(resolvedCourseId));
-        const membersData: Member[] = response.data;
-        setMembers(membersData);
+        const response = await privateApi.get<{ user_id: string; role: string }[]>(
+          COURSES.MEMBERS(resolvedCourseId)
+        );
+        const mems = Array.isArray(response.data) ? response.data : [];
+        if (currentUserId !== null) {
+          const normalizedCurrent = String(currentUserId).toLowerCase().trim();
+          const member = mems.find(
+            (m) => String(m.user_id).toLowerCase().trim() === normalizedCurrent
+          );
+          if (member && ["OWNER", "INSTRUCTOR", "TA", "STUDENT"].includes(member.role)) {
+            setUserCourseRole(member.role as "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT");
+          } else {
+            setUserCourseRole(null);
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch members:', error);
+        console.error('Failed to fetch members for role verification:', error);
         if (axios.isAxiosError(error) && error.response?.status === 403) {
           setUserCourseRole('STUDENT');
-          setMembers([]);
         } else {
-          setToast({ message: 'Failed to load members', type: 'error' });
+          setUserCourseRole(null);
         }
+      } finally {
+        setRoleResolved(true);
       }
     };
 
     void fetchCourseData();
-    void fetchMembers();
-  }, [resolvedCourseId, setValue]);
-
-  useEffect(() => {
-    if (!effectiveCourseId) return;
-    const path = location.pathname;
-    if (path.endsWith('/members')) setActiveTab('members');
-    else setActiveTab('details');
-  }, [location.pathname, effectiveCourseId]);
-
-  // For students on settings page: single combined Course Info view (no internal tabs)
-  const isStudent = userCourseRole === 'STUDENT';
-
-  useEffect(() => {
-    if (currentUserId && members.length > 0) {
-      const normalizedCurrentUserId = String(currentUserId).toLowerCase().trim();
-      const currentUserMember = members.find(m => {
-        const normalizedMemberUserId = String(m.user_id).toLowerCase().trim();
-        return normalizedMemberUserId === normalizedCurrentUserId;
-      });
-      
-      if (currentUserMember) {
-        setUserCourseRole(currentUserMember.role);
-      }
+    if (currentUserId !== null) {
+      void fetchCourseRole();
     }
-  }, [currentUserId, members]);
+  }, [resolvedCourseId, setValue, currentUserId]);
+
+  const { profileRole, loading: profileRoleLoading } = useProfileRole();
+  const roleLoading = !roleResolved;
+  /** Student layout after role verification completes. */
+  const showStudentLayout =
+    userCourseRole === 'STUDENT' ||
+    (!profileRoleLoading && userCourseRole === null && profileRole === 'student');
 
   const refreshCourseData = async () => {
     if (!resolvedCourseId) return;
@@ -201,17 +183,7 @@ export default function CourseDetailPage() {
     }
   };
 
-  const refreshMembers = async () => {
-    if (!resolvedCourseId) return;
-    try {
-      const response = await privateApi.get(COURSES.MEMBERS(resolvedCourseId));
-      const membersData: Member[] = response.data;
-      setMembers(membersData);
-    } catch (error) {
-      console.error('Failed to fetch members:', error);
-      setToast({ message: 'Failed to load members', type: 'error' });
-    }
-  };
+
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     if (!resolvedCourseId) return;
@@ -355,69 +327,19 @@ export default function CourseDetailPage() {
     }
   };
 
-  const handleRemoveMember = async () => {
-    if (!resolvedCourseId || !memberToRemove) return;
-    
-    try {
-      await privateApi.post(COURSES.REMOVE_MEMBER(resolvedCourseId), {
-        user_id: memberToRemove.user_id
-      });
-      await refreshMembers();
-      setToast({ message: 'Member removed successfully', type: 'success' });
-      setShowRemoveMemberModal(false);
-      setMemberToRemove(null);
-    } catch (error) {
-      console.error('Failed to remove member:', error);
-      setToast({ message: 'Failed to remove member', type: 'error' });
-    }
-  };
 
-  const openRemoveMemberModal = (member: Member) => {
-    setMemberToRemove(member);
-    setShowRemoveMemberModal(true);
-  };
-
-  const handleAddMember = async () => {
-    if (!memberEmail.trim() || !resolvedCourseId) return;
-    
-    setIsAddingMember(true);
-    try {
-      await privateApi.post(COURSES.ADD_MEMBER(resolvedCourseId), {
-        email: memberEmail.trim(),
-        role: 'STUDENT'
-      });
-      await refreshMembers();
-      const message = course?.status === 'DRAFT' 
-        ? 'Member added successfully. They will be able to access the course once it is activated.'
-        : 'Member added successfully';
-      setToast({ message, type: 'success' });
-      setShowAddMemberModal(false);
-      setMemberEmail('');
-    } catch (error) {
-      console.error('Failed to add member:', error);
-      if (axios.isAxiosError(error)) {
-        const backendMessage = error.response?.data?.detail || error.response?.data?.message;
-        setToast({ 
-          message: backendMessage || 'Failed to add member', 
-          type: 'error' 
-        });
-      } else {
-        setToast({ message: 'Failed to add member', type: 'error' });
-      }
-    } finally {
-      setIsAddingMember(false);
-    }
-  };
 
   const hasChanges = course ? watchedTitle !== course.title : false;
   const isActive = course?.status === 'ACTIVE';
   const isArchived = course?.status === 'ARCHIVED';
   const isStaff = userCourseRole !== null && ['OWNER', 'INSTRUCTOR', 'TA'].includes(userCourseRole);
   const isOwnerOrInstructor = userCourseRole !== null && ['OWNER', 'INSTRUCTOR'].includes(userCourseRole);
+  const canViewMembersTab = isStaff || showStudentLayout;
 
   return (
     <>
-      <div className="w-full p-6 geist-font">
+      <section className="min-h-screen w-full bg-[#0A0A0A] text-[#F1F5F9] geist-font">
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
       {toast && (
         <Toast
           message={toast.message}
@@ -522,463 +444,192 @@ export default function CourseDetailPage() {
         </div>
       )}
 
-      {showRemoveMemberModal && memberToRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-[482px] bg-[#1A1A1A] border border-[#404040] rounded-[15px] shadow-[0_4px_6px_rgba(0,0,0,0.25)] p-6 md:p-[40px]">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-[#F1F5F9] text-[24px] font-medium">Remove Member</h2>
-              <button
-                onClick={() => {
-                  setShowRemoveMemberModal(false);
-                  setMemberToRemove(null);
-                }}
-                className="p-2 hover:bg-[#262626] rounded transition-colors cursor-pointer"
-                aria-label="Close modal"
-              >
-                <FiX className="text-[#F1F5F9] text-xl" />
-              </button>
-            </div>
-            
-            <div className="flex flex-col gap-4">
-              <p className="text-[#F1F5F9] text-[15px] leading-[22px]">
-                Are you sure you want to remove{' '}
-                <span className="font-semibold">
-                  {memberToRemove.user_first_name && memberToRemove.user_last_name
-                    ? `${memberToRemove.user_first_name} ${memberToRemove.user_last_name}`
-                    : memberToRemove.user_email || 'this member'}
-                </span>{' '}
-                from this course? This action cannot be undone.
-              </p>
-              
-              <div className="flex justify-end gap-[10px] pt-4 border-t border-[#404040]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowRemoveMemberModal(false);
-                    setMemberToRemove(null);
-                  }}
-                  className="h-[35px] px-[13px] rounded-[7px] text-[15px] text-[#F1F5F9] bg-[#404040] hover:bg-[#525252] transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRemoveMember}
-                  className="h-[35px] px-[13px] rounded-[7px] min-w-[120px] text-[15px] text-white bg-[#EF6262] transition-all duration-200 hover:ring-2 hover:ring-[#FCA5A5] hover:ring-offset-2 hover:ring-offset-[#1A1A1A] hover:scale-105"
-                >
-                  Remove Member
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {showAddMemberModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-[482px] bg-[#1A1A1A] border border-[#404040] rounded-[15px] shadow-[0_4px_6px_rgba(0,0,0,0.25)] p-6 md:p-[40px]">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-[#F1F5F9] text-[24px] font-medium">Add Member</h2>
-              <button
-                onClick={() => {
-                  setShowAddMemberModal(false);
-                  setMemberEmail('');
-                }}
-                className="p-2 hover:bg-[#262626] rounded transition-colors cursor-pointer"
-                aria-label="Close modal"
-              >
-                <FiX className="text-[#F1F5F9] text-xl" />
-              </button>
-            </div>
-            
-              <div className="flex flex-col gap-4">
-              {course?.status === 'DRAFT' && (
-                <div className="px-4 py-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-                  <p className="text-yellow-500 text-[13px]">
-                    This course is in draft status. Members will be added but won&apos;t be able to access the course until it&apos;s activated.
-                  </p>
-                </div>
-              )}
-              <div className="flex flex-col gap-[9px]">
-                <label
-                  htmlFor="member-email-input"
-                  className="text-[15px] leading-[15px] text-[#F1F5F9]"
-                >
-                  Email Address
-                </label>
-                <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040] focus-within:border-[#F87171] transition-all duration-200">
-                  <input
-                    id="member-email-input"
-                    type="email"
-                    value={memberEmail}
-                    onChange={(e) => setMemberEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    className="w-full bg-transparent text-[17px] text-[#F1F5F9] outline-none placeholder:text-[#8E8E8E]"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && memberEmail.trim()) {
-                        handleAddMember();
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-[10px] pt-4 border-t border-[#404040]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddMemberModal(false);
-                    setMemberEmail('');
-                  }}
-                  className="h-[35px] px-[13px] rounded-[7px] text-[15px] text-[#F1F5F9] bg-[#404040] hover:bg-[#525252] transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddMember}
-                  disabled={!memberEmail.trim() || isAddingMember}
-                  className={`h-[35px] px-[13px] rounded-[7px] min-w-[120px] text-[15px] text-white bg-[#F87171] transition-all duration-200 ${
-                    !memberEmail.trim() || isAddingMember
-                      ? "opacity-70 cursor-not-allowed"
-                      : "hover:ring-2 hover:ring-[#FCA5A5] hover:ring-offset-2 hover:ring-offset-[#1A1A1A] hover:scale-105"
-                  }`}
-                >
-                  {isAddingMember ? 'Adding...' : 'Add Member'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
+      {/* Top Header Row: course title; status and Activate only when loaded */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          {isLoading ? (
+            <div className="skeleton-shimmer h-9 w-48 rounded" />
+          ) : (
+            <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9] truncate">
+              {course?.title ?? 'Course'}
+            </h1>
+          )}
+          {!isLoading && course && isStaff && (
+            <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide shrink-0 ${
+              isActive
+                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                : isArchived
+                  ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                  : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
+            }`}>
+              {course.status}
+            </span>
+          )}
+        </div>
+        {!isLoading && isOwnerOrInstructor && !isArchived && !isActive && (
+          <button
+            onClick={handleActivateCourse}
+            className="px-6 py-2 rounded-lg text-white text-[14px] font-medium tracking-wide transition-colors bg-[#F87171] hover:bg-[#FCA5A5] cursor-pointer shrink-0"
+          >
+            Activate Course
+          </button>
+        )}
+      </div>
+
+      {/* Top nav */}
       {effectiveCourseId && (
-        <div className="mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
-          {isLoading && userCourseRole === null ? (
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {[0, 1, 2].map((i) => (
+        <div className="mt-4 mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
+          {roleLoading ? (
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-12 rounded-xl bg-[#232323]" />
               ))}
             </div>
           ) : (
-          <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
-            <button
-              type="button"
-              onClick={() => navigate(`/courses/${effectiveCourseId}`)}
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Quizzes
-            </button>
-            {!isStudent && (
+            <div className={`grid grid-cols-2 gap-1 ${canViewMembersTab ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+              <button
+                type="button"
+                onClick={() => navigate(`/courses/${effectiveCourseId}`)}
+                className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+              >
+                Quizzes
+              </button>
+              {canViewMembersTab && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/courses/${effectiveCourseId}/students`)}
+                  className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+                >
+                  Members
+                </button>
+              )}
               <button
                 type="button"
                 className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
               >
-                Students
+                Grades
               </button>
-            )}
-            <button
-              type="button"
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Grades
-            </button>
-            <button
-              type="button"
-              className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
-            >
-              Course Info
-            </button>
-          </div>
+              <button
+                type="button"
+                className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
+              >
+                Course Info
+              </button>
+            </div>
           )}
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-primary-text tracking-wide text-2xl font-medium">
-            Course Info
-          </h1>
-          <p className="text-secondary-text text-sm mt-1">
-            {isArchived 
-              ? 'View course information and members' 
-              : isStaff 
-                ? 'Manage course settings and members'
-                : 'View course information and members'}
-          </p>
-        </div>
-        {isOwnerOrInstructor && !isArchived && (
-          <div className="flex gap-3 items-center">
-            <button 
-              type="submit"
-              form="course-edit-form"
-              disabled={isSubmitting || !hasChanges}
-              className={`px-6 py-2 rounded-lg text-sm font-medium tracking-wide transition-colors ${
-                isSubmitting || !hasChanges
-                  ? 'bg-secondary-background border-2 border-primary-border text-primary-text opacity-70 cursor-not-allowed'
-                  : 'bg-secondary-background border-2 border-primary-border text-primary-text hover:bg-secondary-accent-hover cursor-pointer'
-              }`}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </button>
-            {!isActive && (
-              <button 
-                onClick={handleActivateCourse}
-                className="px-6 py-2 rounded-lg text-primary-text text-sm font-medium tracking-wide transition-colors bg-primary-accent hover:bg-primary-accent-hover cursor-pointer"
-              >
-                Activate Course
-              </button>
-            )}
+      {/* Floating Action Buttons for Save/Cancel */}
+      <div 
+        data-testid="save-actions-bar"
+        className={`fixed bottom-8 right-8 z-50 flex items-center gap-4 transition-all duration-500 ease-in-out ${
+          isOwnerOrInstructor && !isArchived && hasChanges 
+            ? 'translate-y-0 opacity-100' 
+            : 'translate-y-[150%] opacity-0 pointer-events-none'
+        }`}
+      >
+        <button 
+          type="button"
+          onClick={() => {
+            if (course) setValue('title', course.title);
+          }}
+          disabled={isSubmitting}
+          className="px-6 py-3 rounded-full text-white font-medium bg-[#404040] hover:bg-[#525252] shadow-[0px_10px_20px_rgba(0,0,0,0.4)] transition-all duration-200 hover:scale-105"
+        >
+          Cancel
+        </button>
+        <button 
+          type="submit"
+          form="course-edit-form"
+          disabled={isSubmitting}
+          className={`flex items-center gap-2 px-6 py-3 rounded-full text-white font-medium shadow-[0px_10px_20px_rgba(0,0,0,0.4)] transition-all duration-200 hover:scale-105 ${
+            isSubmitting 
+              ? 'bg-[#F87171]/70 cursor-not-allowed' 
+              : 'bg-[#F87171] cursor-pointer'
+          }`}
+        >
+          {isSubmitting ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+
+      <div className="space-y-6">
+        {/* Course Information Card */}
+        <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+            <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
+              Course Information
+            </h2>
           </div>
-        )}
-      </div>
-
-      {course && isStaff && (
-        <div className="mb-6">
-          <span className={`inline-block px-3 py-1 rounded-md text-xs font-semibold tracking-wide ${
-            isActive 
-              ? 'bg-green-500/20 text-green-500 border border-green-500/30' 
-              : isArchived
-                ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
-                : 'bg-secondary-background text-secondary-text border-2 border-primary-border'
-          }`}>
-            {course.status}
-          </span>
-        </div>
-      )}
-
-      {isStaff && (
-      <div className="border-b border-primary-border mb-6">
-        <div className="flex gap-8">
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`pb-3 px-1 text-sm font-medium tracking-wide transition-colors relative ${
-              activeTab === 'details'
-                ? 'text-primary-text'
-                : 'text-secondary-text hover:text-primary-text'
-            }`}
-          >
-            Course Details
-            {activeTab === 'details' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-accent"></div>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`pb-3 px-1 text-sm font-medium tracking-wide transition-colors relative ${
-              activeTab === 'members'
-                ? 'text-primary-text'
-                : 'text-secondary-text hover:text-primary-text'
-            }`}
-          >
-            Members ({members.length})
-            {activeTab === 'members' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-accent"></div>
-            )}
-          </button>
-        </div>
-      </div>
-      )}
-
-      {isStudent ? (
-        <div className="space-y-6">
-          {isLoading ? (
-            <>
-              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                <div className="flex items-center border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                  <div className="skeleton-shimmer h-[17px] w-[100px] rounded" />
-                </div>
-                <div className="flex flex-col gap-4 px-[26px] py-5 md:py-[26px]">
-                  <div className="skeleton-shimmer h-6 w-3/4 rounded" />
-                  <div className="skeleton-shimmer h-4 w-48 rounded" />
-                </div>
-              </div>
-              <div>
-                <div className="skeleton-shimmer h-6 w-40 rounded mb-4" />
-                <div className="space-y-4">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="skeleton-shimmer w-10 h-10 rounded-full" />
-                        <div className="flex flex-col gap-2">
-                          <div className="skeleton-shimmer h-4 w-32 rounded" />
-                          <div className="skeleton-shimmer h-3 w-20 rounded" />
-                        </div>
-                      </div>
-                      <div className="skeleton-shimmer h-3 w-14 rounded" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : course ? (
-            <>
-              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                <div className="flex items-center border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                  <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
-                    Course Title
-                  </h2>
-                </div>
-                <div className="flex flex-col gap-3 px-[26px] py-5 md:py-[26px]">
-                  <p className="text-lg leading-6 text-[#F1F5F9]">
-                    {course.title}
+          
+          <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
+            <div className="flex flex-col gap-[9px]">
+              <div className="flex justify-between">
+                <label
+                  htmlFor="title-input"
+                  className="text-[15px] leading-[15px] text-[#F1F5F9]"
+                >
+                  Course Title
+                </label>
+                {!isLoading && errors.title && (
+                  <p className="text-[15px] leading-[15px] text-[#EF6262]">
+                    {errors.title.message}
                   </p>
-                  {(() => {
-                    const normalizedId = String(currentUserId).toLowerCase().trim();
-                    const me = members.find(m => String(m.user_id).toLowerCase().trim() === normalizedId);
-                    if (!me) return null;
-                    return (
-                      <p className="text-sm text-[#A1A1AA]">
-                        You joined on {new Date(me.joined_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                      </p>
-                    );
-                  })()}
-                </div>
+                )}
               </div>
-              <div>
-                <h2 className="text-primary-text text-lg font-semibold tracking-wide mb-4">
-                  Course Members
-                </h2>
-                <div className="space-y-4">
-                  {members.length === 0 ? (
-                    <div className="p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
-                      <p className="text-secondary-text text-sm">No members in this course yet.</p>
+
+              {isLoading ? (
+                <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A]"></div>
+              ) : (
+                <form id="course-edit-form" onSubmit={handleSubmit(onSubmit)}>
+                  {isOwnerOrInstructor && !isArchived ? (
+                    <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040] focus-within:border-[#F87171] transition-all duration-200">
+                      <input
+                        {...register("title", { 
+                          required: "Course title is required",
+                          maxLength: { value: 200, message: "Course title must be 200 characters or less" }
+                        })}
+                        id="title-input"
+                        type="text"
+                        placeholder="e.g., Introduction to Psychology"
+                        maxLength={200}
+                        className="w-full bg-transparent text-[17px] text-[#F1F5F9] outline-none placeholder:text-[#8E8E8E]"
+                      />
                     </div>
                   ) : (
-                    members.map((member) => {
-                      const displayName = member.user_first_name && member.user_last_name
-                        ? `${member.user_first_name} ${member.user_last_name}`
-                        : member.user_email || `User ${member.user_id.substring(0, 8)}`;
-                      const avatarLetter = member.user_first_name?.[0] || member.user_email?.[0] || member.user_id[0];
-                      const roleMap: Record<string, string> = {
-                        'OWNER': 'Instructor',
-                        'INSTRUCTOR': 'Instructor',
-                        'TA': 'TA',
-                        'STUDENT': 'Student'
-                      };
-                      const displayRole = roleMap[member.role] || member.role;
-                      const isStaffMember = ['OWNER', 'INSTRUCTOR', 'TA'].includes(member.role);
-                      return (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg hover:border-primary-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary-accent flex items-center justify-center">
-                              <span className="text-primary-text font-semibold text-sm">
-                                {avatarLetter.toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="text-primary-text font-semibold text-sm">{displayName}</h3>
-                              {isStaffMember && member.user_email && (
-                                <p className="text-secondary-text text-xs">{member.user_email}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-secondary-text text-xs">{displayRole}</p>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </>
-          ) : null}
-        </div>
-      ) : activeTab === 'details' ? (
-        <div className="space-y-6">
-          {isLoading ? (
-            <>
-              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                  <div className="skeleton-shimmer h-[17px] w-[150px] rounded bg-[#2A2A2A]"></div>
-                </div>
-                <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
-                  <div className="flex flex-col gap-[9px]">
-                    <div className="skeleton-shimmer h-[15px] w-[100px] rounded bg-[#2A2A2A]"></div>
-                    <div className="skeleton-shimmer h-[52px] w-full rounded-[7px] bg-[#2A2A2A]"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                  <div className="flex flex-col gap-2">
-                    <div className="skeleton-shimmer h-[17px] w-[100px] rounded bg-[#2A2A2A]"></div>
-                    <div className="skeleton-shimmer h-[13px] w-[200px] rounded bg-[#2A2A2A]"></div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
-                  <div className="skeleton-shimmer h-[40px] w-[150px] rounded-lg bg-[#2A2A2A]"></div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                  <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
-                    Course Information
-                  </h2>
-                </div>
-                
-                <form id="course-edit-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
-                  <div className="flex flex-col gap-[9px]">
-                    <div className="flex justify-between">
-                      <label
-                        htmlFor="title-input"
-                        className="text-[15px] leading-[15px] text-[#F1F5F9]"
-                      >
-                        Course Title
-                      </label>
-                      {errors.title && (
-                        <p className="text-[15px] leading-[15px] text-[#EF6262]">
-                          {errors.title.message}
-                        </p>
-                      )}
-                    </div>
-                    {isOwnerOrInstructor && !isArchived ? (
-                      <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040] focus-within:border-[#F87171] transition-all duration-200">
-                        <input
-                          {...register("title", { 
-                            required: "Course title is required",
-                            maxLength: { value: 200, message: "Course title must be 200 characters or less" }
-                          })}
-                          id="title-input"
-                          type="text"
-                          placeholder="e.g., Introduction to Psychology"
-                          maxLength={200}
-                          className="w-full bg-transparent text-[17px] text-[#F1F5F9] outline-none placeholder:text-[#8E8E8E]"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040]">
-                        <p className="w-full bg-transparent text-[17px] text-[#F1F5F9]">
-                          {course?.title || 'Loading...'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {isStaff && !isArchived && (
-                <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
-                    <div>
-                      <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
-                        Join Code
-                      </h2>
-                      <p className="text-[#94A3B8] text-[13px] mt-1">
-                        Allow students to join using a course code
+                    <div className="flex h-[52px] w-full items-center rounded-[7px] bg-[#262626] pl-[13px] pr-[13px] border border-[#404040]">
+                      <p className="w-full bg-transparent text-[17px] text-[#F1F5F9]">
+                        {course?.title || 'Loading...'}
                       </p>
                     </div>
-                  </div>
-                  
-                  <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
+                  )}
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Join Code Card (Staff only) */}
+        {isStaff && !isArchived && (
+          <div className="w-full rounded-[13px] border border-[#404040] bg-[#1A1A1A] shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#404040] px-[26px] py-4 md:py-[22px]">
+              <div>
+                <h2 className="text-[17px] leading-[17px] tracking-[0px] text-[#F1F5F9]">
+                  Join Code
+                </h2>
+                <p className="text-[#94A3B8] text-[13px] mt-1">
+                  Allow students to join using a course code
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-4 md:gap-[26px] px-[26px] py-4 md:py-[26px]">
+              {isLoading ? (
+                <div className="skeleton-shimmer h-[40px] w-[150px] rounded-lg bg-[#2A2A2A]"></div>
+              ) : (
+                <>
                   {isOwnerOrInstructor && (
                     <div className="flex items-center gap-4">
                       <button
@@ -1001,137 +652,49 @@ export default function CourseDetailPage() {
                     </div>
                   )}
                   {course?.join_code_enabled && course?.join_code && (
-                  <>
-                  <div className="inline-flex items-center gap-2 px-4 py-3 bg-primary-background border-2 border-primary-border rounded-lg">
-                    <span className="px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide bg-green-500/20 text-green-500">
-                      Enabled
-                    </span>
-                    <div className="flex items-center gap-3 ml-2">
-                      <span className="text-primary-text font-mono text-sm">
-                        {course.join_code}
-                      </span>
-                      {isOwnerOrInstructor && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleCopyCode}
-                            className="p-1.5 hover:bg-secondary-background rounded transition-colors cursor-pointer"
-                            aria-label="Copy code"
-                          >
-                            <FiCopy className="text-secondary-text text-base hover:text-primary-text transition-colors" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleRotateCode}
-                            className="p-1.5 hover:bg-secondary-background rounded transition-colors cursor-pointer"
-                            aria-label="Rotate code"
-                          >
-                            <FiRefreshCw className="text-secondary-text text-base hover:text-primary-text transition-colors" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                    <>
+                      <div className="inline-flex items-center gap-2 px-4 py-3 bg-[#262626] border border-[#404040] rounded-lg">
+                        <span className="px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide bg-green-500/20 text-green-500">
+                          Enabled
+                        </span>
+                        <div className="flex items-center gap-3 ml-2">
+                          <span className="text-[#F1F5F9] font-mono text-sm">
+                            {course.join_code}
+                          </span>
+                          {isOwnerOrInstructor && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleCopyCode}
+                                className="p-1.5 hover:bg-[#404040] rounded transition-colors cursor-pointer"
+                                aria-label="Copy code"
+                              >
+                                <FiCopy className="text-[#A1A1AA] text-base hover:text-[#F1F5F9] transition-colors" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleRotateCode}
+                                className="p-1.5 hover:bg-[#404040] rounded transition-colors cursor-pointer"
+                                aria-label="Rotate code"
+                              >
+                                <FiRefreshCw className="text-[#A1A1AA] text-base hover:text-[#F1F5F9] transition-colors" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
 
-      {/* (removed duplicated top nav block that was rendered lower in the page) */}
-                  <p className="text-secondary-text text-xs mt-2">
-                    Share this code with students to allow them to join the course. {isOwnerOrInstructor && 'You can rotate the code at any time to generate a new one.'}
-                  </p>
-                  </>
+                      <p className="text-[#A1A1AA] text-xs mt-2">
+                        Share this code with students to allow them to join the course. {isOwnerOrInstructor && 'You can rotate the code at any time to generate a new one.'}
+                      </p>
+                    </>
                   )}
-                  </div>
-                </div>
+                </>
               )}
-            </>
-          )}
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-primary-text text-lg font-semibold tracking-wide">Course Members</h2>
-              <p className="text-secondary-text text-sm mt-1">
-                {isStaff ? 'Manage students and instructors for this course' : 'View course members'}
-              </p>
             </div>
-            {isOwnerOrInstructor && !isArchived && (
-              <button 
-                onClick={() => setShowAddMemberModal(true)}
-                className="px-4 py-2 bg-primary-accent hover:bg-primary-accent-hover rounded-lg text-primary-text text-sm font-medium tracking-wide transition-colors"
-              >
-                + Add Member
-              </button>
-            )}
           </div>
-
-          <div className="space-y-4">
-            {members.length === 0 && (
-              <div className="p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
-                <p className="text-secondary-text text-sm">No members in this course yet.</p>
-              </div>
-            )}
-            {members.map((member) => {
-              const displayName = member.user_first_name && member.user_last_name
-                ? `${member.user_first_name} ${member.user_last_name}`
-                : member.user_email || `User ${member.user_id.substring(0, 8)}`;
-              const avatarLetter = member.user_first_name?.[0] || member.user_email?.[0] || member.user_id[0];
-              
-              const formatRole = (role: string) => {
-                const roleMap: Record<string, string> = {
-                  'OWNER': 'Owner',
-                  'INSTRUCTOR': 'Instructor',
-                  'TA': 'TA',
-                  'STUDENT': 'Student'
-                };
-                return roleMap[role] || role;
-              };
-              
-              const displayRole = formatRole(member.role);
-              
-              return (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-4 bg-secondary-background border-2 border-primary-border rounded-lg hover:border-primary-accent/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary-accent flex items-center justify-center">
-                    <span className="text-primary-text font-semibold text-sm">
-                      {avatarLetter.toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="text-primary-text font-semibold text-sm">{displayName}</h3>
-                    <p className="text-secondary-text text-xs">{member.user_email || 'No email'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-secondary-text text-xs">{displayRole}</p>
-                    <p className="text-secondary-text text-xs">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
-                  </div>
-                  {isOwnerOrInstructor && !isArchived && (
-                    <button
-                      onClick={() => openRemoveMemberModal(member)}
-                      className="p-2 hover:bg-primary-background rounded transition-colors"
-                      aria-label="Remove member"
-                      disabled={member.role === 'OWNER'}
-                    >
-                      <FaTrash className={`text-sm transition-colors ${
-                        member.role === 'OWNER' 
-                          ? 'text-secondary-text/30 cursor-not-allowed' 
-                          : 'text-secondary-text hover:text-primary-accent'
-                      }`} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {isOwnerOrInstructor && activeTab === 'details' && (
+        )}
+      {isOwnerOrInstructor && (
         <div className="mt-8 pt-8 border-t border-[#404040]">
           <div className="w-full rounded-[13px] border border-[#EF6262]/30 bg-[#2A1414]/30 shadow-[0_4px_6px_rgba(0,0,0,0.25)]">
             <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#EF6262]/30 px-[26px] py-4 md:py-[22px]">
@@ -1181,7 +744,9 @@ export default function CourseDetailPage() {
           </div>
         </div>
       )}
-    </div>
-    </>
-  );
+        </div>
+      </div>
+    </section>
+  </>
+);
 }

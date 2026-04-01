@@ -5,8 +5,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import CourseDetailPage from "./features/Course/CourseDetailPage";
 import JoinCoursePage from "./features/Course/JoinCoursePage";
+import StudentsPage from "./features/Course/StudentsPage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
+import DashboardPage from "./features/Dashboard/DashboardPage";
 import CoursePage from "./features/InstructorCourse/CoursePage";
 import LandingPage from "./features/Landing/LandingPage";
 import CookiesPage from "./features/Legal/CookiesPage";
@@ -79,14 +81,12 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route
-            path="/dashboard"
-            element={<div className="text-primary-text">Dashboard</div>}
-          />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
           <Route path="/courses/:courseId" element={<CoursePage />} />
           <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
+          <Route path="/courses/:courseId/students" element={<StudentsPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
           <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
           <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />

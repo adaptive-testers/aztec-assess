@@ -7,7 +7,7 @@ from typing import cast
 import pytest
 from django.contrib.auth import get_user_model
 
-from apps.accounts.models import User, UserRole
+from apps.accounts.models import SignupAllowlist, User, UserRole
 
 # Type alias for the User model
 UserModel = cast("type[User]", get_user_model())
@@ -110,3 +110,23 @@ def test_user_unique_email(user_data):
     UserModel.objects.create_user(**user_data)
     with pytest.raises(IntegrityError):
         UserModel.objects.create_user(**user_data)
+
+
+@pytest.mark.django_db
+def test_signup_allowlist_email_normalized_on_save():
+    entry = SignupAllowlist.objects.create(email="  Test@Example.com  ")
+    assert entry.email == "test@example.com"
+
+
+@pytest.mark.django_db
+def test_signup_allowlist_defaults():
+    entry = SignupAllowlist.objects.create(email="student@example.com")
+    assert entry.student_allowed is True
+    assert entry.instructor_allowed is False
+    assert entry.is_active is True
+
+
+@pytest.mark.django_db
+def test_signup_allowlist_str_returns_email():
+    entry = SignupAllowlist.objects.create(email="student@example.com")
+    assert str(entry) == "student@example.com"

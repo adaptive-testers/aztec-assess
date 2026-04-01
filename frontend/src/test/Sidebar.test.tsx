@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { MemoryRouter } from "react-router-dom";
@@ -13,8 +13,10 @@ vi.mock("../api/axios", () => ({
 }));
 
 import { privateApi } from "../api/axios";
+import { AUTH, COURSES } from "../api/endpoints";
 import Sidebar from "../components/Sidebar/Sidebar";
 import { useAuth } from "../context/AuthContext";
+import { CourseRoleProvider, useCourseRole } from "../context/CourseRoleContext";
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(() => ({
@@ -25,6 +27,20 @@ vi.mock("../context/AuthContext", () => ({
 }));
 
 const mockLogout = vi.fn();
+const authState: {
+  logout: () => void;
+  accessToken: string | null;
+  checkingRefresh: boolean;
+} = {
+  logout: mockLogout,
+  accessToken: "mock-token",
+  checkingRefresh: false,
+};
+
+function RoleProbe({ courseId }: { courseId: string }) {
+  const role = useCourseRole(courseId);
+  return <div data-testid={`role-${courseId}`}>{role ?? "none"}</div>;
+}
 
 describe("Sidebar", () => {
   beforeEach(() => {
@@ -33,17 +49,19 @@ describe("Sidebar", () => {
     (privateApi.get as Mock).mockResolvedValue({ data: [] });
 
     (useAuth as unknown as Mock).mockImplementation(() => ({
-      logout: mockLogout,
-      accessToken: "mock-token",
-      checkingRefresh: false,
+      ...authState,
     }));
+    authState.accessToken = "mock-token";
+    authState.checkingRefresh = false;
   });
 
   function setup(initialPath = "/") {
     const user = userEvent.setup();
     const utils = render(
       <MemoryRouter initialEntries={[initialPath]}>
-        <Sidebar />
+        <CourseRoleProvider>
+          <Sidebar />
+        </CourseRoleProvider>
       </MemoryRouter>
     );
     return { user, ...utils };
@@ -57,7 +75,6 @@ describe("Sidebar", () => {
     expect(container.querySelector("aside > div")?.className).toContain("justify-between");
 
     expect(screen.getByRole("link", { name: /profile/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /courses/i })).toBeInTheDocument();
   });
 
@@ -246,5 +263,85 @@ describe("Sidebar", () => {
     expect(
       screen.getByText("Create your first course to start inviting students.")
     ).toBeInTheDocument();
+  });
+
+  it("clears cached course roles when auth token is removed", async () => {
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { role: "instructor" } });
+      if (url === COURSES.LIST) {
+        return Promise.resolve({
+          data: [{ id: "course-1", title: "Course 1", slug: "course-1", user_role: "OWNER" }],
+        });
+      }
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <CourseRoleProvider>
+          <Sidebar />
+          <RoleProbe courseId="course-1" />
+        </CourseRoleProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Aztec Assess");
+    await screen.findByTestId("role-course-1");
+    expect(screen.getByTestId("role-course-1")).toHaveTextContent("OWNER");
+
+    authState.accessToken = null;
+    rerender(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <CourseRoleProvider>
+          <Sidebar />
+          <RoleProbe courseId="course-1" />
+        </CourseRoleProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("role-course-1")).toHaveTextContent("none");
+    });
+  });
+
+  it("replaces course-role cache after course refresh events", async () => {
+    const byUrl: Record<string, unknown[]> = {
+      [AUTH.PROFILE]: [{ role: "instructor" }],
+      [COURSES.LIST]: [
+        [{ id: "course-1", title: "Course 1", slug: "course-1", user_role: "OWNER" }],
+        [{ id: "course-2", title: "Course 2", slug: "course-2", user_role: "INSTRUCTOR" }],
+      ],
+      [`${COURSES.LIST}?status=ARCHIVED`]: [[], []],
+    };
+
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      const queue = byUrl[url] ?? [];
+      const data = queue.length > 0 ? queue.shift() : [];
+      return Promise.resolve({ data });
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <CourseRoleProvider>
+          <Sidebar />
+          <RoleProbe courseId="course-1" />
+          <RoleProbe courseId="course-2" />
+        </CourseRoleProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Aztec Assess");
+    await waitFor(() => {
+      expect(screen.getByTestId("role-course-1")).toHaveTextContent("OWNER");
+    });
+    expect(screen.getByTestId("role-course-2")).toHaveTextContent("none");
+
+    window.dispatchEvent(new CustomEvent("courseDeleted"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("role-course-1")).toHaveTextContent("none");
+      expect(screen.getByTestId("role-course-2")).toHaveTextContent("INSTRUCTOR");
+    });
   });
 });

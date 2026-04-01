@@ -8,6 +8,8 @@ import "./index.css";
 import App from "./App.tsx";
 import { msalInstance } from "./config/msalConfig.ts";
 import { AuthProvider } from "./context/AuthContext.tsx";
+import { CourseRoleProvider } from "./context/CourseRoleContext.tsx";
+import { ProfileRoleProvider } from "./context/ProfileRoleContext.tsx";
 
 // Initialize MSAL for popup flow
 msalInstance.initialize().catch((error) => {
@@ -20,7 +22,11 @@ createRoot(document.getElementById("root")!).render(
       <MsalProvider instance={msalInstance}>
         <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
           <AuthProvider>
-            <App />
+            <CourseRoleProvider>
+              <ProfileRoleProvider>
+                <App />
+              </ProfileRoleProvider>
+            </CourseRoleProvider>
           </AuthProvider>
         </GoogleOAuthProvider>
       </MsalProvider>

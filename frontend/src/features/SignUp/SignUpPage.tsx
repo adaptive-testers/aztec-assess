@@ -1,5 +1,6 @@
 import { useMsal } from "@azure/msal-react";
 import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
@@ -23,6 +24,35 @@ interface FormFields {
 }
 
 const OAUTH_SIGNUP_ERROR = "Sign-up failed. Please try again.";
+
+function extractSignupErrorMessage(error: unknown, fallback: string): string {
+    if (!axios.isAxiosError(error)) return fallback;
+
+    const data = error.response?.data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return fallback;
+    }
+
+    const payload = data as Record<string, unknown>;
+    if (typeof payload.detail === "string" && payload.detail.trim().length > 0) {
+        return payload.detail;
+    }
+    if (typeof payload.message === "string" && payload.message.trim().length > 0) {
+        return payload.message;
+    }
+
+    for (const [field, value] of Object.entries(payload)) {
+        if (field === "detail" || field === "message") continue;
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+            return `${field}: ${value[0]}`;
+        }
+        if (typeof value === "string" && value.trim().length > 0) {
+            return `${field}: ${value}`;
+        }
+    }
+
+    return fallback;
+}
 
 export default function SignUpContainer() {
     const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<FormFields>();
@@ -69,13 +99,13 @@ export default function SignUpContainer() {
         });
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           setError("root", { message: "Google sign-up failed" });
         }
       } catch (e) {
         console.error(e);
-        setError("root", { message: "Google sign-up failed" });
+        setError("root", { message: extractSignupErrorMessage(e, "Google sign-up failed") });
       } finally {
         setIsOAuthLoading(false);
       }
@@ -106,15 +136,15 @@ export default function SignUpContainer() {
         });
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           setError("root", { message: OAUTH_SIGNUP_ERROR });
         }
       } finally {
         setIsOAuthLoading(false);
       }
-    } catch {
-      setError("root", { message: OAUTH_SIGNUP_ERROR });
+    } catch (error) {
+      setError("root", { message: extractSignupErrorMessage(error, OAUTH_SIGNUP_ERROR) });
     }
   };
 
@@ -138,11 +168,11 @@ export default function SignUpContainer() {
 
             if (response.data.tokens?.access) {
                 setAccessToken(response.data.tokens.access);
-                navigate("/profile");
+                navigate("/dashboard");
             }
         }
-        catch {
-            setError("root", { message: "An unexpected error occurred" });
+        catch (error) {
+            setError("root", { message: extractSignupErrorMessage(error, "Sign-up failed. Please try again.") });
         }
     };
 
