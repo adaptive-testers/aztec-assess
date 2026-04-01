@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.courses.models import CourseMembership, CourseRole
-from apps.quizzes.models import Chapter, Difficulty, Question, Quiz
+from apps.quizzes.models import Chapter, Difficulty, Question, QuestionReviewStatus, Quiz
 from apps.quizzes.tests.test_utils import (
     make_attempt,
     make_course_and_chapter,
@@ -329,6 +329,78 @@ class QuestionDetailViewTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
         self.question.refresh_from_db()
         self.assertFalse(self.question.is_active)
+
+
+class QuestionApproveViewTests(TestCase):
+    """POST /questions/{pk}/approve/ for AI-generated questions."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.course, self.chapter = make_course_and_chapter()
+        self.owner = self.course.owner
+        CourseMembership.objects.create(
+            course=self.course, user=self.owner, role=CourseRole.OWNER
+        )
+        self.student = User.objects.create_user(
+            email="student@example.com", password="pass123"
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=self.student, role=CourseRole.STUDENT
+        )
+
+    def test_approve_pending_ai_question_returns_200_and_sets_fields(self):
+        question = Question.objects.create(
+            chapter=self.chapter,
+            prompt="?",
+            choices=["a", "b", "c", "d"],
+            correct_index=0,
+            is_ai_generated=True,
+            review_status=QuestionReviewStatus.PENDING_REVIEW,
+        )
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("question-approve", kwargs={"pk": question.pk})
+        res = self.client.post(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        question.refresh_from_db()
+        self.assertEqual(question.review_status, QuestionReviewStatus.APPROVED)
+        self.assertEqual(question.approved_by, self.owner)
+        self.assertIsNotNone(question.approved_at)
+
+    def test_approve_non_ai_question_returns_400(self):
+        question = make_question(self.chapter, prompt="?")
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("question-approve", kwargs={"pk": question.pk})
+        res = self.client.post(url)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_approve_already_approved_returns_200(self):
+        question = Question.objects.create(
+            chapter=self.chapter,
+            prompt="?",
+            choices=["a", "b", "c", "d"],
+            correct_index=0,
+            is_ai_generated=True,
+            review_status=QuestionReviewStatus.APPROVED,
+            approved_by=self.owner,
+        )
+        self.client.force_authenticate(user=self.owner)
+        url = reverse("question-approve", kwargs={"pk": question.pk})
+        res = self.client.post(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_approve_as_student_returns_403(self):
+        question = Question.objects.create(
+            chapter=self.chapter,
+            prompt="?",
+            choices=["a", "b", "c", "d"],
+            correct_index=0,
+            is_ai_generated=True,
+            review_status=QuestionReviewStatus.PENDING_REVIEW,
+        )
+        self.client.force_authenticate(user=self.student)
+        url = reverse("question-approve", kwargs={"pk": question.pk})
+        res = self.client.post(url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class QuizListCreateViewTests(TestCase):

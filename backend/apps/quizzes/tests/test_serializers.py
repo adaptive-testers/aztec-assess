@@ -1,9 +1,11 @@
 """
 Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer).
 """
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.quizzes.models import Difficulty
+from apps.courses.models import Course, Topic
+from apps.quizzes.models import Difficulty, QuestionReviewStatus
 from apps.quizzes.serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
@@ -19,6 +21,8 @@ from apps.quizzes.tests.test_utils import (
     make_question,
     make_quiz,
 )
+
+User = get_user_model()
 
 
 class ChapterSerializerTests(TestCase):
@@ -93,6 +97,70 @@ class QuestionCreateUpdateSerializerTests(TestCase):
             }
         )
         self.assertTrue(serializer.is_valid())
+
+    def test_validate_topics_rejects_topic_from_other_course(self):
+        """Topics must belong to the chapter's course."""
+        other_course = Course.objects.create(
+            title="Other",
+            owner=self.course.owner,
+            slug="other-course",
+        )
+        foreign_topic = Topic.objects.create(course=other_course, name="Foreign")
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [foreign_topic.id],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("topics", serializer.errors)
+
+    def test_create_saves_topics_m2m(self):
+        topic = Topic.objects.create(course=self.course, name="Unit 1")
+        user = User.objects.create_user(email="author@example.com", password="x")
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [topic.id],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        question = serializer.save(chapter=self.chapter, created_by=user)
+        self.assertEqual(list(question.topics.all()), [topic])
+
+    def test_update_sets_topics(self):
+        question = make_question(self.chapter, prompt="Q")
+        topic = Topic.objects.create(course=self.course, name="Tag")
+        serializer = QuestionCreateUpdateSerializer(
+            instance=question,
+            data={"topics": [topic.id]},
+            partial=True,
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        question.refresh_from_db()
+        self.assertEqual(list(question.topics.all()), [topic])
+
+    def test_create_defaults_review_status_approved_for_manual_questions(self):
+        user = User.objects.create_user(email="author2@example.com", password="x")
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        question = serializer.save(chapter=self.chapter, created_by=user)
+        self.assertEqual(question.review_status, QuestionReviewStatus.APPROVED)
+        self.assertFalse(question.is_ai_generated)
 
 
 class QuestionStudentSerializerTests(TestCase):

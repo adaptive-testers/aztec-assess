@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
-from apps.courses.models import Course, CourseMembership, CourseRole
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
 
 UserModel = cast("type[User]", get_user_model())
 
@@ -877,3 +877,113 @@ class TestEnrollmentViewSet:
         response = client.post(url, {"join_code": "ABC12345"}, format="json")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+# ===============================
+# Course topics (nested) + TopicViewSet
+# ===============================
+class TestCourseTopicsAPI:
+    """GET/POST /api/courses/{id}/topics/."""
+
+    def test_list_topics_as_member_returns_200(self, owner, student, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        Topic.objects.create(course=course, name="Algebra")
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+        assert response.data[0]["name"] == "Algebra"
+
+    def test_list_topics_non_member_returns_403(self, non_member, course, owner):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        client = APIClient()
+        client.force_authenticate(user=non_member)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_topic_as_owner_returns_201(self, owner, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "Geometry"}, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["name"] == "Geometry"
+        assert Topic.objects.filter(course=course, name="Geometry").exists()
+
+    def test_create_topic_as_student_returns_403(self, owner, student, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "No"}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_topic_duplicate_name_returns_400(self, owner, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        Topic.objects.create(course=course, name="Dup")
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("course-topics", kwargs={"pk": course.id})
+        response = client.post(url, {"name": "dup"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestTopicViewSetAPI:
+    """Retrieve / update / destroy /api/topics/{uuid}/."""
+
+    def test_retrieve_as_course_member_returns_200(self, owner, student, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        topic = Topic.objects.create(course=course, name="T")
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["name"] == "T"
+
+    def test_retrieve_non_member_returns_403(self, non_member, owner, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="T")
+        client = APIClient()
+        client.force_authenticate(user=non_member)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_patch_as_owner_updates_name(self, owner, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="Old")
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.patch(url, {"name": "New"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        topic.refresh_from_db()
+        assert topic.name == "New"
+
+    def test_patch_as_student_returns_403(self, owner, student, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
+        topic = Topic.objects.create(course=course, name="T")
+        client = APIClient()
+        client.force_authenticate(user=student)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.patch(url, {"name": "X"}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_destroy_as_owner_returns_204(self, owner, course):
+        CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
+        topic = Topic.objects.create(course=course, name="Gone")
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        url = reverse("topic-detail", kwargs={"pk": topic.id})
+        response = client.delete(url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Topic.objects.filter(id=topic.id).exists()

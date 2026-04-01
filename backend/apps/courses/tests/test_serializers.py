@@ -11,12 +11,14 @@ from rest_framework.test import APIRequestFactory
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
-from apps.courses.models import Course, CourseMembership, CourseRole
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
 from apps.courses.serializers import (
     CourseCreateSerializer,
     CourseMembershipSerializer,
     CourseSerializer,
     JoinCourseSerializer,
+    TopicCreateSerializer,
+    TopicSerializer,
 )
 
 UserModel = cast("type[User]", get_user_model())
@@ -219,4 +221,60 @@ class TestJoinCourseSerializer:
         serializer = JoinCourseSerializer(data={"join_code": "ABC12345"})
         assert serializer.is_valid()
         assert serializer.validated_data["join_code"] == "ABC12345"
+
+
+# ===============================
+# Topic serializers
+# ===============================
+class TestTopicSerializer:
+    """TopicSerializer duplicate-name validation (per course, case-insensitive)."""
+
+    def test_rejects_duplicate_name_case_insensitive(self, course):
+        Topic.objects.create(course=course, name="Alpha")
+        serializer = TopicSerializer(
+            data={"name": "  alpha  "},
+            context={"course": course},
+        )
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+
+    def test_update_same_topic_same_name_is_valid(self, course):
+        topic = Topic.objects.create(course=course, name="Alpha")
+        serializer = TopicSerializer(
+            topic,
+            data={"name": "ALPHA"},
+            partial=True,
+        )
+        assert serializer.is_valid()
+
+    def test_validates_unique_name_on_update(self, course):
+        Topic.objects.create(course=course, name="Other")
+        topic = Topic.objects.create(course=course, name="Mine")
+        serializer = TopicSerializer(
+            topic,
+            data={"name": "other"},
+            partial=True,
+        )
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+
+
+class TestTopicCreateSerializer:
+    """TopicCreateSerializer name uniqueness."""
+
+    def test_rejects_duplicate_name(self, course):
+        Topic.objects.create(course=course, name="Foo")
+        serializer = TopicCreateSerializer(
+            data={"name": "  foo  "},
+            context={"course": course},
+        )
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+
+    def test_accepts_unique_name(self, course):
+        serializer = TopicCreateSerializer(
+            data={"name": "New Topic"},
+            context={"course": course},
+        )
+        assert serializer.is_valid()
 
