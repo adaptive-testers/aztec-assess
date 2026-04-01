@@ -56,6 +56,21 @@ def test_embed_query_returns_embedding(
 @override_settings(GEMINI_API_KEY="test-key")
 @patch("google.generativeai.embed_content")
 @patch("google.generativeai.configure")
+def test_second_embed_query_skips_genai_configure(
+    mock_configure: object, mock_embed: object
+) -> None:
+    """_ensure_configured short-circuits after first successful configure."""
+    gc._client_configured = False
+    mock_embed.return_value = {"embedding": [1.0]}
+    gc.embed_query("first")
+    gc.embed_query("second")
+    assert mock_configure.call_count == 1
+    assert mock_embed.call_count == 2
+
+
+@override_settings(GEMINI_API_KEY="test-key")
+@patch("google.generativeai.embed_content")
+@patch("google.generativeai.configure")
 def test_embed_query_raises_when_no_embedding(
     _mock_configure: object, mock_embed: object
 ) -> None:

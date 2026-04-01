@@ -13,7 +13,7 @@ def test_safe_upload_basename_uses_final_segment_only() -> None:
     assert safe_upload_basename("folder/notes.txt") == "notes.txt"
 
 
-def test_safe_upload_basename_empty_or_dotdot():
+def test_safe_upload_basename_empty_or_dotdot() -> None:
     assert safe_upload_basename("..") == "upload"
     assert safe_upload_basename("") == "upload"
     assert safe_upload_basename("   ") == "upload"
