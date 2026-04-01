@@ -417,7 +417,7 @@ export default function CourseDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen w-full p-6 geist-font bg-primary-background">
+      <div className="w-full p-6 geist-font">
       {toast && (
         <Toast
           message={toast.message}

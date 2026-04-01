@@ -2,8 +2,8 @@ import { useMsal } from "@azure/msal-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { useState } from "react";
-import { useForm, type SubmitHandler, useWatch } from "react-hook-form";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { IoChevronBack, IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
 import { Link, useNavigate } from "react-router-dom";
@@ -41,7 +41,6 @@ function getOAuthErrorMessage(
 interface FormFields {
   userEmail: string;
   userPassword: string;
-  keepSignedIn: boolean;
 }
 
 export default function LogInContainer() {
@@ -55,14 +54,10 @@ export default function LogInContainer() {
     register,
     handleSubmit,
     setError,
-    setValue,
-    control,
     formState: { errors, isSubmitting },
   } = useForm<FormFields>({
-    defaultValues: { userEmail: "", userPassword: "", keepSignedIn: false },
+    defaultValues: { userEmail: "", userPassword: "" },
   });
-
-  const keepSignedIn = useWatch({ control, name: "keepSignedIn" }) ?? false;
 
   const loginWithGoogleCode = useGoogleLogin({
     flow: "auth-code",
@@ -138,7 +133,6 @@ export default function LogInContainer() {
       const { data: res } = await publicApi.post(AUTH.LOGIN, {
         email: data.userEmail,
         password: data.userPassword,
-        // TODO: Enable keepSignedIn once backend support is available
       });
 
       if (res?.tokens?.access) setAccessToken(res.tokens.access);
@@ -159,6 +153,13 @@ export default function LogInContainer() {
 
   return (
     <div className="Log-In relative w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4 min-h-dvh">
+      <Link
+        to="/"
+        className="fixed left-5 top-5 z-30 inline-flex items-center gap-1 rounded-md border border-[#2F2F2F] bg-[#111111]/80 px-2.5 py-1.5 font-geist text-xs text-[#D4D4D4] backdrop-blur transition hover:border-white hover:text-white"
+      >
+        <IoChevronBack className="h-3.5 w-3.5" />
+        Back
+      </Link>
       {isOAuthLoading && (
         <div
           className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
@@ -273,42 +274,6 @@ export default function LogInContainer() {
                     </button>
                   </div>
                 </div>
-
-                {/* Keep me signed in */}
-                <input
-                  type="checkbox"
-                  {...register("keepSignedIn")}
-                  className="hidden"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                />
-                <div className="Frame-39 flex items-center gap-[8px] w-[140px] h-[16px] text-[#8E8E8E] transition duration-300 ease-in-out hover:scale-101 hover:text-white cursor-pointer">
-                  <button
-                    type="button"
-                    aria-pressed={keepSignedIn}
-                    aria-label="Keep me signed in"
-                    onClick={() =>
-                      setValue("keepSignedIn", !keepSignedIn, {
-                        shouldDirty: true,
-                      })
-                    }
-                    className={`flex items-center gap-[10px] w-[14px] h-[14px] p-[3px] rounded-[4px] border border-[#282828] ${
-                      keepSignedIn ? "bg-[#EF6262]" : "bg-[#0A0A0A]"
-                    }`}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setValue("keepSignedIn", !keepSignedIn, {
-                        shouldDirty: true,
-                      })
-                    }
-                    className="Forgot-pass w-[120px] h-[16px] font-geist font-normal text-[12px] leading-[16px] flex items-center tracking-[0.5px] bg-transparent border-none cursor-pointer"
-                  >
-                    Keep me signed in
-                  </button>
-                </div>
               </div>
 
               {/* Login */}
@@ -362,14 +327,8 @@ export default function LogInContainer() {
           </div>
 
           <div className="Frame-7 flex flex-col justify-center items-center gap-4 sm:gap-[21px] w-full max-w-[402px]">
-            <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center tracking-[0.5px]">
-              <a
-                href="/forgot-password"
-                className="text-[#EF6262] no-underline hover:underline cursor-pointer"
-              >
-                Can&#39;t log in?
-              </a>
-              <span className="mx-1 text-[#ededed]">•</span>
+            <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center gap-1.5 tracking-[0.5px]">
+              <span className="text-[#ededed]">Need an account?</span>
               <Link
                 to="/role-select"
                 className="text-[#EF6262] no-underline hover:underline cursor-pointer"

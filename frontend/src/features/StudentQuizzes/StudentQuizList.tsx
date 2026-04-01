@@ -331,15 +331,39 @@ export default function StudentQuizList({ courseId: courseIdProp }: StudentQuizL
           ))}
         </div>
       ) : error ? (
-        <div className="p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
-          <p className="text-red-500 text-sm">{error}</p>
+        <div className="rounded-xl border border-[#4A2A2A] bg-[#191212] p-5">
+          <h3 className="font-geist text-sm font-medium text-[#FECACA]">We could not load quizzes</h3>
+          <p className="mt-2 text-sm text-[#FCA5A5]">{error}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => fetchQuizzes()}
+              className="rounded-md bg-[#EF6262] px-3 py-1.5 text-xs font-geist font-medium text-white transition hover:border hover:border-white"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              className="rounded-md border border-[#3A3A3A] px-3 py-1.5 text-xs font-geist text-[#D4D4D4] transition hover:border-white hover:text-white"
+            >
+              Back to dashboard
+            </button>
+          </div>
         </div>
       ) : quizzes.length === 0 ? (
-        <div className="p-4 bg-secondary-background border-2 border-primary-border rounded-lg">
-          <p className="text-secondary-text text-sm">No quizzes available.</p>
-          <p className="text-secondary-text text-xs mt-1">
+        <div className="rounded-xl border border-primary-border bg-secondary-background p-5">
+          <h3 className="font-geist text-sm font-medium text-primary-text">No quizzes available.</h3>
+          <p className="text-secondary-text text-xs mt-2">
             Quizzes will appear here when your instructor adds them to the course.
           </p>
+          <button
+            type="button"
+            onClick={() => fetchQuizzes()}
+            className="mt-4 rounded-md border border-[#3A3A3A] px-3 py-1.5 text-xs font-geist text-[#D4D4D4] transition hover:border-white hover:text-white"
+          >
+            Refresh list
+          </button>
         </div>
       ) : (
         <div
