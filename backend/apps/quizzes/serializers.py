@@ -4,7 +4,14 @@ from rest_framework import serializers
 
 from apps.courses.models import Topic
 
-from .models import Chapter, Question, QuestionReviewStatus, Quiz, QuizAttempt
+from .models import (
+    Chapter,
+    Difficulty,
+    Question,
+    QuestionReviewStatus,
+    Quiz,
+    QuizAttempt,
+)
 
 
 class ChapterSerializer(serializers.ModelSerializer):
@@ -23,6 +30,13 @@ class ChapterStudentSerializer(serializers.ModelSerializer):
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
+    topics = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Topic.objects.all(),
+        required=False,
+        allow_empty=True,
+    )
+
     class Meta:
         model = Question
         fields = (
@@ -93,6 +107,34 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         if topics is not None:
             question.topics.set(topics)
         return question
+
+
+class QuestionImportItemSerializer(serializers.Serializer):
+    prompt = serializers.CharField()
+    choices = serializers.ListField(child=serializers.CharField(), min_length=4, max_length=4)
+    correct_index = serializers.IntegerField(min_value=0, max_value=3)
+    difficulty = serializers.ChoiceField(choices=Difficulty.choices)
+
+    def validate_prompt(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("prompt cannot be empty.")
+        return value
+
+    def validate_choices(self, value: list[Any]) -> list[Any]:
+        normalized = []
+        for choice in value:
+            if not isinstance(choice, str):
+                raise serializers.ValidationError("choices must contain strings only.")
+            normalized.append(choice.strip())
+        if len(normalized) != 4:
+            raise serializers.ValidationError("choices must be a list of 4 options.")
+        return normalized
+
+
+class QuestionBulkImportSerializer(serializers.Serializer):
+    questions = serializers.ListField(child=serializers.DictField(), allow_empty=False)
+    overwrite_existing = serializers.BooleanField(required=False, default=False)
 
 
 class QuestionStudentSerializer(serializers.ModelSerializer):

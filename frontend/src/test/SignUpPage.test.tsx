@@ -106,6 +106,11 @@ describe("SignUpContainer", () => {
             expect(screen.getByRole("button", { name: "Sign Up" })).toBeInTheDocument()
         })
 
+        it("renders back navigation to home", () => {
+            render(<SignUpContainer />)
+            expect(screen.getByRole("link", { name: /back/i })).toHaveAttribute("href", "/")
+        })
+
         it("renders social login buttons", () => {
             render(<SignUpContainer />)
 
@@ -156,7 +161,7 @@ describe("SignUpContainer", () => {
                     { code: "mock_oauth_code", role: "student" }
                 )
                 expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
-                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+                expect(mockNavigate).toHaveBeenCalledWith("/dashboard")
             })
         })
 
@@ -188,7 +193,7 @@ describe("SignUpContainer", () => {
                     { code: "mock_oauth_code", role: "student" }
                 )
                 expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
-                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+                expect(mockNavigate).toHaveBeenCalledWith("/dashboard")
             })
         })
 
@@ -246,7 +251,7 @@ describe("SignUpContainer", () => {
             }
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+                expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
             })
         })
 
@@ -258,7 +263,7 @@ describe("SignUpContainer", () => {
         it("renders login link", () => {
             render(<SignUpContainer />)
             const loginLink = screen.getByText("Log in")
-            expect(loginLink.closest('a')).toHaveAttribute("href", "/")
+            expect(loginLink.closest('a')).toHaveAttribute("href", "/login")
         })
 
         it("renders 'Already have an account?' text", () => {
@@ -302,7 +307,7 @@ describe("SignUpContainer", () => {
                     { access_token: "mock_ms_token", role: "student" }
                 )
                 expect(mockSetAccessToken).toHaveBeenCalledWith("mock_access_token")
-                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+                expect(mockNavigate).toHaveBeenCalledWith("/dashboard")
             })
         })
 
@@ -333,7 +338,7 @@ describe("SignUpContainer", () => {
             await userEvent.click(microsoftButton)
 
             expect(mockLoginPopup).not.toHaveBeenCalled()
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
         it("handles Microsoft popup rejection", async () => {
@@ -351,7 +356,7 @@ describe("SignUpContainer", () => {
 
     // Role state handling
     describe("Role State Handling", () => {
-        it("redirects to home if no role is provided", () => {
+        it("redirects to role selection if no role is provided", () => {
             vi.mocked(useLocation).mockReturnValue({
                 state: null,
                 pathname: '/sign-up',
@@ -362,10 +367,10 @@ describe("SignUpContainer", () => {
             
             render(<SignUpContainer />)
             
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
-        it("redirects to home if role is missing from state", () => {
+        it("redirects to role selection if role is missing from state", () => {
             vi.mocked(useLocation).mockReturnValue({
                 state: {},
                 pathname: '/sign-up',
@@ -376,7 +381,7 @@ describe("SignUpContainer", () => {
             
             render(<SignUpContainer />)
             
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
         it("does not redirect if role is provided", () => {
@@ -427,7 +432,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+                expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
             })
         })
     })
@@ -685,7 +690,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+                expect(mockNavigate).toHaveBeenCalledWith("/dashboard")
             })
         })
 
@@ -704,7 +709,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(screen.getByText("An unexpected error occurred")).toBeInTheDocument()
+                expect(screen.getByText("Sign-up failed. Please try again.")).toBeInTheDocument()
             })
         })
 
@@ -723,10 +728,58 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                const errorMessage = screen.getByText("An unexpected error occurred")
+                const errorMessage = screen.getByText("Sign-up failed. Please try again.")
                 expect(errorMessage).toHaveAttribute("aria-live", "polite")
                 const alertContainer = errorMessage.closest('[role="alert"]')
                 expect(alertContainer).toBeInTheDocument()
+            })
+        })
+
+        it("shows backend detail message when present", async () => {
+            const user = userEvent.setup()
+            vi.mocked(publicApi.post).mockRejectedValue({
+                isAxiosError: true,
+                response: {
+                    data: { detail: "Only student signup is currently enabled." },
+                },
+            })
+
+            render(<SignUpContainer />)
+
+            await user.type(screen.getByLabelText("First Name"), "John")
+            await user.type(screen.getByLabelText("Last Name"), "Doe")
+            await user.type(screen.getByLabelText("Email"), "john@example.com")
+            await user.type(screen.getByLabelText("Password"), "password123!")
+            await user.click(screen.getByRole("button", { name: "Sign Up" }))
+
+            await waitFor(() => {
+                expect(
+                    screen.getByText("Only student signup is currently enabled."),
+                ).toBeInTheDocument()
+            })
+        })
+
+        it("shows first field validation message for common 400 responses", async () => {
+            const user = userEvent.setup()
+            vi.mocked(publicApi.post).mockRejectedValue({
+                isAxiosError: true,
+                response: {
+                    data: { email: ["A user with this email already exists."] },
+                },
+            })
+
+            render(<SignUpContainer />)
+
+            await user.type(screen.getByLabelText("First Name"), "John")
+            await user.type(screen.getByLabelText("Last Name"), "Doe")
+            await user.type(screen.getByLabelText("Email"), "john@example.com")
+            await user.type(screen.getByLabelText("Password"), "password123!")
+            await user.click(screen.getByRole("button", { name: "Sign Up" }))
+
+            await waitFor(() => {
+                expect(
+                    screen.getByText("email: A user with this email already exists."),
+                ).toBeInTheDocument()
             })
         })
 
@@ -797,7 +850,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(screen.getByText("An unexpected error occurred")).toBeInTheDocument()
+                expect(screen.getByText("Sign-up failed. Please try again.")).toBeInTheDocument()
             })
             
             expect(submitButton).not.toBeDisabled()
@@ -826,8 +879,8 @@ describe("SignUpContainer", () => {
                 expect(publicApi.post).toHaveBeenCalled()
             })
             
-            // Should not navigate to home without access token
-            expect(mockNavigate).not.toHaveBeenCalledWith("/")
+            // Should not navigate without an access token
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
     })
 
@@ -857,6 +910,10 @@ describe("SignUpContainer", () => {
             const lastNameInput = screen.getByLabelText("Last Name")
             const emailInput = screen.getByLabelText("Email")
             const passwordInput = screen.getByLabelText("Password")
+            const backLink = screen.getByRole("link", { name: /back/i })
+            
+            await user.tab()
+            expect(backLink).toHaveFocus()
             
             await user.tab()
             expect(firstNameInput).toHaveFocus()
@@ -1042,7 +1099,7 @@ describe("SignUpContainer", () => {
             
             await waitFor(() => {
                 expect(mockSetAccessToken).toHaveBeenCalledWith("mock-access-token")
-                expect(mockNavigate).toHaveBeenCalledWith("/profile")
+                expect(mockNavigate).toHaveBeenCalledWith("/dashboard")
             })
         })
     })

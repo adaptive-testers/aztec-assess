@@ -13,6 +13,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { privateApi } from "../../api/axios";
 import { AUTH, COURSES, QUIZZES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
+import { useCourseRoleContext } from "../../context/CourseRoleContext";
+import { useProfileRole } from "../../context/ProfileRoleContext";
 import type {
   InstructorChapter,
   InstructorQuestion,
@@ -26,6 +28,10 @@ import DraftQuizzesModal, { type DraftQuiz } from "./DraftQuizzesModal";
 import ManageQuestionsModal, {
   type ManageQuestionItem,
 } from "./ManageQuestionsModal";
+import QuestionImportModal, {
+  type QuestionImportPayload,
+  type QuestionImportResponse,
+} from "./QuestionImportModal";
 
 // =============================================================================
 // TYPES
@@ -48,6 +54,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 interface CourseForSlugLookup {
   id: string;
   slug: string;
+  title: string;
+  status: string;
+  user_role?: string;
 }
 
 interface CourseMemberForDisplay {
@@ -56,6 +65,8 @@ interface CourseMemberForDisplay {
   user_id: string;
   user_last_name?: string;
 }
+
+type CourseRole = "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT";
 
 function parseListResponse<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
@@ -77,6 +88,7 @@ function humanDate(iso?: string | null) {
 /** Format API error: 400 field-level (field_name: ["msg"]), 403/404 detail, or fallback. */
 function formatApiError(err: unknown, fallback: string): string {
   if (!(err instanceof axios.AxiosError)) return fallback;
+  if (err.response?.status === 404) return "Course not found.";
   const data = err.response?.data;
   if (data && typeof data === "object" && !Array.isArray(data)) {
     const d = data as Record<string, unknown>;
@@ -292,15 +304,30 @@ export default function CoursePage() {
   const [resolvedCourseId, setResolvedCourseId] = useState<string | null>(null);
   const effectiveCourseId = resolvedCourseId ?? courseId ?? null;
 
-  // ---------- COURSE ROLE (for student vs instructor content) ----------
-  const [userCourseRole, setUserCourseRole] = useState<
-    "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT" | null
-  >(null);
+  // ---------- COURSE ROLE (revalidated for every course/auth transition) ----------
+  const { setRole } = useCourseRoleContext();
+  const { profileRole, loading: profileRoleLoading } = useProfileRole();
+  const [userCourseRole, setUserCourseRole] = useState<CourseRole | null>(null);
+  const [roleResolved, setRoleResolved] = useState(false);
+  const roleLoading = !roleResolved;
+  const showStudentLayout =
+    userCourseRole === "STUDENT" ||
+    (!roleLoading &&
+      userCourseRole === null &&
+      !profileRoleLoading &&
+      profileRole === "student");
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [roleLoading, setRoleLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
-    if (!resolvedCourseId) return;
+    setUserCourseRole(null);
+    setRoleResolved(false);
+    setProfileLoaded(false);
+  }, [resolvedCourseId, accessToken]);
+
+  useEffect(() => {
+    if (!resolvedCourseId || checkingRefresh || !accessToken) return;
 
     const fetchProfile = async () => {
       try {
@@ -308,14 +335,18 @@ export default function CoursePage() {
         setCurrentUserId(res.data?.id ?? null);
       } catch {
         setCurrentUserId(null);
+      } finally {
+        setProfileLoaded(true);
       }
     };
 
     void fetchProfile();
-  }, [resolvedCourseId]);
+  }, [resolvedCourseId, checkingRefresh, accessToken]);
 
   useEffect(() => {
-    if (!resolvedCourseId || currentUserId === null) return;
+    if (!resolvedCourseId || !accessToken || checkingRefresh || !profileLoaded) return;
+
+    setRoleResolved(false);
 
     const fetchMembersAndRole = async () => {
       try {
@@ -328,29 +359,43 @@ export default function CoursePage() {
           (m) =>
             String(m.user_id).toLowerCase().trim() === normalizedCurrent,
         );
-        if (member && ["OWNER", "INSTRUCTOR", "TA", "STUDENT"].includes(member.role)) {
-          setUserCourseRole(member.role as "OWNER" | "INSTRUCTOR" | "TA" | "STUDENT");
-        } else {
-          setUserCourseRole(null);
+        const role =
+          member && ["OWNER", "INSTRUCTOR", "TA", "STUDENT"].includes(member.role)
+            ? (member.role as CourseRole)
+            : null;
+        setUserCourseRole(role);
+        if (role) {
+          setRole(resolvedCourseId, role);
+          if (courseId && courseId !== resolvedCourseId) setRole(courseId, role);
         }
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 403) {
           setUserCourseRole("STUDENT");
+          setRole(resolvedCourseId, "STUDENT");
+          if (courseId && courseId !== resolvedCourseId) setRole(courseId, "STUDENT");
         } else {
           setUserCourseRole(null);
         }
       } finally {
-        setRoleLoading(false);
+        setRoleResolved(true);
       }
     };
 
     void fetchMembersAndRole();
-  }, [resolvedCourseId, currentUserId]);
+  }, [
+    resolvedCourseId,
+    courseId,
+    currentUserId,
+    accessToken,
+    checkingRefresh,
+    profileLoaded,
+    setRole,
+  ]);
 
   const isStaff =
     userCourseRole !== null &&
     ["OWNER", "INSTRUCTOR", "TA"].includes(userCourseRole);
-  const isStudent = userCourseRole === "STUDENT";
+  const canViewMembersTab = isStaff || showStudentLayout;
 
   // ---------- PAGE STATE (chapters, quizzes, loading) ----------
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -359,11 +404,13 @@ export default function CoursePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [courseTitle, setCourseTitle] = useState<string | null>(null);
+  const [courseStatus, setCourseStatus] = useState<string | null>(null);
   const [courseTitleLoading, setCourseTitleLoading] = useState(true);
   const [creatorNameById, setCreatorNameById] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!courseId) return;
+    setError(null);
 
     const parseCoursesArray = (data: unknown): CourseForSlugLookup[] => {
       if (Array.isArray(data)) return data as CourseForSlugLookup[];
@@ -378,6 +425,18 @@ export default function CoursePage() {
     const resolveCourseId = async () => {
       if (UUID_REGEX.test(courseId)) {
         setResolvedCourseId(courseId);
+        try {
+          const response = await privateApi.get(COURSES.DETAIL(courseId));
+          const data = response.data as { title?: string; status?: string; user_role?: string };
+          if (data.title != null) setCourseTitle(data.title);
+          if (data.status != null) setCourseStatus(data.status);
+          setCourseTitleLoading(false);
+          if (data.user_role) {
+            setRole(courseId, data.user_role);
+          }
+        } catch {
+          setCourseTitleLoading(false);
+        }
         return;
       }
       try {
@@ -393,21 +452,28 @@ export default function CoursePage() {
 
         if (matchingCourse) {
           setResolvedCourseId(matchingCourse.id);
+          setCourseTitle(matchingCourse.title);
+          setCourseStatus(matchingCourse.status);
+          setCourseTitleLoading(false);
+          if (matchingCourse.user_role) {
+            setRole(String(matchingCourse.id), matchingCourse.user_role);
+            setRole(courseId, matchingCourse.user_role);
+          }
           return;
         }
 
         setResolvedCourseId(null);
+        setCourseTitleLoading(false);
         setError("Course not found.");
-        setRoleLoading(false);
       } catch (err) {
         setResolvedCourseId(null);
+        setCourseTitleLoading(false);
         setError(formatApiError(err, "Failed to resolve course."));
-        setRoleLoading(false);
       }
     };
 
     void resolveCourseId();
-  }, [courseId]);
+  }, [courseId, setRole]);
 
   // ---------- CREATE QUIZ MODAL (state + handlers in one block) ----------
   const [createOpen, setCreateOpen] = useState(false);
@@ -425,6 +491,7 @@ export default function CoursePage() {
 
   // ---------- MANAGE QUESTIONS MODAL (questions for current chapter) ----------
   const [manageQuestionsOpen, setManageQuestionsOpen] = useState(false);
+  const [questionImportOpen, setQuestionImportOpen] = useState(false);
   const [chapterQuestions, setChapterQuestions] = useState<ApiQuestion[]>([]);
   const [chapterQuestionsLoading, setChapterQuestionsLoading] = useState(false);
   const [chapterQuestionsLoadingMore, setChapterQuestionsLoadingMore] = useState(false);
@@ -477,8 +544,9 @@ export default function CoursePage() {
 
   // ---------- COURSE TITLE (for header) ----------
   useEffect(() => {
-    if (!effectiveCourseId) {
-      setCourseTitle(null);
+    // Only fetch when we have a resolved UUID (not slug)
+    if (!effectiveCourseId || !UUID_REGEX.test(effectiveCourseId)) {
+      if (!effectiveCourseId) setCourseTitle(null);
       return;
     }
 
@@ -486,7 +554,9 @@ export default function CoursePage() {
       try {
         const response = await privateApi.get(COURSES.DETAIL(effectiveCourseId));
         const title = response.data?.title ?? null;
+        const status = response.data?.status ?? null;
         setCourseTitle(title);
+        if (status) setCourseStatus(status);
       } catch {
         setCourseTitle(null);
       } finally {
@@ -498,8 +568,9 @@ export default function CoursePage() {
   }, [effectiveCourseId]);
 
   useEffect(() => {
-    if (!effectiveCourseId) {
-      setCreatorNameById({});
+    // Only fetch when we have a resolved UUID (not slug)
+    if (!effectiveCourseId || !UUID_REGEX.test(effectiveCourseId)) {
+      if (!effectiveCourseId) setCreatorNameById({});
       return;
     }
 
@@ -545,7 +616,9 @@ export default function CoursePage() {
         setQuizzes([]);
         return;
       }
-      if (!activeChapterId) setActiveChapterId(chapterIds[0]);
+      setActiveChapterId((prev) =>
+        prev != null && chapterIds.includes(prev) ? prev : chapterIds[0],
+      );
 
       const quizResponses = await Promise.all(
         chapterIds.map((id) =>
@@ -562,7 +635,7 @@ export default function CoursePage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCourseId, activeChapterId]);
+  }, [effectiveCourseId]);
 
   // ---------- EFFECTS ----------
   useEffect(() => {
@@ -576,6 +649,14 @@ export default function CoursePage() {
       void fetchAllQuizzes();
     }
   }, [checkingRefresh, accessToken, fetchAllQuizzes, isStaff]);
+
+  // Reset question bank when switching courses so we don't show previous course's questions
+  useEffect(() => {
+    setChapterQuestions([]);
+    setChapterQuestionsNextUrl(null);
+    setChapterQuestionsTotalCount(0);
+    setChapterQuestionsError(null);
+  }, [effectiveCourseId]);
 
   // ---------- API: FETCH CHAPTER QUESTIONS (for Manage Questions modal + question bank) ----------
   const fetchChapterQuestions = useCallback(
@@ -997,67 +1078,100 @@ export default function CoursePage() {
     else setChapterQuestions([]);
   }
 
+  async function handleQuestionImport(
+    payload: QuestionImportPayload,
+  ): Promise<QuestionImportResponse> {
+    if (!activeChapterId) {
+      throw new Error("Select a chapter before importing questions.");
+    }
+
+    try {
+      const response = await privateApi.post<QuestionImportResponse>(
+        QUIZZES.QUESTION_IMPORT_BY_CHAPTER(activeChapterId),
+        payload,
+      );
+      await fetchChapterQuestions(activeChapterId);
+      return response.data;
+    } catch (err) {
+      throw new Error(formatApiError(err, "Failed to import questions."));
+    }
+  }
+
   // ---------- RENDER ----------
   return (
     <section className="w-full bg-[#0A0A0A] text-[#F1F5F9]">
       <div className="mx-auto w-full max-w-[1400px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
-        {/* Page header */}
+        {/* Page header: static layout; shimmer only on dynamic title/status */}
         <div className="flex items-center justify-between gap-4">
-          {courseTitleLoading ? (
-            <div className="skeleton-shimmer h-7 w-48 rounded" />
-          ) : (
-            <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
-              {courseTitle ?? "Course"}
-            </h1>
-          )}
+          <div className="flex items-center gap-4 min-w-0">
+            {courseTitleLoading ? (
+              <div className="skeleton-shimmer h-9 w-32 rounded shrink-0" />
+            ) : (
+              <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9] truncate">
+                {courseTitle ?? "Course"}
+              </h1>
+            )}
+            {!courseTitleLoading && isStaff && courseStatus && (
+              <span className={`inline-block px-3 py-1 rounded-md text-[13px] font-semibold tracking-wide shrink-0 ${
+                courseStatus === 'ACTIVE'
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                  : courseStatus === 'ARCHIVED'
+                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                    : 'bg-[#262626] text-[#A1A1AA] border border-[#404040]'
+              }`}>
+                {courseStatus}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Top nav */}
-        <div className="mt-4 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
+        <div className="mt-4 mb-6 rounded-2xl border border-[#404040] bg-gradient-to-b from-[#1A1A1A] via-[#1F1F1F] to-[#1A1A1A] p-1 shadow-[0px_4px_12px_rgba(0,0,0,0.3)]">
           {roleLoading ? (
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {[0, 1, 2].map((i) => (
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-12 rounded-xl bg-[#232323]" />
               ))}
             </div>
           ) : (
-          <div className={`grid grid-cols-2 gap-1 ${isStudent ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
-            <button
-              type="button"
-              className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
-            >
-              Quizzes
-            </button>
-            {!isStudent && (
+            <div className={`grid grid-cols-2 gap-1 ${canViewMembersTab ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+              <button
+                type="button"
+                className="h-12 rounded-xl bg-[#F87171] text-[16px] font-normal leading-6 tracking-[-0.3125px] text-white shadow-[0px_10px_15px_rgba(0,0,0,0.1),0px_4px_6px_rgba(0,0,0,0.1)]"
+              >
+                Quizzes
+              </button>
+              {canViewMembersTab && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (effectiveCourseId) navigate(`/courses/${effectiveCourseId}/students`);
+                  }}
+                  className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+                >
+                  Members
+                </button>
+              )}
               <button
                 type="button"
                 className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
               >
-                Students
+                Grades
               </button>
-            )}
-            <button
-              type="button"
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Grades
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (effectiveCourseId) {
-                  navigate(`/courses/${effectiveCourseId}/settings`);
-                }
-              }}
-              className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
-            >
-              Course Info
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (effectiveCourseId) navigate(`/courses/${effectiveCourseId}/settings`);
+                }}
+                className="h-12 rounded-xl text-[16px] font-normal leading-6 tracking-[-0.3125px] text-[#A1A1AA] hover:bg-[#151515] transition"
+              >
+                Course Info
+              </button>
+            </div>
           )}
         </div>
 
-        {error ? (
+        {error && !courseTitleLoading ? (
           <div className="mt-4 text-[#A1A1AA]">{error}</div>
         ) : roleLoading ? (
           <div className="mt-4 space-y-4">
@@ -1065,13 +1179,13 @@ export default function CoursePage() {
             <div className="skeleton-shimmer h-[76px] rounded-lg" />
             <div className="skeleton-shimmer h-[76px] rounded-lg" />
           </div>
-        ) : isStudent ? (
+        ) : showStudentLayout ? (
           <div className="mt-4">
             <StudentQuizList courseId={resolvedCourseId ?? undefined} />
           </div>
         ) : isStaff ? (
           <>
-        {/* Filters */}
+        {/* Instructor layout */}
         <div className="mt-4 grid grid-cols-1 items-center gap-2 sm:grid-cols-3">
           <div className="flex justify-start">
             <button
@@ -1084,18 +1198,22 @@ export default function CoursePage() {
             </button>
           </div>
           <div className="flex justify-center">
-            <ChapterSelector
-              chapters={chapters}
-              value={activeChapterId}
-              onChange={(chapterId) => setActiveChapterId(chapterId)}
-              onAddChapter={() => {
-                setEditingChapter(null);
-                setAddChapterOpen(true);
-              }}
-              onEditChapter={(chapter) => {
-                void openEditChapterModal(chapter.id);
-              }}
-            />
+            {loading ? (
+              <div className="skeleton-shimmer h-10 w-full max-w-[420px] rounded-[8px]" />
+            ) : (
+              <ChapterSelector
+                chapters={chapters}
+                value={activeChapterId}
+                onChange={(chapterId) => setActiveChapterId(chapterId)}
+                onAddChapter={() => {
+                  setEditingChapter(null);
+                  setAddChapterOpen(true);
+                }}
+                onEditChapter={(chapter) => {
+                  void openEditChapterModal(chapter.id);
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -1105,31 +1223,54 @@ export default function CoursePage() {
             <h3 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">
               Question Bank
             </h3>
-            <button
-              type="button"
-              onClick={openManageQuestionsModal}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] hover:bg-[#262626] transition"
-            >
-              Manage Questions
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuestionImportOpen(true)}
+                disabled={!activeChapterId}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] transition hover:bg-[#262626] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Import Questions
+              </button>
+              <button
+                type="button"
+                onClick={openManageQuestionsModal}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] hover:bg-[#262626] transition"
+              >
+                Manage Questions
+              </button>
+            </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-[18px] font-normal leading-[24px] tracking-[-0.1504px] text-[#F87171]">
-              {questionBankCounts.total} questions available
+              {loading ? (
+                <div className="skeleton-shimmer inline-block h-[24px] w-[200px] rounded" />
+              ) : (
+                `${questionBankCounts.total} questions available`
+              )}
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <div
-                title="Source not in API"
-                className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-              >
-                {questionBankCounts.ai} AI Generated
-              </div>
-              <div
-                title="Source not in API"
-                className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-              >
-                {questionBankCounts.manual} Manual
-              </div>
+              {loading ? (
+                <>
+                  <div className="skeleton-shimmer h-[37px] w-[140px] rounded-md" />
+                  <div className="skeleton-shimmer h-[37px] w-[100px] rounded-md" />
+                </>
+              ) : (
+                <>
+                  <div
+                    title="Source not in API"
+                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
+                  >
+                    {questionBankCounts.ai} AI Generated
+                  </div>
+                  <div
+                    title="Source not in API"
+                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
+                  >
+                    {questionBankCounts.manual} Manual
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1241,6 +1382,12 @@ export default function CoursePage() {
           onDeleteQuestion={handleDeleteQuestion}
           onCloseCreateQuestion={() => setEditingQuestion(null)}
         />
+        <QuestionImportModal
+          open={questionImportOpen}
+          chapterTitle={chapters.find((chapter) => chapter.id === activeChapterId)?.title}
+          onClose={() => setQuestionImportOpen(false)}
+          onImport={handleQuestionImport}
+        />
         {addChapterOpen && (
           <CreateChapterModal
             key={editingChapter ? `edit-${editingChapter.id}` : "create"}
@@ -1273,7 +1420,9 @@ export default function CoursePage() {
         )}
           </>
         ) : (
-          <div className="mt-4 text-[#A1A1AA]">Loading...</div>
+          <div className="mt-4 text-[#A1A1AA]">
+            You do not have instructor permissions for this course.
+          </div>
         )}
       </div>
     </section>

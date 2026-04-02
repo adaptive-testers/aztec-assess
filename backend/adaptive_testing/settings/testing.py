@@ -52,6 +52,12 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # Disable debug toolbar and other development tools
 DEBUG = False
 
+# Django test client uses plain HTTP; base.py defaults secure cookies / HTTPS redirect when DEBUG is False.
+SECURE_SSL_REDIRECT = False
+COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
 # Use a test secret key
 SECRET_KEY = "test-secret-key-for-testing-only"
 

@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-background: #000000;
+  --color-primary-background: #0a0a0a;
   --color-secondary-background: #0a0a0a;
   --color-primary-border: #2e2e2e;
   --color-primary-text: #ffffff;
@@ -11,6 +11,26 @@
   --color-primary-accent: #ef6262;
   --color-primary-accent-hover: #f49191;
   --color-secondary-accent-hover: #171717;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: #050505;
+}
+
+::selection {
+  background: rgba(239, 98, 98, 0.32);
+  color: #fff;
+}
+
+html,
+body {
+  margin: 0;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
 }
 
 .skeleton-shimmer {

@@ -1,13 +1,17 @@
 from typing import Any
+from uuid import UUID
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.courses.models import Course, CourseMembership, CourseRole
 from apps.courses.permissions import IsCourseOwnerOrInstructor, user_role
@@ -24,7 +28,9 @@ from .serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
     ChapterSerializer,
+    QuestionBulkImportSerializer,
     QuestionCreateUpdateSerializer,
+    QuestionImportItemSerializer,
     QuestionStudentSerializer,
     QuizSerializer,
     QuizStudentSerializer,
@@ -40,6 +46,10 @@ def is_course_staff(user: Any, course: Course) -> bool:
 
 def is_course_member(user: Any, course: Course) -> bool:
     return CourseMembership.objects.filter(user=user, course=course).exists()
+
+
+def _normalize_prompt(prompt: str) -> str:
+    return " ".join(prompt.strip().split()).lower()
 
 
 class ChapterListCreateView(generics.ListCreateAPIView):
@@ -104,7 +114,23 @@ class QuestionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self) -> QuerySet[Question]:
         chapter = self.get_chapter()
-        return Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        qs = Question.objects.filter(chapter=chapter, is_active=True).order_by("created_at")
+        topic_id = self.request.query_params.get("topic")
+        if topic_id:
+            try:
+                topic_uuid = UUID(topic_id)
+            except (ValueError, AttributeError) as exc:
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
+            try:
+                qs = qs.filter(topics__id=topic_uuid).distinct()
+            except DjangoValidationError as exc:  # pragma: no cover - defensive
+                raise ValidationError({"topic": ["Must be a valid UUID."]}) from exc
+        return qs
+
+    def get_serializer_context(self) -> dict[str, Any]:
+        context = super().get_serializer_context()
+        context["chapter"] = self.get_chapter()
+        return context
 
     def list(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         chapter = self.get_chapter()
@@ -122,12 +148,117 @@ class QuestionListCreateView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class QuestionBulkImportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, chapter_id: int) -> Response:
+        chapter = get_object_or_404(Chapter, id=chapter_id)
+        if not is_course_staff(request.user, chapter.course):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = QuestionBulkImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        overwrite_existing = serializer.validated_data["overwrite_existing"]
+        raw_questions = serializer.validated_data["questions"]
+
+        by_prompt = {
+            _normalize_prompt(question.prompt): question
+            for question in Question.objects.filter(chapter=chapter)
+        }
+        results: list[dict[str, Any]] = []
+        summary = {
+            "received": len(raw_questions),
+            "created": 0,
+            "updated": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+        for index, raw_item in enumerate(raw_questions):
+            item_serializer = QuestionImportItemSerializer(data=raw_item)
+            if not item_serializer.is_valid():
+                summary["failed"] += 1
+                results.append(
+                    {
+                        "index": index,
+                        "status": "error",
+                        "errors": item_serializer.errors,
+                    }
+                )
+                continue
+
+            item = item_serializer.validated_data
+            prompt = item["prompt"].strip()
+            normalized_prompt = _normalize_prompt(prompt)
+            existing = by_prompt.get(normalized_prompt)
+
+            if existing and not overwrite_existing:
+                summary["skipped"] += 1
+                results.append(
+                    {
+                        "index": index,
+                        "status": "skipped",
+                        "prompt": prompt,
+                        "detail": "Question with same prompt already exists for chapter.",
+                    }
+                )
+                continue
+
+            if existing and overwrite_existing:
+                existing.prompt = prompt
+                existing.choices = item["choices"]
+                existing.correct_index = item["correct_index"]
+                existing.difficulty = item["difficulty"]
+                existing.is_active = True
+                existing.save(
+                    update_fields=[
+                        "prompt",
+                        "choices",
+                        "correct_index",
+                        "difficulty",
+                        "is_active",
+                    ]
+                )
+                summary["updated"] += 1
+                results.append(
+                    {
+                        "index": index,
+                        "status": "updated",
+                        "question_id": existing.pk,
+                        "prompt": prompt,
+                    }
+                )
+                continue
+
+            created = Question.objects.create(
+                chapter=chapter,
+                prompt=prompt,
+                choices=item["choices"],
+                correct_index=item["correct_index"],
+                difficulty=item["difficulty"],
+                created_by=request.user,
+            )
+            by_prompt[normalized_prompt] = created
+            summary["created"] += 1
+            results.append(
+                {
+                    "index": index,
+                    "status": "created",
+                    "question_id": created.pk,
+                    "prompt": prompt,
+                }
+            )
+
+        return Response({"summary": summary, "results": results}, status=status.HTTP_200_OK)
+
+
 class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Staff can retrieve/update/destroy; students get questions only via attempt flow."""
 
     serializer_class = QuestionCreateUpdateSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Question.objects.all()
+    queryset = Question.objects.prefetch_related("topics").all()
 
     def retrieve(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         question = self.get_object()

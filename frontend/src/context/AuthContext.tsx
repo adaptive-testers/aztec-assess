@@ -41,7 +41,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);
-    // If a token is explicitly set (e.g., from OAuth), stop checking refresh
     if (token) {
       setCheckingRefresh(false);
     }
@@ -75,24 +74,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     void run();
   }, []);
 
-  const logout = async () => {
-    try {
-      await publicApi.post(AUTH.LOGOUT, {}, { withCredentials: true });
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Continue with logout even if backend call fails
-    }
-    
-    // Clear MSAL cache silently
+  const logout = () => {
+    setAccessTokenState(null);
+    setCheckingRefresh(false);
+    navigate("/", { replace: true });
+
     const accounts = instance.getAllAccounts();
     if (accounts.length > 0) {
       instance.setActiveAccount(null);
       instance.clearCache();
     }
-    
-    // Clear local state and navigate
-    setAccessToken(null);
-    navigate("/login");
+
+    void publicApi.post(AUTH.LOGOUT, {}, { withCredentials: true }).catch((error) => {
+      console.error("Logout error:", error);
+    });
   };
 
   return (

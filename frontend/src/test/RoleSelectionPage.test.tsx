@@ -61,8 +61,13 @@ describe("RoleSelectionPage", () => {
         it("renders role options with role=button attribute", () => {
             render(<RoleSelectionPage />)
             const roleButtons = screen.getAllByRole('button')
-            // Should have 3 buttons: student div, instructor div, and continue button
+            // Student div, instructor div, and continue button
             expect(roleButtons.length).toBe(3)
+        })
+
+        it("renders back link to home", () => {
+            render(<RoleSelectionPage />)
+            expect(screen.getByRole("link", { name: /back/i })).toHaveAttribute("href", "/")
         })
     })
 
@@ -99,9 +104,8 @@ describe("RoleSelectionPage", () => {
             expect(studentText).toHaveClass('text-[var(--color-primary-text)]')
         })
 
-        it("logs the selected role when student is selected and continue is clicked", async () => {
+        it("navigates with selected student role when continue is clicked", async () => {
             const user = userEvent.setup()
-            const consoleSpy = vi.spyOn(console, 'log')
             render(<RoleSelectionPage />)
             
             const studentCard = screen.getByText("Student").closest('div[role="button"]')
@@ -110,8 +114,9 @@ describe("RoleSelectionPage", () => {
             const continueButton = screen.getByRole('button', { name: 'Continue' })
             await user.click(continueButton)
             
-            expect(consoleSpy).toHaveBeenCalledWith('Selected role:', 'student')
-            consoleSpy.mockRestore()
+            expect(mockNavigate).toHaveBeenCalledWith('/sign-up', {
+                state: { role: 'student' }
+            })
         })
     })
 
@@ -271,7 +276,11 @@ describe("RoleSelectionPage", () => {
             const studentCard = screen.getByText("Student").closest('div[role="button"]') as HTMLElement
             const instructorCard = screen.getByText("Instructor").closest('div[role="button"]') as HTMLElement
             
-            // Start tabbing - only the two role cards should be focusable since Continue is disabled
+            // Start tabbing - first focus lands on the back link button.
+            await user.tab()
+            expect(screen.getByRole("link", { name: /back/i })).toHaveFocus()
+
+            // Then role cards, Continue remains disabled
             await user.tab()
             expect(studentCard).toHaveFocus()
             
@@ -300,7 +309,8 @@ describe("RoleSelectionPage", () => {
             render(<RoleSelectionPage />)
             const continueButton = screen.getByRole('button', { name: 'Continue' })
             
-            expect(continueButton).toHaveClass('cursor-not-allowed')
+            expect(continueButton).toBeDisabled()
+            expect(continueButton).toHaveClass('disabled:cursor-not-allowed')
         })
 
         it("continue button maintains base styling when enabled", async () => {
@@ -311,7 +321,7 @@ describe("RoleSelectionPage", () => {
             await user.click(studentCard!)
             
             const continueButton = screen.getByRole('button', { name: 'Continue' })
-            expect(continueButton).toHaveClass('bg-[var(--color-primary-accent)]')
+            expect(continueButton).toHaveClass('bg-[#EF6262]')
         })
     })
 })

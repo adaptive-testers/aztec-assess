@@ -3,14 +3,17 @@ Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer)
 """
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework import serializers
 
 from apps.courses.models import Course, Topic
-from apps.quizzes.models import Difficulty, QuestionReviewStatus
+from apps.quizzes.models import Chapter, Difficulty, QuestionReviewStatus
 from apps.quizzes.serializers import (
     AttemptAnswerSubmitSerializer,
     AttemptDetailSerializer,
     ChapterSerializer,
+    QuestionBulkImportSerializer,
     QuestionCreateUpdateSerializer,
+    QuestionImportItemSerializer,
     QuestionStudentSerializer,
     QuizSerializer,
     QuizStudentSerializer,
@@ -163,6 +166,162 @@ class QuestionCreateUpdateSerializerTests(TestCase):
         self.assertFalse(question.is_ai_generated)
 
 
+class QuestionImportItemSerializerTests(TestCase):
+    """Target line-level validation paths for bulk import item serializer."""
+
+    def test_validate_prompt_rejects_blank_after_trim(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_prompt("   ")
+
+    def test_validate_prompt_returns_trimmed_value(self):
+        serializer = QuestionImportItemSerializer()
+        self.assertEqual(serializer.validate_prompt("  Prompt  "), "Prompt")
+
+    def test_validate_choices_rejects_non_string_choice(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_choices(["A", "B", 3, "D"])
+
+    def test_validate_choices_rejects_wrong_length(self):
+        serializer = QuestionImportItemSerializer()
+        with self.assertRaises(serializers.ValidationError):
+            serializer.validate_choices(["A", "B", "C"])
+
+    def test_validate_choices_returns_trimmed_choices(self):
+        serializer = QuestionImportItemSerializer()
+        self.assertEqual(
+            serializer.validate_choices([" A ", "B", " C", "D "]),
+            ["A", "B", "C", "D"],
+        )
+
+    def test_bulk_import_serializer_defaults_overwrite_existing(self):
+        serializer = QuestionBulkImportSerializer(
+            data={
+                "questions": [
+                    {
+                        "prompt": "What is 2 + 2?",
+                        "choices": ["1", "2", "3", "4"],
+                        "correct_index": 3,
+                        "difficulty": "EASY",
+                    }
+                ]
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.validated_data["overwrite_existing"])
+
+
+class QuestionTopicValidationTests(TestCase):
+    """Test QuestionCreateUpdateSerializer topic validation (cross-course prevention)."""
+
+    def setUp(self):
+        self.course, self.chapter = make_course_and_chapter()
+        self.topic_same_course = Topic.objects.create(
+            course=self.course, name="Algebra"
+        )
+
+    def test_create_question_with_valid_topics_same_course(self):
+        """Question create with topic from same course succeeds."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_create_question_with_topic_from_different_course_fails(self):
+        """Question create with topic from different course fails validation."""
+        other_course = Course.objects.create(
+            title="Other Course",
+            owner=self.course.owner,
+            slug="other-course",
+        )
+        Chapter.objects.create(course=other_course, title="Other Chapter")
+        topic_other = Topic.objects.create(course=other_course, name="Other Topic")
+
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(topic_other.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("topics", serializer.errors)
+
+    def test_create_question_with_zero_topics_allowed(self):
+        """Question create with no topics is allowed."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_create_question_with_multiple_topics_allowed(self):
+        """Question create with multiple topics from same course succeeds."""
+        topic2 = Topic.objects.create(course=self.course, name="Geometry")
+
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id), str(topic2.id)],
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_update_question_with_cross_course_topic_fails(self):
+        """Question update with topic from different course fails validation."""
+        question = make_question(self.chapter, prompt="Original")
+        question.topics.add(self.topic_same_course)
+
+        other_course = Course.objects.create(
+            title="Other Course",
+            owner=self.course.owner,
+            slug="other-course",
+        )
+        Chapter.objects.create(course=other_course, title="Other Chapter")
+        topic_other = Topic.objects.create(course=other_course, name="Other Topic")
+
+        serializer = QuestionCreateUpdateSerializer(
+            instance=question,
+            data={
+                "prompt": "Updated?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(topic_other.id)],
+            },
+            partial=True,
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("topics", serializer.errors)
+
+    def test_create_question_topics_without_context_allows_validation(self):
+        """Question create without chapter/instance context does not apply course check."""
+        serializer = QuestionCreateUpdateSerializer(
+            data={
+                "prompt": "Q?",
+                "choices": ["A", "B", "C", "D"],
+                "correct_index": 0,
+                "topics": [str(self.topic_same_course.id)],
+            },
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
 class QuestionStudentSerializerTests(TestCase):
     """Test QuestionStudentSerializer (no correct_index exposed)."""
 
@@ -202,9 +361,23 @@ class QuizSerializerTests(TestCase):
         data = serializer.data
         self.assertIn("id", data)
         self.assertIn("chapter", data)
+        self.assertIn("adaptive_enabled", data)
+        self.assertIn("selection_mode", data)
         self.assertEqual(data["title"], "Quiz 1")
         self.assertEqual(data["num_questions"], 10)
         self.assertTrue(data["is_published"])
+
+    def test_quiz_serializer_meta_fields_and_read_only_configuration(self):
+        serializer = QuizSerializer(self.quiz)
+        self.assertIn("id", QuizSerializer.Meta.fields)
+        self.assertIn("is_published", QuizSerializer.Meta.fields)
+        self.assertEqual(
+            QuizSerializer.Meta.read_only_fields,
+            ("id", "chapter", "created_at"),
+        )
+        self.assertTrue(serializer.fields["id"].read_only)
+        self.assertTrue(serializer.fields["chapter"].read_only)
+        self.assertTrue(serializer.fields["created_at"].read_only)
 
 
 class QuizStudentSerializerTests(TestCase):

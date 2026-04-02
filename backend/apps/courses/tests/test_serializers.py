@@ -278,3 +278,21 @@ class TestTopicCreateSerializer:
         )
         assert serializer.is_valid()
 
+    def test_validate_name_allows_without_course_context(self):
+        """TopicCreateSerializer allows validation when no course context is supplied."""
+        serializer = TopicCreateSerializer(data={"name": "Geometry"}, context={})
+        assert serializer.is_valid(), serializer.errors
+
+
+class TestTopicSerializerContextBranches:
+    """Extra validation branches (staging coverage)."""
+
+    def test_topic_serializer_validate_name_without_course_context(self):
+        serializer = TopicSerializer(data={"name": "Algebra"}, context={})
+        assert serializer.is_valid(), serializer.errors
+
+    def test_topic_serializer_duplicate_name_in_course_rejected(self, course):
+        Topic.objects.create(course=course, name="Algebra")
+        serializer = TopicSerializer(data={"name": "algebra"}, context={"course": course})
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors

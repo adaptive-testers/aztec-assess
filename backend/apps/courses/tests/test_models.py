@@ -11,7 +11,7 @@ from django.db import IntegrityError
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
-from apps.courses.models import Course, CourseMembership, CourseRole
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
 
 UserModel = cast("type[User]", get_user_model())
 
@@ -247,4 +247,46 @@ def test_course_role_choices(course, user):
     membership.role = CourseRole.STUDENT
     membership.save()
     assert membership.role == CourseRole.STUDENT
+
+
+# ===============================
+# Topic model tests
+# ===============================
+
+
+@pytest.mark.django_db
+def test_topic_creation(course):
+    """Test that a topic can be created for a course."""
+    topic = Topic.objects.create(course=course, name="Algebra")
+    assert topic.course == course
+    assert topic.name == "Algebra"
+    assert topic.id is not None
+    assert topic.created_at is not None
+
+
+@pytest.mark.django_db
+def test_topic_unique_per_course(course):
+    """Test that topic names must be unique within a course."""
+    Topic.objects.create(course=course, name="Calculus")
+    with pytest.raises(IntegrityError):
+        Topic.objects.create(course=course, name="Calculus")
+
+
+@pytest.mark.django_db
+def test_topic_same_name_different_courses(user):
+    """Test that same topic name is allowed in different courses."""
+    course1 = Course.objects.create(title="Course 1", owner=user, status=Course.CourseStatus.DRAFT)
+    course2 = Course.objects.create(title="Course 2", owner=user, status=Course.CourseStatus.DRAFT)
+    topic1 = Topic.objects.create(course=course1, name="Algebra")
+    topic2 = Topic.objects.create(course=course2, name="Algebra")
+    assert topic1.id != topic2.id
+    assert topic1.name == topic2.name
+
+
+@pytest.mark.django_db
+def test_topic_str_representation(course):
+    """Test the string representation of a topic."""
+    topic = Topic.objects.create(course=course, name="Geometry")
+    assert "Geometry" in str(topic)
+    assert course.title in str(topic)
 

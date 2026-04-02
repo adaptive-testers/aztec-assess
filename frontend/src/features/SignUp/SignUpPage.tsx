@@ -1,10 +1,11 @@
 import { useMsal } from "@azure/msal-react";
 import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { GoPerson } from "react-icons/go";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
+import { IoChevronBack, IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -24,6 +25,35 @@ interface FormFields {
 
 const OAUTH_SIGNUP_ERROR = "Sign-up failed. Please try again.";
 
+function extractSignupErrorMessage(error: unknown, fallback: string): string {
+    if (!axios.isAxiosError(error)) return fallback;
+
+    const data = error.response?.data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return fallback;
+    }
+
+    const payload = data as Record<string, unknown>;
+    if (typeof payload.detail === "string" && payload.detail.trim().length > 0) {
+        return payload.detail;
+    }
+    if (typeof payload.message === "string" && payload.message.trim().length > 0) {
+        return payload.message;
+    }
+
+    for (const [field, value] of Object.entries(payload)) {
+        if (field === "detail" || field === "message") continue;
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+            return `${field}: ${value[0]}`;
+        }
+        if (typeof value === "string" && value.trim().length > 0) {
+            return `${field}: ${value}`;
+        }
+    }
+
+    return fallback;
+}
+
 export default function SignUpContainer() {
     const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<FormFields>();
     const { setAccessToken } = useAuth();
@@ -40,7 +70,7 @@ export default function SignUpContainer() {
     useEffect(() => {
         if (!selectedRole) {
             // If arrived directly, send back to role selection
-            navigate("/", { replace: true });
+            navigate("/role-select", { replace: true });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -58,7 +88,7 @@ export default function SignUpContainer() {
     flow: "auth-code",
     onSuccess: async ({ code }) => {
       if (!selectedRole) {
-        navigate("/", { replace: true });
+        navigate("/role-select", { replace: true });
         return;
       }
       setIsOAuthLoading(true);
@@ -69,13 +99,13 @@ export default function SignUpContainer() {
         });
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           setError("root", { message: "Google sign-up failed" });
         }
       } catch (e) {
         console.error(e);
-        setError("root", { message: "Google sign-up failed" });
+        setError("root", { message: extractSignupErrorMessage(e, "Google sign-up failed") });
       } finally {
         setIsOAuthLoading(false);
       }
@@ -85,7 +115,7 @@ export default function SignUpContainer() {
 
   const loginWithMicrosoft = async () => {
     if (!selectedRole) {
-      navigate("/", { replace: true });
+      navigate("/role-select", { replace: true });
       return;
     }
     try {
@@ -106,15 +136,15 @@ export default function SignUpContainer() {
         });
         if (res.data?.tokens?.access) {
           setAccessToken(res.data.tokens.access);
-          navigate("/profile");
+          navigate("/dashboard");
         } else {
           setError("root", { message: OAUTH_SIGNUP_ERROR });
         }
       } finally {
         setIsOAuthLoading(false);
       }
-    } catch {
-      setError("root", { message: OAUTH_SIGNUP_ERROR });
+    } catch (error) {
+      setError("root", { message: extractSignupErrorMessage(error, OAUTH_SIGNUP_ERROR) });
     }
   };
 
@@ -122,7 +152,7 @@ export default function SignUpContainer() {
         try {
             if (!selectedRole) {
                 // If role is missing, redirect back
-                navigate("/", { replace: true });
+                navigate("/role-select", { replace: true });
                 return;
             }
 
@@ -138,16 +168,23 @@ export default function SignUpContainer() {
 
             if (response.data.tokens?.access) {
                 setAccessToken(response.data.tokens.access);
-                navigate("/profile");
+                navigate("/dashboard");
             }
         }
-        catch {
-            setError("root", { message: "An unexpected error occurred" });
+        catch (error) {
+            setError("root", { message: extractSignupErrorMessage(error, "Sign-up failed. Please try again.") });
         }
     };
 
     return (
         <div className="Sign-Up relative w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4 min-h-dvh">
+            <Link
+                to="/"
+                className="fixed left-5 top-5 z-30 inline-flex items-center gap-1 rounded-md border border-[#2F2F2F] bg-[#111111]/80 px-2.5 py-1.5 font-geist text-xs text-[#D4D4D4] backdrop-blur transition hover:border-white hover:text-white"
+            >
+                <IoChevronBack className="h-3.5 w-3.5" />
+                Back
+            </Link>
             {isOAuthLoading && (
                 <div
                     className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
@@ -375,7 +412,7 @@ export default function SignUpContainer() {
                         <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center gap-1.5 tracking-[0.5px]">
                             <span className="text-[#ededed]">Already have an account?</span>
                             <Link
-                                to="/"
+                                to="/login"
                                 className="text-[#EF6262] no-underline hover:underline cursor-pointer"
                             >
                                 Log in

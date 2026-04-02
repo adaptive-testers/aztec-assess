@@ -6,15 +6,20 @@ from decouple import config
 from django.conf import settings
 from django.contrib.auth import authenticate
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import (
+    AnonRateThrottle,
+    SimpleRateThrottle,
+    UserRateThrottle,
+)
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User
+from .models import SignupAllowlist, User, UserRole
 from .serializers import (
     GoogleOAuthSerializer,
     MicrosoftOAuthSerializer,
@@ -24,6 +29,64 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _BaseAuthEndpointRateThrottle(SimpleRateThrottle):
+    """Apply a dedicated per-IP budget for auth endpoints."""
+
+    def get_cache_key(self, request: Request, _view: Any) -> str:
+        ident = self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class LoginRateThrottle(_BaseAuthEndpointRateThrottle):
+    scope = "login"
+
+
+class RegisterRateThrottle(_BaseAuthEndpointRateThrottle):
+    scope = "register"
+
+
+class OAuthRateThrottle(_BaseAuthEndpointRateThrottle):
+    scope = "oauth"
+
+
+class TokenRefreshRateThrottle(_BaseAuthEndpointRateThrottle):
+    scope = "token_refresh"
+
+
+def _validate_signup_permissions(email: str, role: str) -> str | None:
+    """
+    Return an error message when signup is not allowed, otherwise None.
+
+    Existing users are handled elsewhere and bypass this check.
+    """
+    normalized_email = email.lower().strip()
+    normalized_role = role.lower().strip()
+
+    if normalized_role == UserRole.ADMIN:
+        return "Admin signup is not available."
+
+    if getattr(settings, "STUDENT_MODE_ONLY", False) and normalized_role != UserRole.STUDENT:
+        return "Only student signup is currently enabled."
+
+    if not getattr(settings, "SIGNUP_ALLOWLIST_ENABLED", False):
+        return None
+
+    allow_entry = SignupAllowlist.objects.filter(
+        email=normalized_email,
+        is_active=True,
+    ).first()
+    if allow_entry is None:
+        return "Signup is not enabled for this email."
+
+    if normalized_role == UserRole.STUDENT and not allow_entry.student_allowed:
+        return "This email is not allowed to sign up as a student."
+
+    if normalized_role != UserRole.STUDENT and not allow_entry.instructor_allowed:
+        return "This email is not allowed to sign up as an instructor."
+
+    return None
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -43,12 +106,20 @@ class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle, RegisterRateThrottle]
 
     def create(self, request: Any) -> Response:
         # TODO: Implement user registration logic
         # 1. Validate serializer
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        signup_error = _validate_signup_permissions(
+            email=serializer.validated_data["email"],
+            role=serializer.validated_data["role"],
+        )
+        if signup_error:
+            return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
         # 2. Create user
         user = serializer.save()
@@ -69,6 +140,7 @@ class UserRegistrationView(generics.CreateAPIView):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle, UserRateThrottle, LoginRateThrottle])
 def user_login_view(request: Request) -> Response:
     """
     User login endpoint.
@@ -148,6 +220,7 @@ def user_profile_view(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle, UserRateThrottle, TokenRefreshRateThrottle])
 def token_refresh_cookie_view(request: Request) -> Response:
     """
     Refresh access (and rotate refresh) using refresh token stored in http-only cookie.
@@ -226,6 +299,7 @@ def _delete_refresh_cookie(response: Response) -> None:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle, UserRateThrottle, OAuthRateThrottle])
 def google_oauth_view(request: Request) -> Response:
     """
     Google OAuth authentication endpoint.
@@ -252,7 +326,9 @@ def google_oauth_view(request: Request) -> Response:
 
     google_client_id = config("GOOGLE_CLIENT_ID", default="")
     google_client_secret = config("GOOGLE_CLIENT_SECRET", default="")
-    redirect_uri = config("GOOGLE_REDIRECT_URI", default="http://localhost:5173")
+    # For @react-oauth/google popup auth-code flow, Google may issue codes bound to
+    # redirect_uri=postmessage. Keep env-configured URI first, then fallback.
+    configured_redirect_uri = config("GOOGLE_REDIRECT_URI", default="postmessage")
 
     if not google_client_id or not google_client_secret:
         logger.error("Google OAuth credentials not configured")
@@ -260,30 +336,47 @@ def google_oauth_view(request: Request) -> Response:
             {"detail": "OAuth service not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    # Exchange authorization code for access token
-    try:
-        token_response = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "code": code,
-                "client_id": google_client_id,
-                "client_secret": google_client_secret,
-                "redirect_uri": redirect_uri,
-                "grant_type": "authorization_code",
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=10,
-        )
-        token_response.raise_for_status()
-        token_data = token_response.json()
-        access_token = token_data.get("access_token")
-    except requests.RequestException as e:
-        logger.error(f"Failed to exchange Google OAuth code: {e}")
-        return Response(
-            {"detail": "Failed to authenticate with Google."}, status=status.HTTP_401_UNAUTHORIZED
-        )
+    # Exchange authorization code for access token.
+    # Try configured redirect URI first, then postmessage fallback.
+    access_token: str | None = None
+    exchange_error: requests.RequestException | None = None
+    redirect_uris_to_try = [configured_redirect_uri]
+    if configured_redirect_uri != "postmessage":
+        redirect_uris_to_try.append("postmessage")
+
+    for redirect_uri in redirect_uris_to_try:
+        try:
+            token_response = requests.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": google_client_id,
+                    "client_secret": google_client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=10,
+            )
+            token_response.raise_for_status()
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            if access_token:
+                break
+        except requests.RequestException as e:
+            exchange_error = e
+            logger.warning(
+                "Google OAuth code exchange failed with redirect_uri=%s",
+                redirect_uri,
+            )
 
     if not access_token:
+        if exchange_error is not None:
+            logger.error("Failed to exchange Google OAuth code: %s", exchange_error)
+            return Response(
+                {"detail": "Failed to authenticate with Google."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         return Response(
             {"detail": "Invalid OAuth code."}, status=status.HTTP_401_UNAUTHORIZED
         )
@@ -351,6 +444,9 @@ def google_oauth_view(request: Request) -> Response:
                     {"detail": "Role is required for new user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            signup_error = _validate_signup_permissions(email=email, role=role)
+            if signup_error:
+                return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
             if not first_name:
                 first_name = email.split("@")[0]  # Fallback to email prefix
@@ -398,6 +494,7 @@ def google_oauth_view(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle, UserRateThrottle, OAuthRateThrottle])
 def microsoft_oauth_view(request: Request) -> Response:
     """
     Microsoft OAuth authentication endpoint.
@@ -485,6 +582,9 @@ def microsoft_oauth_view(request: Request) -> Response:
                     {"detail": "Role is required for new user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            signup_error = _validate_signup_permissions(email=email, role=role)
+            if signup_error:
+                return Response({"detail": signup_error}, status=status.HTTP_403_FORBIDDEN)
 
             if not first_name:
                 first_name = email.split("@")[0] # Fallback to email prefix
