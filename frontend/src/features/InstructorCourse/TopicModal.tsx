@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiPlus, FiX } from "react-icons/fi";
+import { type Topic } from "../../types/quizTypes";
 
 export type TopicModalMode = "select" | "filter";
 
 export interface TopicModalProps {
   open: boolean;
-  topics: string[];
+  topics: Topic[];
   initialSelectedTopics?: string[];
   onClose: () => void;
   onApply: (selectedTopics: string[]) => void;
   onClearAll?: () => void;
   onCreateTopic?: (topicName: string) => void | Promise<void>;
-  onDeleteTopics?: (topicNames: string[]) => void | Promise<void>;
+  onDeleteTopics?: (topicIds: string[]) => void | Promise<void>;
   mode: TopicModalMode;
   title?: string;
 }
@@ -39,12 +40,12 @@ export default function TopicModal(props: TopicModalProps) {
   const deleteTimeoutRef = useRef<number | null>(null);
 
   const [selected, setSelected] = useState<string[]>([]);
-  const [localTopics, setLocalTopics] = useState<string[]>([]);
+  const [localTopics, setLocalTopics] = useState<Topic[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newTopicName, setNewTopicName] = useState("");
   const [deleteConfirmFor, setDeleteConfirmFor] = useState<string[] | null>(null);
 
-  const topicList = useMemo(() => uniq(localTopics), [localTopics]);
+  const topicList = useMemo(() => localTopics, [localTopics]);
 
   const defaultTitle =
     mode === "select"
@@ -55,7 +56,7 @@ export default function TopicModal(props: TopicModalProps) {
   useEffect(() => {
     if (!open) return;
     const nextSelected = uniq(initialSelectedTopics ?? []);
-    const nextTopics = uniq(topics);
+    const nextTopics = topics;
     const t = window.setTimeout(() => {
       setSelected(nextSelected);
       setLocalTopics(nextTopics);
@@ -107,19 +108,16 @@ export default function TopicModal(props: TopicModalProps) {
     if (!cleaned) return;
 
     const alreadyExists = localTopics.some(
-      (t) => t.trim().toLowerCase() === cleaned.toLowerCase(),
+      (t) => t.name.trim().toLowerCase() === cleaned.toLowerCase(),
     );
 
-    const nextName = alreadyExists
-      ? localTopics.find((t) => t.trim().toLowerCase() === cleaned.toLowerCase())!
-      : cleaned;
+    const match = localTopics.find((t) => t.name.trim().toLowerCase() === cleaned.toLowerCase());
 
     if (!alreadyExists) {
-      setLocalTopics((prev) => uniq([...prev, cleaned]));
       await onCreateTopic?.(cleaned);
+    } else if (match) {
+      setSelected((prev) => (prev.includes(match.id) ? prev : [...prev, match.id]));
     }
-
-    setSelected((prev) => (prev.includes(nextName) ? prev : [...prev, nextName]));
     setNewTopicName("");
     setShowAdd(false);
   };
@@ -143,7 +141,7 @@ export default function TopicModal(props: TopicModalProps) {
     if (deleteTimeoutRef.current != null) window.clearTimeout(deleteTimeoutRef.current);
     deleteTimeoutRef.current = null;
 
-    setLocalTopics((prev) => prev.filter((t) => !toDelete.includes(t)));
+    setLocalTopics((prev) => prev.filter((t) => !toDelete.includes(t.id)));
     setSelected((prev) => prev.filter((t) => !toDelete.includes(t)));
 
     await onDeleteTopics?.(toDelete);
@@ -196,12 +194,12 @@ export default function TopicModal(props: TopicModalProps) {
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
               {topicList.map((t) => {
-                const active = selected.includes(t);
+                const active = selected.includes(t.id);
                 return (
                   <button
-                    key={t}
+                    key={t.id}
                     type="button"
-                    onClick={() => toggleTopic(t)}
+                    onClick={() => toggleTopic(t.id)}
                     className={[
                       "rounded-full border px-4 py-2 text-[14px] font-medium leading-[21px] transition-colors",
                       active
@@ -209,7 +207,7 @@ export default function TopicModal(props: TopicModalProps) {
                         : "border-[#404040] bg-[#151515] text-[#F1F5F9] hover:bg-[#202020]",
                     ].join(" ")}
                   >
-                    {t}
+                    {t.name}
                   </button>
                 );
               })}

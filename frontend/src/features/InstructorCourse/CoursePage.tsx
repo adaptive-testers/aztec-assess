@@ -17,6 +17,7 @@ import type {
   InstructorChapter,
   InstructorQuestion,
   InstructorQuiz,
+  Topic,
 } from "../../types/quizTypes";
 import StudentQuizList from "../StudentQuizzes/StudentQuizList";
 
@@ -109,6 +110,7 @@ function toUiQuiz(q: ApiQuiz): UiQuiz {
 function apiQuestionToManageItem(
   q: ApiQuestion,
   creatorNameById: Record<number, string>,
+  topicsMap: Record<string, string>,
 ): ManageQuestionItem {
   const labels = ["A", "B", "C", "D"] as const;
   const choices = (q.choices ?? []).slice(0, 4).map((text, i) => ({
@@ -122,7 +124,7 @@ function apiQuestionToManageItem(
     source: "manual",
     difficulty,
     prompt: q.prompt,
-    topics: q.topics,
+    topics: (q.topics ?? []).map((id) => topicsMap[id] || id),
     choices,
     created_by: q.created_by,
     created_by_name: q.created_by != null ? creatorNameById[q.created_by] : undefined,
@@ -445,9 +447,8 @@ export default function CoursePage() {
     null,
   );
 
-  // ---------- MOCK TOPICS (remove when API ready) ----------
-  const MOCK_TOPIC_OPTIONS = ["Algebra", "Geometry", "Calculus", "Statistics"];
-  const [topicOptions, setTopicOptions] = useState<string[]>(MOCK_TOPIC_OPTIONS);
+  // ---------- TOPICS ----------
+  const [topicOptions, setTopicOptions] = useState<Topic[]>([]);
   // --------------------------------------------------------
 
   // ---------- ADD CHAPTER MODAL ----------
@@ -457,26 +458,15 @@ export default function CoursePage() {
   // ---------- DERIVED DATA ----------
   const manageQuestionItems: ManageQuestionItem[] = useMemo(
     () => {
-      const apiQuestions = chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById));
-      // Mock question to display topics since backend isn't ready
-      const mockTopicQuestion: ManageQuestionItem = {
-        id: "mock-with-topics",
-        source: "manual",
-        difficulty: "medium",
-        prompt: "(Mock) What is the derivative of x^2?",
-        topics: ["Calculus", "Algebra"],
-        choices: [
-          { label: "A", text: "x" },
-          { label: "B", text: "2x", isCorrect: true },
-          { label: "C", text: "x^2" },
-          { label: "D", text: "2" },
-        ],
-        created_at: new Date().toISOString(),
-        is_active: true,
-      };
-      return [...apiQuestions, mockTopicQuestion];
+      const topicsMap: Record<string, string> = {};
+      topicOptions.forEach((t) => {
+        topicsMap[t.id] = t.name;
+      });
+      return chapterQuestions.map((question) =>
+        apiQuestionToManageItem(question, creatorNameById, topicsMap),
+      );
     },
-    [chapterQuestions, creatorNameById],
+    [chapterQuestions, creatorNameById, topicOptions],
   );
 
   const drafts: DraftQuiz[] = useMemo(
@@ -599,6 +589,16 @@ export default function CoursePage() {
     }
   }, [effectiveCourseId, activeChapterId]);
 
+  const fetchTopics = useCallback(async () => {
+    if (!effectiveCourseId) return;
+    try {
+      const res = await privateApi.get(COURSES.TOPICS_BY_COURSE(effectiveCourseId));
+      setTopicOptions(parseListResponse<Topic>(res.data));
+    } catch (err) {
+      console.error("Failed to fetch topics:", err);
+    }
+  }, [effectiveCourseId]);
+
   // ---------- EFFECTS ----------
   useEffect(() => {
     if (!checkingRefresh && !accessToken) {
@@ -609,8 +609,9 @@ export default function CoursePage() {
   useEffect(() => {
     if (!checkingRefresh && accessToken && isStaff) {
       void fetchAllQuizzes();
+      void fetchTopics();
     }
-  }, [checkingRefresh, accessToken, fetchAllQuizzes, isStaff]);
+  }, [checkingRefresh, accessToken, fetchAllQuizzes, fetchTopics, isStaff]);
 
   // ---------- API: FETCH CHAPTER QUESTIONS (for Manage Questions modal + question bank) ----------
   const fetchChapterQuestions = useCallback(
@@ -1324,18 +1325,27 @@ export default function CoursePage() {
           onDeleteQuestion={handleDeleteQuestion}
           onCloseCreateQuestion={() => setEditingQuestion(null)}
           topicOptions={topicOptions}
-          onCreateTopic={(topicName) => {
-            const cleaned = topicName.trim();
-            if (!cleaned) return;
-            setTopicOptions((prev) => {
-              const lower = cleaned.toLowerCase();
-              if (prev.some((t) => t.trim().toLowerCase() === lower)) return prev;
-              return [...prev, cleaned];
-            });
+          onCreateTopic={async (topicName) => {
+            if (!effectiveCourseId) return;
+            try {
+              await privateApi.post(COURSES.TOPICS_BY_COURSE(effectiveCourseId), {
+                name: topicName.trim(),
+              });
+              await fetchTopics();
+            } catch (err) {
+              setChapterQuestionsError(formatApiError(err, "Failed to create topic."));
+            }
           }}
-          onDeleteTopics={(topicNames) => {
-            if (!Array.isArray(topicNames) || topicNames.length === 0) return;
-            setTopicOptions((prev) => prev.filter((t) => !topicNames.includes(t)));
+          onDeleteTopics={async (topicIds) => {
+            try {
+              await Promise.all(
+                topicIds.map((id) => privateApi.delete(COURSES.TOPIC_DETAIL(id))),
+              );
+              await fetchTopics();
+              if (activeChapterId) await fetchChapterQuestions(activeChapterId);
+            } catch (err) {
+              setChapterQuestionsError(formatApiError(err, "Failed to delete topics."));
+            }
           }}
         />
         {addChapterOpen && (

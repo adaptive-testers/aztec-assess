@@ -13,6 +13,7 @@ import {
 
 import CreateQuestionModal from "./CreateQuestionModal";
 import TopicModal from "./TopicModal";
+import { type Topic } from "../../types/quizTypes";
 
 type QuestionSource = "ai" | "manual";
 type Difficulty = "easy" | "medium" | "hard";
@@ -89,19 +90,18 @@ export interface ManageQuestionsModalProps {
   onCloseCreateQuestion?: () => void;
 
   // Not in API – buttons left unclickable
-  onCreateQuestion?: () => void;
   onGenerateQuestion?: () => void;
   onFilter?: () => void;
   onSort?: () => void;
   onLoadMore?: () => void | Promise<void>;
   onEnsureAllQuestionsLoaded?: () => void | Promise<void>;
 
-  /** Optional topic list for Create Question modal and Topic filter modal (no API yet) */
-  topicOptions?: string[];
-  /** Optional topic creation handler (no API required). */
+  /** Optional topic list for Create Question modal and Topic filter modal */
+  topicOptions?: Topic[];
+  /** Optional topic creation handler (calls API). */
   onCreateTopic?: (topicName: string) => void | Promise<void>;
-  /** Optional topic deletion handler (no API required). */
-  onDeleteTopics?: (topicNames: string[]) => void | Promise<void>;
+  /** Optional topic deletion handler (calls API). */
+  onDeleteTopics?: (topicIds: string[]) => void | Promise<void>;
 }
 
 const DIFFICULTY_ORDER: Record<Difficulty, number> = {
@@ -162,7 +162,6 @@ export default function ManageQuestionsModal({
   onDeleteQuestion,
   onEditQuestion,
   onCloseCreateQuestion,
-  onCreateQuestion,
   onLoadMore,
   onEnsureAllQuestionsLoaded,
   topicOptions = [],
@@ -316,7 +315,7 @@ export default function ManageQuestionsModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onCreateQuestion?.();
+                        onCloseCreateQuestion?.();
                         setCreateQuestionOpen(true);
                       }}
                       className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-white shadow-sm hover:bg-[#EF6262]"

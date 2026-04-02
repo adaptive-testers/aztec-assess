@@ -27,6 +27,8 @@ export const COURSES = {
   MEMBERS: (id: string) => `/courses/${id}/members/`,
   ADD_MEMBER: (id: string) => `/courses/${id}/members/add/`,
   REMOVE_MEMBER: (id: string) => `/courses/${id}/members/remove/`,
+  TOPICS_BY_COURSE: (courseId: string) => `/courses/${courseId}/topics/`,
+  TOPIC_DETAIL: (id: string) => `/topics/${id}/`,
 } as const;
 
 export const QUIZZES = {

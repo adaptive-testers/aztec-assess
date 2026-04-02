@@ -1,6 +1,13 @@
 export type AttemptStatus = "IN_PROGRESS" | "COMPLETED";
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
+export interface Topic {
+  id: string; // UUID
+  course_id: string; // UUID
+  name: string;
+  created_at: string;
+}
+
 export interface Chapter {
   id: number;
   title: string;
