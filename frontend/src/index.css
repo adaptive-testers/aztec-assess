@@ -49,3 +49,27 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Subtle track + thumb for dashboard lists (matches dark UI) */
+.scrollbar-dashboard {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e2e #0f0f0f; /* thumb / track — match secondary-background + primary-border */
+}
+
+.scrollbar-dashboard::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-dashboard::-webkit-scrollbar-track {
+  background: #0f0f0f;
+  border-radius: 4px;
+}
+
+.scrollbar-dashboard::-webkit-scrollbar-thumb {
+  background: #2e2e2e;
+  border-radius: 4px;
+}
+
+.scrollbar-dashboard::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}

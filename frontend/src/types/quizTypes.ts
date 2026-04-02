@@ -6,6 +6,8 @@ export interface Chapter {
   title: string;
   order_index: number | null;
   course: string;
+  /** Set on student quiz list API for display (course FK title). */
+  course_title?: string;
 }
 
 export interface InstructorChapter {

@@ -7,7 +7,7 @@ import type { Quiz, QuizAttempt } from '../../types/quizTypes';
 
 import DashboardSkeleton from './DashboardSkeleton';
 
-interface StudentDashboardProps {
+interface InstructorDashboardProps {
   userName: string;
 }
 
@@ -35,8 +35,8 @@ function formatDate(dateString: string): string {
   });
 }
 
-export default function StudentDashboardPage({ userName: propUserName }: StudentDashboardProps) {
-  const displayName = propUserName || 'student';
+export default function InstructorDashboardPage({ userName: propUserName }: InstructorDashboardProps) {
+  const displayName = propUserName || 'instructor';
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [completedAttempts, setCompletedAttempts] = useState<QuizAttempt[]>([]);
@@ -50,11 +50,9 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
       setError(null);
 
       const quizzesResponse = await privateApi.get(QUIZZES.LIST);
-      console.log('[Dashboard] Raw quiz list response:', quizzesResponse.data);
       const rawResults = quizzesResponse.data?.results || quizzesResponse.data;
       if (Array.isArray(rawResults) && rawResults.length > 0) {
-        console.log('[Dashboard] First raw quiz object keys:', Object.keys(rawResults[0]));
-        console.log('[Dashboard] First raw quiz object:', JSON.stringify(rawResults[0]));
+        console.log('[InstructorDashboard] First raw quiz object keys:', Object.keys(rawResults[0]));
       }
 
       let allQuizzes: Quiz[];
@@ -66,13 +64,12 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
         throw new Error('Invalid response format from quiz API');
       }
 
-      console.log('[Dashboard] Parsed quizzes:', allQuizzes.map(q => ({ id: q.id, title: q.title, attempt_id: q.attempt_id, attempt_status: q.attempt_status })));
+
 
       // Fetch all attempts for quizzes that have been started
       const quizzesWithAttempt = allQuizzes.filter(
         (quiz) => quiz.attempt_id !== null && quiz.attempt_id !== undefined
       );
-      console.log('[Dashboard] Quizzes with attempt_id:', quizzesWithAttempt.length);
 
       if (quizzesWithAttempt.length === 0) {
         setQuizzes(allQuizzes);
@@ -86,18 +83,16 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
       const attemptResponses = await Promise.all(attemptPromises);
       const allAttempts: QuizAttempt[] = attemptResponses.map((res) => res.data);
-      console.log('[Dashboard] Fetched attempts:', allAttempts.map(a => ({ id: a.id, quiz: a.quiz, status: a.status, score_percent: a.score_percent })));
 
       // Filter for completed attempts based on QuizAttempt.status
-      const completedAttempts = allAttempts.filter(
+      const completed = allAttempts.filter(
         (attempt) => attempt.status === 'COMPLETED'
       );
-      console.log('[Dashboard] Completed attempts:', completedAttempts.length);
       setQuizzes(allQuizzes);
-      setCompletedAttempts(completedAttempts);
+      setCompletedAttempts(completed);
 
     } catch (err) {
-      console.error('[Dashboard] Error fetching dashboard data:', err);
+      console.error('[InstructorDashboard] Error fetching dashboard data:', err);
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -106,7 +101,6 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
   useEffect(() => {
     fetchDashboardData();
-    // Re-fetch whenever the user navigates to the dashboard (location.key changes on every navigation)
   }, [fetchDashboardData]);
 
   const totalQuizzes = quizzes.length;
@@ -116,15 +110,13 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
   const completedQuizzesCount = completedQuizIds.size;
 
   const overallAverage = completedAttempts.length > 0
-    ? completedAttempts.reduce((sum, attempt) => sum + (attempt.score_percent || 0), 0) / completedAttempts.length
-    : 0;
+    ? completedAttempts.reduce((sum, attempt) => sum + (attempt.score_percent || 0), 0) / completedAttempts.length : 0;
 
   const completionPercentage = totalQuizzes > 0
-    ? (completedQuizzesCount / totalQuizzes) * 100
-    : 0;
+    ? (completedQuizzesCount / totalQuizzes) * 100 : 0;
 
-  // Filter out quizzes that have been completed (based on QuizAttempt status)
-  const upcomingQuizzes = quizzes
+  // Active quizzes (not yet completed)
+  const activeQuizzes = quizzes
     .filter((q) => !completedQuizIds.has(q.id))
     .slice(0, 5);
 
@@ -144,7 +136,6 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
     );
   }
 
-  /* Match StudentQuizList / course quiz rows: darker panels + border-2 primary-border */
   const cardClass =
     'rounded-xl border-2 border-primary-border bg-secondary-background shadow-[0px_4px_12px_rgba(0,0,0,0.45)] p-5 sm:p-6';
   const rowClass =
@@ -158,56 +149,54 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
         <h1 className="text-[24px] font-normal leading-9 tracking-[0.0703px] text-[#F1F5F9]">
           Welcome back, {displayName}
         </h1>
-        <p className="mt-1 text-[15px] leading-[22px] text-[#A1A1AA]">
-          Here&apos;s what&apos;s happening in your courses.
-        </p>
+        <p className="mt-1 text-[15px] leading-[22px] text-[#A1A1AA]">Here&apos;s an overview of your courses.</p>
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <section className={`flex min-h-0 flex-col gap-4 ${cardClass}`}>
-          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Performance overview</h2>
+          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Class overview</h2>
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Overall average</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Class average</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedAttempts.length > 0 ? `${Math.round(overallAverage)}%` : 'N/A'}
               </span>
             </div>
-            <Progress value={overallAverage} color="green" size="sm" bg="#262626" className="w-full" />
+            <Progress value={overallAverage} color="cyan" size="sm" bg="#262626" className="w-full" />
           </div>
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes completed</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes graded</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedQuizzesCount}/{totalQuizzes}
               </span>
             </div>
-            <Progress value={completionPercentage} color="red" size="sm" bg="#262626" className="w-full" />
+            <Progress value={completionPercentage} color="orange" size="sm" bg="#262626" className="w-full" />
           </div>
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Course progress</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Course engagement</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">{Math.round(completionPercentage)}%</span>
             </div>
-            <Progress value={completionPercentage} color="grape" size="sm" bg="#262626" className="w-full" />
+            <Progress value={completionPercentage} color="teal" size="sm" bg="#262626" className="w-full" />
           </div>
         </section>
 
         <section className={`flex min-h-0 flex-col overflow-hidden ${cardClass}`}>
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Upcoming quizzes</h2>
-            <span className="text-[13px] text-[#A1A1AA]">{upcomingQuizzes.length} available</span>
+            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Active quizzes</h2>
+            <span className="text-[13px] text-[#A1A1AA]">{activeQuizzes.length} available</span>
           </div>
 
-          {upcomingQuizzes.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No upcoming quizzes</div>
+          {activeQuizzes.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No active quizzes</div>
           ) : (
             <div className="scrollbar-dashboard mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
               <ul className="flex flex-col gap-3">
-                {upcomingQuizzes.map((quiz) => (
+                {activeQuizzes.map((quiz) => (
                   <li key={quiz.id} className={rowClass}>
                     <div className="flex flex-col gap-1.5">
                       {quiz.chapter.course_title ? (
@@ -231,7 +220,7 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
       <section className={`flex min-h-0 shrink-0 flex-col ${cardClass}`}>
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent quiz history</h2>
+          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent student activity</h2>
           <span className="text-[13px] text-[#A1A1AA]">{recentAttempts.length} shown</span>
         </div>
 

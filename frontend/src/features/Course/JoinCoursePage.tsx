@@ -133,7 +133,7 @@ export default function JoinCoursePage() {
   };
 
   return (
-    <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-6 md:py-10">
+    <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] py-6 md:py-10">
       <div className="flex w-full max-w-[887px] flex-col gap-4 md:gap-[26px]">
         <div className="flex flex-col items-start gap-[4px]">
           <h1 className="font-medium text-[26px] leading-[39px] tracking-[0px]">

@@ -136,7 +136,7 @@ export default function ProfilePage() {
 
   if (error && !loading && !checkingRefresh) {
     return (
-      <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-6 md:py-10">
+      <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] py-6 md:py-10">
         <div className="flex w-full max-w-[887px] flex-col gap-[26px]">
           <div className="rounded-[13px] border border-red-500/50 bg-red-900/20 p-6">
             <h2 className="text-lg font-medium text-red-400 mb-2">Error</h2>
@@ -148,7 +148,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] px-4 py-4 md:py-6">
+    <section className="flex w-full justify-center bg-[#0A0A0A] text-[#F1F5F9] py-4 md:py-6">
       <div className="flex w-full max-w-[887px] flex-col gap-4 md:gap-[26px]">
         {/* Page header */}
         <div className="flex flex-col items-start gap-[4px]">

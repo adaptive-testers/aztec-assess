@@ -999,8 +999,8 @@ export default function CoursePage() {
 
   // ---------- RENDER ----------
   return (
-    <section className="w-full bg-[#0A0A0A] text-[#F1F5F9]">
-      <div className="mx-auto w-full max-w-[1400px] px-4 pb-10 pt-6 sm:px-6 lg:px-10">
+    <section className="w-full text-[#F1F5F9]">
+      <div className="w-full">
         {/* Page header */}
         <div className="flex items-center justify-between gap-4">
           {courseTitleLoading ? (

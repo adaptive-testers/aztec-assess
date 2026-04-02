@@ -95,13 +95,13 @@ describe("StudentDashboardPage", () => {
   });
 
   describe("Loading State", () => {
-    it("should display 'Loading dashboard...' while fetching", () => {
+    it("should show the dashboard skeleton while fetching", () => {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       api.get.mockReturnValue(new Promise(() => {}));
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
-      expect(screen.getByText("Loading dashboard...")).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back, Test/i)).toBeInTheDocument();
     });
   });
 
@@ -111,7 +111,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: new Error("Network error"),
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Failed to load dashboard data")).toBeInTheDocument();
@@ -120,32 +120,32 @@ describe("StudentDashboardPage", () => {
   });
 
   describe("Welcome Section", () => {
-    it("should display the user's first name from the profile API", async () => {
+    it("should display the userName prop in the welcome heading", async () => {
       setupApiResponses();
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Alice" />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Welcome Back, Alice!/)).toBeInTheDocument();
+        expect(screen.getByText(/Welcome back, Alice/i)).toBeInTheDocument();
       });
     });
 
-    it("should fall back to 'student' when profile API fails", async () => {
+    it("should show the provided display name (e.g. student)", async () => {
       setupApiResponses({
         [AUTH.PROFILE]: new Error("401"),
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="student" />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Welcome Back, student!/)).toBeInTheDocument();
+        expect(screen.getByText(/Welcome back, student/i)).toBeInTheDocument();
       });
     });
 
     it("should display the subtitle text", async () => {
       setupApiResponses();
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(
@@ -161,7 +161,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [makeQuiz()] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("N/A")).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         const matches = screen.getAllByText("75%");
@@ -198,7 +198,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(101)]: { data: attempt2 },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("70%")).toBeInTheDocument();
@@ -218,7 +218,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("1/2")).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("0/0")).toBeInTheDocument();
@@ -244,7 +244,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [makeQuiz()] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("0%")).toBeInTheDocument();
@@ -262,7 +262,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("50%")).toBeInTheDocument();
@@ -280,10 +280,10 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
-        expect(screen.getByText("No upcoming quizzes available")).toBeInTheDocument();
+        expect(screen.getByText("No upcoming quizzes")).toBeInTheDocument();
       });
     });
 
@@ -294,14 +294,14 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [quiz] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Chapter 1: Intro")).toBeInTheDocument();
       });
 
       expect(screen.getByText("Quiz Alpha")).toBeInTheDocument();
-      expect(screen.getByText("5 Questions")).toBeInTheDocument();
+      expect(screen.getByText(/5 questions/i)).toBeInTheDocument();
     });
 
     it("should show the number of available upcoming quizzes", async () => {
@@ -311,7 +311,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [quiz] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("1 available")).toBeInTheDocument();
@@ -331,7 +331,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: quizzes },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("5 available")).toBeInTheDocument();
@@ -350,7 +350,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [makeQuiz()] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("No completed quizzes yet")).toBeInTheDocument();
@@ -373,7 +373,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         const matches = screen.getAllByText("92%");
@@ -381,7 +381,7 @@ describe("StudentDashboardPage", () => {
       });
 
       expect(screen.getByText("Excellent")).toBeInTheDocument();
-      expect(screen.getByText("5/5 correct")).toBeInTheDocument();
+      expect(screen.getByText(/5\/5 correct/)).toBeInTheDocument();
       expect(screen.getByText(/Jun 15, 2024/)).toBeInTheDocument();
     });
 
@@ -394,7 +394,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Very Good")).toBeInTheDocument();
@@ -410,7 +410,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Good")).toBeInTheDocument();
@@ -426,7 +426,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Fair")).toBeInTheDocument();
@@ -442,7 +442,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(100)]: { data: attempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Needs Improvement")).toBeInTheDocument();
@@ -462,7 +462,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.ATTEMPT_DETAIL(101)]: { data: inProgressAttempt },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         const matches = screen.getAllByText("90%");
@@ -482,7 +482,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: { results: [quiz] } },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Quiz Alpha")).toBeInTheDocument();
@@ -496,7 +496,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: [quiz] },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Quiz Alpha")).toBeInTheDocument();
@@ -508,7 +508,7 @@ describe("StudentDashboardPage", () => {
         [QUIZZES.LIST]: { data: "not an array" },
       });
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
         expect(screen.getByText("Failed to load dashboard data")).toBeInTheDocument();
@@ -520,16 +520,16 @@ describe("StudentDashboardPage", () => {
     it("should show all section headers", async () => {
       setupApiResponses();
 
-      render(<StudentDashboardPage />);
+      render(<StudentDashboardPage userName="Test" />);
 
       await waitFor(() => {
-        expect(screen.getByText("Performance Overview")).toBeInTheDocument();
+        expect(screen.getByText("Performance overview")).toBeInTheDocument();
       });
-      expect(screen.getByText("Upcoming Quizzes")).toBeInTheDocument();
-      expect(screen.getByText("Recent Quiz History")).toBeInTheDocument();
-      expect(screen.getByText("Overall Average")).toBeInTheDocument();
-      expect(screen.getByText("Quizzes Completed")).toBeInTheDocument();
-      expect(screen.getByText("Course Progress")).toBeInTheDocument();
+      expect(screen.getByText("Upcoming quizzes")).toBeInTheDocument();
+      expect(screen.getByText("Recent quiz history")).toBeInTheDocument();
+      expect(screen.getByText("Overall average")).toBeInTheDocument();
+      expect(screen.getByText("Quizzes completed")).toBeInTheDocument();
+      expect(screen.getByText("Course progress")).toBeInTheDocument();
     });
   });
 });
