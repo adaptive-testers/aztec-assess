@@ -886,6 +886,8 @@ class TestCourseTopicsAPI:
     """GET/POST /api/courses/{id}/topics/."""
 
     def test_list_topics_as_member_returns_200(self, owner, student, course):
+        course.status = Course.CourseStatus.ACTIVE
+        course.save(update_fields=["status"])
         CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
         CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
         Topic.objects.create(course=course, name="Algebra")
@@ -938,6 +940,8 @@ class TestTopicViewSetAPI:
     """Retrieve / update / destroy /api/topics/{uuid}/."""
 
     def test_retrieve_as_course_member_returns_200(self, owner, student, course):
+        course.status = Course.CourseStatus.ACTIVE
+        course.save(update_fields=["status"])
         CourseMembership.objects.create(course=course, user=owner, role=CourseRole.OWNER)
         CourseMembership.objects.create(course=course, user=student, role=CourseRole.STUDENT)
         topic = Topic.objects.create(course=course, name="T")
