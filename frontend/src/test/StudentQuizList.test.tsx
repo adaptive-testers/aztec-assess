@@ -190,6 +190,7 @@ describe("StudentQuizList", () => {
       expect(
         screen.getByText("Quizzes will appear here when your instructor adds them to the course.")
       ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /refresh list/i })).toBeInTheDocument();
     });
   });
 
@@ -204,6 +205,8 @@ describe("StudentQuizList", () => {
       await waitFor(() => {
         expect(screen.getByText("You need to log in to view quizzes")).toBeInTheDocument();
       });
+      expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /back to dashboard/i })).toBeInTheDocument();
     });
 
     it("should display specific error message from API", async () => {

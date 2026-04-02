@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { GoPerson } from "react-icons/go";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
+import { IoChevronBack, IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { MdOutlineMailOutline } from "react-icons/md";
 import { TbLockPassword } from "react-icons/tb";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -70,7 +70,7 @@ export default function SignUpContainer() {
     useEffect(() => {
         if (!selectedRole) {
             // If arrived directly, send back to role selection
-            navigate("/", { replace: true });
+            navigate("/role-select", { replace: true });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -88,7 +88,7 @@ export default function SignUpContainer() {
     flow: "auth-code",
     onSuccess: async ({ code }) => {
       if (!selectedRole) {
-        navigate("/", { replace: true });
+        navigate("/role-select", { replace: true });
         return;
       }
       setIsOAuthLoading(true);
@@ -115,7 +115,7 @@ export default function SignUpContainer() {
 
   const loginWithMicrosoft = async () => {
     if (!selectedRole) {
-      navigate("/", { replace: true });
+      navigate("/role-select", { replace: true });
       return;
     }
     try {
@@ -152,7 +152,7 @@ export default function SignUpContainer() {
         try {
             if (!selectedRole) {
                 // If role is missing, redirect back
-                navigate("/", { replace: true });
+                navigate("/role-select", { replace: true });
                 return;
             }
 
@@ -178,6 +178,13 @@ export default function SignUpContainer() {
 
     return (
         <div className="Sign-Up relative w-full max-w-[1280px] bg-[#000000] flex items-center justify-center px-4 min-h-dvh">
+            <Link
+                to="/"
+                className="fixed left-5 top-5 z-30 inline-flex items-center gap-1 rounded-md border border-[#2F2F2F] bg-[#111111]/80 px-2.5 py-1.5 font-geist text-xs text-[#D4D4D4] backdrop-blur transition hover:border-white hover:text-white"
+            >
+                <IoChevronBack className="h-3.5 w-3.5" />
+                Back
+            </Link>
             {isOAuthLoading && (
                 <div
                     className="fixed inset-0 z-20 flex h-screen w-full items-center justify-center bg-[#0A0A0A]"
@@ -405,7 +412,7 @@ export default function SignUpContainer() {
                         <p className="font-geist font-normal text-[14px] leading-[16px] flex items-center gap-1.5 tracking-[0.5px]">
                             <span className="text-[#ededed]">Already have an account?</span>
                             <Link
-                                to="/"
+                                to="/login"
                                 className="text-[#EF6262] no-underline hover:underline cursor-pointer"
                             >
                                 Log in

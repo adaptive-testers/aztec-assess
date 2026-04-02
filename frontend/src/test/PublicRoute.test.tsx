@@ -10,7 +10,9 @@ vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
-function renderPublicRoute() {
+function renderPublicRoute(authState: { accessToken: string | null; checkingRefresh: boolean }) {
+  (useAuth as unknown as Mock).mockReturnValue(authState);
+
   return render(
     <MemoryRouter initialEntries={["/login"]}>
       <Routes>
@@ -18,11 +20,11 @@ function renderPublicRoute() {
           path="/login"
           element={
             <PublicRoute>
-              <div>Public login content</div>
+              <div>Landing Page</div>
             </PublicRoute>
           }
         />
-        <Route path="/dashboard" element={<div>Dashboard content</div>} />
+        <Route path="/dashboard" element={<div>Dashboard Page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -33,34 +35,20 @@ describe("PublicRoute", () => {
     vi.resetAllMocks();
   });
 
-  it("renders children for unauthenticated users", () => {
-    (useAuth as unknown as Mock).mockReturnValue({
-      accessToken: null,
-      checkingRefresh: false,
-    });
-
-    renderPublicRoute();
-    expect(screen.getByText("Public login content")).toBeInTheDocument();
+  it("renders public content for unauthenticated users", () => {
+    renderPublicRoute({ accessToken: null, checkingRefresh: false });
+    expect(screen.getByText("Landing Page")).toBeInTheDocument();
   });
 
   it("redirects authenticated users to dashboard", () => {
-    (useAuth as unknown as Mock).mockReturnValue({
-      accessToken: "token",
-      checkingRefresh: false,
-    });
-
-    renderPublicRoute();
-    expect(screen.getByText("Dashboard content")).toBeInTheDocument();
-    expect(screen.queryByText("Public login content")).not.toBeInTheDocument();
+    renderPublicRoute({ accessToken: "mock-token", checkingRefresh: false });
+    expect(screen.getByText("Dashboard Page")).toBeInTheDocument();
+    expect(screen.queryByText("Landing Page")).not.toBeInTheDocument();
   });
 
-  it("shows loading state while refresh check is running", () => {
-    (useAuth as unknown as Mock).mockReturnValue({
-      accessToken: null,
-      checkingRefresh: true,
-    });
-
-    renderPublicRoute();
+  it("renders auth-check shell while refresh check is pending", () => {
+    renderPublicRoute({ accessToken: null, checkingRefresh: true });
     expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByText("Landing Page")).not.toBeInTheDocument();
   });
 });

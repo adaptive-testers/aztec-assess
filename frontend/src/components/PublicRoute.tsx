@@ -6,10 +6,6 @@ interface PublicRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * PublicRoute redirects authenticated users away from public pages (like login)
- * to the dashboard. Unauthenticated users can access the page normally.
- */
 export default function PublicRoute({ children }: PublicRouteProps) {
   const { accessToken, checkingRefresh } = useAuth();
 
@@ -27,11 +23,9 @@ export default function PublicRoute({ children }: PublicRouteProps) {
     );
   }
 
-  // If authenticated, redirect to dashboard.
   if (accessToken) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If not authenticated, show the public page
   return <>{children}</>;
 }

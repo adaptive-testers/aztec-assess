@@ -106,6 +106,11 @@ describe("SignUpContainer", () => {
             expect(screen.getByRole("button", { name: "Sign Up" })).toBeInTheDocument()
         })
 
+        it("renders back navigation to home", () => {
+            render(<SignUpContainer />)
+            expect(screen.getByRole("link", { name: /back/i })).toHaveAttribute("href", "/")
+        })
+
         it("renders social login buttons", () => {
             render(<SignUpContainer />)
 
@@ -246,7 +251,7 @@ describe("SignUpContainer", () => {
             }
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+                expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
             })
         })
 
@@ -258,7 +263,7 @@ describe("SignUpContainer", () => {
         it("renders login link", () => {
             render(<SignUpContainer />)
             const loginLink = screen.getByText("Log in")
-            expect(loginLink.closest('a')).toHaveAttribute("href", "/")
+            expect(loginLink.closest('a')).toHaveAttribute("href", "/login")
         })
 
         it("renders 'Already have an account?' text", () => {
@@ -333,7 +338,7 @@ describe("SignUpContainer", () => {
             await userEvent.click(microsoftButton)
 
             expect(mockLoginPopup).not.toHaveBeenCalled()
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
         it("handles Microsoft popup rejection", async () => {
@@ -351,7 +356,7 @@ describe("SignUpContainer", () => {
 
     // Role state handling
     describe("Role State Handling", () => {
-        it("redirects to home if no role is provided", () => {
+        it("redirects to role selection if no role is provided", () => {
             vi.mocked(useLocation).mockReturnValue({
                 state: null,
                 pathname: '/sign-up',
@@ -362,10 +367,10 @@ describe("SignUpContainer", () => {
             
             render(<SignUpContainer />)
             
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
-        it("redirects to home if role is missing from state", () => {
+        it("redirects to role selection if role is missing from state", () => {
             vi.mocked(useLocation).mockReturnValue({
                 state: {},
                 pathname: '/sign-up',
@@ -376,7 +381,7 @@ describe("SignUpContainer", () => {
             
             render(<SignUpContainer />)
             
-            expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+            expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
         })
 
         it("does not redirect if role is provided", () => {
@@ -427,7 +432,7 @@ describe("SignUpContainer", () => {
             await user.click(submitButton)
             
             await waitFor(() => {
-                expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true })
+                expect(mockNavigate).toHaveBeenCalledWith("/role-select", { replace: true })
             })
         })
     })
@@ -874,8 +879,8 @@ describe("SignUpContainer", () => {
                 expect(publicApi.post).toHaveBeenCalled()
             })
             
-            // Should not navigate to home without access token
-            expect(mockNavigate).not.toHaveBeenCalledWith("/")
+            // Should not navigate without an access token
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
     })
 
@@ -905,6 +910,10 @@ describe("SignUpContainer", () => {
             const lastNameInput = screen.getByLabelText("Last Name")
             const emailInput = screen.getByLabelText("Email")
             const passwordInput = screen.getByLabelText("Password")
+            const backLink = screen.getByRole("link", { name: /back/i })
+            
+            await user.tab()
+            expect(backLink).toHaveFocus()
             
             await user.tab()
             expect(firstNameInput).toHaveFocus()

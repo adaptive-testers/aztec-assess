@@ -24,10 +24,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!accessToken) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
-
 
