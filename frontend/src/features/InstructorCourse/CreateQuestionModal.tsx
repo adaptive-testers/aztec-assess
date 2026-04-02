@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
 
 import TopicModal from "./TopicModal";
+import { type Topic } from "../../types/quizTypes";
 
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 
@@ -29,11 +30,11 @@ export interface CreateQuestionModalProps {
   /** When in edit mode, called when user clicks Delete; parent should delete then close/clear. */
   onDelete?: (questionId: number) => void | Promise<void>;
   /** Optional topic options; if provided, Topics button is enabled and opens TopicModal. */
-  topicOptions?: string[];
-  /** Optional handler for creating topics (no API required). */
+  topicOptions?: Topic[];
+  /** Optional handler for creating topics (calls API). */
   onCreateTopic?: (topicName: string) => void | Promise<void>;
-  /** Optional handler for deleting topics (no API required). */
-  onDeleteTopics?: (topicNames: string[]) => void | Promise<void>;
+  /** Optional handler for deleting topics (calls API). */
+  onDeleteTopics?: (topicIds: string[]) => void | Promise<void>;
 }
 
 function clampIndex(value: number, max: number) {
