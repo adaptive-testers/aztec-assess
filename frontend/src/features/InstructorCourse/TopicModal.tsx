@@ -53,18 +53,30 @@ export default function TopicModal(props: TopicModalProps) {
       : "Select topics to filter questions";
   const title = titleProp ?? defaultTitle;
 
-  useEffect(() => {
-    if (!open) return;
+  const [prevOpen, setPrevOpen] = useState(false);
+  const [prevInitial, setPrevInitial] = useState(initialSelectedTopics);
+  const [prevTopics, setPrevTopics] = useState(topics);
+
+  if (open && !prevOpen) {
+    setPrevOpen(true);
     setSelected(uniq(initialSelectedTopics ?? []));
     setShowAdd(false);
     setNewTopicName("");
     setDeleteConfirmFor(null);
-  }, [open, initialSelectedTopics]);
-
-  useEffect(() => {
-    if (!open) return;
     setLocalTopics(topics);
-  }, [open, topics]);
+  } else if (!open && prevOpen) {
+    setPrevOpen(false);
+  }
+
+  if (open && initialSelectedTopics !== prevInitial) {
+    setPrevInitial(initialSelectedTopics);
+    setSelected(uniq(initialSelectedTopics ?? []));
+  }
+
+  if (open && topics !== prevTopics) {
+    setPrevTopics(topics);
+    setLocalTopics(topics);
+  }
 
   useEffect(() => {
     if (!open) return;

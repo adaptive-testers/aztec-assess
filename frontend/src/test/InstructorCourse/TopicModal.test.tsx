@@ -42,7 +42,7 @@ function renderModal(overrides: Partial<Props> = {}) {
   return { props, ...view };
 }
 
-async function waitForInit(firstTopicName: string = "Linear Equations") {
+async function waitForInit(firstTopicName = "Linear Equations") {
   // TopicModal initializes state in a setTimeout(..., 0) after opening.
   await waitFor(() => {
     // Wait until at least one topic chip appears (or the UI is ready).
