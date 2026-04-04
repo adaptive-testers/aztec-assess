@@ -8,6 +8,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import CreateQuestionModal, {
   type CreateQuestionModalProps,
 } from "../../features/InstructorCourse/CreateQuestionModal";
+import { type Topic } from "../../types/quizTypes";
+
+const MOCK_TOPIC_OPTIONS: Topic[] = [
+  { id: "Algebra", name: "Algebra", course_id: "c1", created_at: "" },
+  { id: "Calculus", name: "Calculus", course_id: "c1", created_at: "" },
+];
 
 type OnSaveHandler = NonNullable<CreateQuestionModalProps["onSave"]>;
 type OnDeleteHandler = NonNullable<CreateQuestionModalProps["onDelete"]>;
@@ -365,14 +371,14 @@ describe("CreateQuestionModal", () => {
 
   // ── Topics UI tests ────────────────────────────────────────────────────────
   it("shows 'Select topics' button label when no topics are selected", () => {
-    renderModal({ topicOptions: ["Algebra", "Calculus"] });
+    renderModal({ topicOptions: MOCK_TOPIC_OPTIONS });
     expect(screen.getByRole("button", { name: "Select topics" })).toBeInTheDocument();
   });
 
   it("shows '1 topic' label when one topic is pre-selected via initialValue", async () => {
     vi.useFakeTimers();
     renderModal({
-      topicOptions: ["Algebra", "Calculus"],
+      topicOptions: MOCK_TOPIC_OPTIONS,
       initialValue: { topics: ["Algebra"] },
     });
     // The open effect uses setTimeout(0) to set state — flush it with act
@@ -383,7 +389,7 @@ describe("CreateQuestionModal", () => {
   it("shows '2 topics' label when two topics are pre-selected via initialValue", async () => {
     vi.useFakeTimers();
     renderModal({
-      topicOptions: ["Algebra", "Calculus"],
+      topicOptions: MOCK_TOPIC_OPTIONS,
       initialValue: { topics: ["Algebra", "Calculus"] },
     });
     await act(async () => { vi.runAllTimers(); });
@@ -393,7 +399,7 @@ describe("CreateQuestionModal", () => {
   it("opens TopicModal when the Topics button is clicked (TopicModal is mocked to null)", async () => {
     const user = userEvent.setup();
     // TopicModal is mocked at the top of this file to return null — just verify click
-    renderModal({ topicOptions: ["Algebra"] });
+    renderModal({ topicOptions: MOCK_TOPIC_OPTIONS.slice(0, 1) });
     await user.click(screen.getByRole("button", { name: "Select topics" }));
     // CreateQuestionModal should still be open
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -402,7 +408,7 @@ describe("CreateQuestionModal", () => {
   it("includes pre-selected topics in the onSave payload when Create is clicked", async () => {
     vi.useFakeTimers();
     const { onSave } = renderModal({
-      topicOptions: ["Algebra", "Calculus"],
+      topicOptions: MOCK_TOPIC_OPTIONS,
       initialValue: { topics: ["Calculus"] },
     });
 

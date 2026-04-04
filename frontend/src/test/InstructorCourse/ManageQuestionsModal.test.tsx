@@ -7,6 +7,12 @@ import "@testing-library/jest-dom";
 import ManageQuestionsModal, {
   type ManageQuestionItem,
 } from "../../features/InstructorCourse/ManageQuestionsModal";
+import { type Topic } from "../../types/quizTypes";
+
+const MOCK_TOPIC_OPTIONS: Topic[] = [
+  { id: "Algebra", name: "Algebra", course_id: "c1", created_at: "" },
+  { id: "Geometry", name: "Geometry", course_id: "c1", created_at: "" },
+];
 
 /**
  * Mock CreateQuestionModal so these tests focus on ManageQuestionsModal UI + callback wiring,
@@ -597,7 +603,7 @@ describe("ManageQuestionsModal", () => {
 
   it("opens the Topic filter modal when Topic toolbar button is clicked", async () => {
     const user = userEvent.setup();
-    renderModal({ questions: [makeQuestion()], topicOptions: ["Algebra", "Geometry"] });
+    renderModal({ questions: [makeQuestion()], topicOptions: MOCK_TOPIC_OPTIONS });
 
     await user.click(screen.getByRole("button", { name: /^Topic$/i }));
 
