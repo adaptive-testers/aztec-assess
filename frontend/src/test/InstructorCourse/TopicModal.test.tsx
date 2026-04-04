@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 
 import TopicModal from "../../features/InstructorCourse/TopicModal";
+import { type Topic } from "../../types/quizTypes";
 
 vi.mock("react-icons/fi", () => ({
   FiX: (props: React.SVGProps<SVGSVGElement>) => <svg data-testid="fi-x" {...props} />,
@@ -13,11 +14,18 @@ vi.mock("react-icons/fi", () => ({
 
 type Props = React.ComponentProps<typeof TopicModal>;
 
+const MOCK_TOPICS: Topic[] = [
+  { id: "1", name: "Linear Equations", course_id: "c1", created_at: "" },
+  { id: "2", name: "Functions", course_id: "c1", created_at: "" },
+  { id: "3", name: "Quadratic Functions", course_id: "c1", created_at: "" },
+  { id: "4", name: "Polynomials", course_id: "c1", created_at: "" },
+];
+
 function makeProps(overrides: Partial<Props> = {}): Props {
   return {
     open: true,
     mode: "filter",
-    topics: ["Linear Equations", "Functions", "Quadratic Functions", "Polynomials"],
+    topics: MOCK_TOPICS,
     initialSelectedTopics: [],
     onClose: vi.fn(),
     onApply: vi.fn(),
@@ -34,11 +42,11 @@ function renderModal(overrides: Partial<Props> = {}) {
   return { props, ...view };
 }
 
-async function waitForInit(topics: string[] = ["Linear Equations"]) {
+async function waitForInit(firstTopicName: string = "Linear Equations") {
   // TopicModal initializes state in a setTimeout(..., 0) after opening.
   await waitFor(() => {
     // Wait until at least one topic chip appears (or the UI is ready).
-    expect(screen.getByText(topics[0])).toBeInTheDocument();
+    expect(screen.getByText(firstTopicName)).toBeInTheDocument();
   });
 }
 
@@ -94,24 +102,24 @@ describe("TopicModal", () => {
       mode: "filter",
       onApply,
       onClose,
-      initialSelectedTopics: ["Functions"],
+      initialSelectedTopics: ["2"], // "Functions"
     });
 
-    await waitForInit();
+    await waitForInit("Functions");
 
-    // Preselected
+    // Preselected topic chip with name "Functions" (id="2")
     expect(screen.getByText("Functions")).toBeInTheDocument();
 
-    // Toggle another
+    // Toggle "Polynomials" (id="4")
     await user.click(screen.getByRole("button", { name: "Polynomials" }));
 
-    // Unselect the preselected one
+    // Unselect "Functions" (id="2")
     await user.click(screen.getByRole("button", { name: "Functions" }));
 
     await user.click(screen.getByRole("button", { name: "Apply Filter" }));
 
     expect(onApply).toHaveBeenCalledTimes(1);
-    expect(onApply).toHaveBeenCalledWith(["Polynomials"]);
+    expect(onApply).toHaveBeenCalledWith(["4"]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -124,14 +132,14 @@ describe("TopicModal", () => {
       mode: "select",
       onApply,
       onClose,
-      topics: ["A", "B"],
-      initialSelectedTopics: ["A", "A", "A"],
+      topics: MOCK_TOPICS,
+      initialSelectedTopics: ["1", "1", "1"], // "Linear Equations"
     });
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(onApply).toHaveBeenCalledWith(["A"]);
+    expect(onApply).toHaveBeenCalledWith(["1"]);
   });
 
   it("shows Clear All button only in filter mode; clicking clears selection and calls onClearAll", async () => {
@@ -142,14 +150,14 @@ describe("TopicModal", () => {
 
     const { rerender } = renderModal({
       mode: "filter",
-      topics: ["A", "B"],
-      initialSelectedTopics: ["A", "B"],
+      topics: MOCK_TOPICS.slice(0, 2), // 1, 2
+      initialSelectedTopics: ["1", "2"],
       onClearAll,
       onApply,
       onClose,
     });
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
     expect(screen.getByRole("button", { name: "Clear All" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear All" }));
@@ -161,8 +169,8 @@ describe("TopicModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
 
     // In select mode, Clear All is not shown
-    rerender(<TopicModal {...makeProps({ open: true, mode: "select", topics: ["A"] })} />);
-    await waitForInit(["A"]);
+    rerender(<TopicModal {...makeProps({ open: true, mode: "select", topics: MOCK_TOPICS.slice(0, 1) })} />);
+    await waitForInit("Linear Equations");
     expect(screen.queryByRole("button", { name: "Clear All" })).not.toBeInTheDocument();
   });
 
@@ -170,12 +178,12 @@ describe("TopicModal", () => {
     const user = userEvent.setup();
     const onCreateTopic = vi.fn(async () => undefined);
 
-    renderModal({
-      topics: ["A"],
+    const { rerender } = renderModal({
+      topics: MOCK_TOPICS.slice(0, 1),
       onCreateTopic,
     });
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Add Topic" }));
 
@@ -188,6 +196,13 @@ describe("TopicModal", () => {
     await waitFor(() => expect(onCreateTopic).toHaveBeenCalledTimes(1));
     expect(onCreateTopic).toHaveBeenCalledWith("New Topic");
 
+    // Simulate parent updating topics prop
+    const updatedTopics = [
+      ...MOCK_TOPICS.slice(0, 1),
+      { id: "5", name: "New Topic", course_id: "c1", created_at: "" },
+    ];
+    rerender(<TopicModal {...makeProps({ topics: updatedTopics, onCreateTopic })} />);
+
     // Newly created topic chip should be visible
     expect(await screen.findByRole("button", { name: "New Topic" })).toBeInTheDocument();
   });
@@ -195,8 +210,8 @@ describe("TopicModal", () => {
   it("Add Topic input: Escape or Cancel closes input and clears typed text", async () => {
     const user = userEvent.setup();
 
-    renderModal({ topics: ["A"] });
-    await waitForInit(["A"]);
+    renderModal({ topics: MOCK_TOPICS.slice(0, 1) });
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Add Topic" }));
 
@@ -226,8 +241,8 @@ describe("TopicModal", () => {
     const user = userEvent.setup();
     const onCreateTopic = vi.fn(async () => undefined);
 
-    renderModal({ topics: ["A"], onCreateTopic });
-    await waitForInit(["A"]);
+    renderModal({ topics: MOCK_TOPICS.slice(0, 1), onCreateTopic });
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Add Topic" }));
     const input = await screen.findByPlaceholderText("New topic name...");
@@ -250,14 +265,14 @@ describe("TopicModal", () => {
     const onClose = vi.fn();
 
     renderModal({
-      topics: ["Linear Equations"],
+      topics: [{ id: "id-linear", name: "Linear Equations", course_id: "c1", created_at: "" }],
       initialSelectedTopics: [],
       onCreateTopic,
       onApply,
       onClose,
       mode: "filter",
     });
-    await waitForInit(["Linear Equations"]);
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Add Topic" }));
     const input = await screen.findByPlaceholderText("New topic name...");
@@ -267,12 +282,12 @@ describe("TopicModal", () => {
     expect(onCreateTopic).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Apply Filter" }));
-    expect(onApply).toHaveBeenCalledWith(["Linear Equations"]);
+    expect(onApply).toHaveBeenCalledWith(["id-linear"]);
   });
 
   it("Delete button is disabled when nothing is selected", async () => {
-    renderModal({ topics: ["A", "B"], initialSelectedTopics: [] });
-    await waitForInit(["A"]);
+    renderModal({ topics: MOCK_TOPICS.slice(0, 2), initialSelectedTopics: [] });
+    await waitForInit("Linear Equations");
 
     const del = screen.getByRole("button", { name: "Delete" });
     expect(del).toBeDisabled();
@@ -283,13 +298,13 @@ describe("TopicModal", () => {
     const onDeleteTopics = vi.fn(async () => undefined);
 
     renderModal({
-      topics: ["A", "B", "C"],
-      initialSelectedTopics: ["A", "B"],
+      topics: MOCK_TOPICS.slice(0, 3), // 1, 2, 3
+      initialSelectedTopics: ["1", "2"],
       onDeleteTopics,
       mode: "filter",
     });
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
     const del = screen.getByRole("button", { name: "Delete" });
     expect(del).not.toBeDisabled();
@@ -300,13 +315,13 @@ describe("TopicModal", () => {
     await user.click(screen.getByRole("button", { name: "Confirm?" }));
 
     await waitFor(() => expect(onDeleteTopics).toHaveBeenCalledTimes(1));
-    expect(onDeleteTopics).toHaveBeenCalledWith(["A", "B"]);
+    expect(onDeleteTopics).toHaveBeenCalledWith(["1", "2"]);
 
     // Deleted chips should disappear
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "A" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "B" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "C" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Linear Equations" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Functions" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quadratic Functions" })).toBeInTheDocument();
     });
 
     // Button should revert to Delete (not confirming)
@@ -318,40 +333,40 @@ describe("TopicModal", () => {
     const onDeleteTopics = vi.fn(async () => undefined);
 
     renderModal({
-      topics: ["A", "B", "C"],
-      initialSelectedTopics: ["A", "B"],
+      topics: MOCK_TOPICS.slice(0, 3),
+      initialSelectedTopics: ["1", "2"],
       onDeleteTopics,
       mode: "filter",
     });
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
-    // start delete (snapshot is A,B)
+    // start delete (snapshot is 1,2)
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByRole("button", { name: "Confirm?" })).toBeInTheDocument();
 
-    // change selection: unselect B, select C
-    await user.click(screen.getByRole("button", { name: "B" }));
-    await user.click(screen.getByRole("button", { name: "C" }));
+    // change selection: unselect 2, select 3
+    await user.click(screen.getByRole("button", { name: "Functions" }));
+    await user.click(screen.getByRole("button", { name: "Quadratic Functions" }));
 
     await user.click(screen.getByRole("button", { name: "Confirm?" }));
 
     await waitFor(() => expect(onDeleteTopics).toHaveBeenCalledTimes(1));
-    expect(onDeleteTopics).toHaveBeenCalledWith(["A", "B"]);
+    expect(onDeleteTopics).toHaveBeenCalledWith(["1", "2"]);
 
-    // A and B removed; C remains (even if user selected it after snapshot)
+    // 1 and 2 removed; 3 remains
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "A" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "B" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "C" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Linear Equations" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Functions" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quadratic Functions" })).toBeInTheDocument();
     });
   });
 
   it("Delete confirm automatically expires after 3 seconds", async () => {
     const user = userEvent.setup();
 
-    renderModal({ topics: ["A", "B"], initialSelectedTopics: ["A"] });
-    await waitForInit(["A"]);
+    renderModal({ topics: MOCK_TOPICS.slice(0, 2), initialSelectedTopics: ["1"] });
+    await waitForInit("Linear Equations");
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByRole("button", { name: "Confirm?" })).toBeInTheDocument();
@@ -373,23 +388,23 @@ describe("TopicModal", () => {
         {...makeProps({
           open: true,
           mode: "filter",
-          topics: ["A", "B"],
-          initialSelectedTopics: ["A"],
+          topics: MOCK_TOPICS.slice(0, 2),
+          initialSelectedTopics: ["1"],
         })}
       />,
     );
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
-    // Make changes: open add UI and type, start delete confirm, select B too
-    await user.click(screen.getByRole("button", { name: "B" }));
+    // Make changes: open add UI and type, start delete confirm, select 2 too
+    await user.click(screen.getByRole("button", { name: "Functions" }));
     await user.click(screen.getByRole("button", { name: "Add Topic" }));
     await user.type(await screen.findByPlaceholderText("New topic name..."), "Temp");
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByRole("button", { name: "Confirm?" })).toBeInTheDocument();
 
     // Close (rerender open=false)
-    view.rerender(<TopicModal {...makeProps({ open: false, mode: "filter", topics: ["A", "B"] })} />);
+    view.rerender(<TopicModal {...makeProps({ open: false, mode: "filter", topics: MOCK_TOPICS.slice(0, 2) })} />);
 
     // Re-open with only A preselected
     view.rerender(
@@ -397,13 +412,13 @@ describe("TopicModal", () => {
         {...makeProps({
           open: true,
           mode: "filter",
-          topics: ["A", "B"],
-          initialSelectedTopics: ["A"],
+          topics: MOCK_TOPICS.slice(0, 2),
+          initialSelectedTopics: ["1"],
         })}
       />,
     );
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
 
     // Add UI should be closed asynchronously
     await waitFor(() => {
@@ -420,18 +435,18 @@ describe("TopicModal", () => {
         {...makeProps({
           open: true,
           mode: "filter",
-          topics: ["A", "B"],
-          initialSelectedTopics: ["A"],
+          topics: MOCK_TOPICS.slice(0, 2),
+          initialSelectedTopics: ["1"],
           onApply,
           onClose,
         })}
       />,
     );
 
-    await waitForInit(["A"]);
+    await waitForInit("Linear Equations");
     await user.click(screen.getByRole("button", { name: "Apply Filter" }));
 
-    expect(onApply).toHaveBeenCalledWith(["A"]);
+    expect(onApply).toHaveBeenCalledWith(["1"]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
