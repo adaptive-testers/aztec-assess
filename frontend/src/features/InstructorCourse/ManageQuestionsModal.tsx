@@ -88,6 +88,8 @@ export interface ManageQuestionsModalProps {
   onEditQuestion?: (questionId: number) => void | Promise<void>;
   /** Called when Create Question modal closes so parent can clear editingQuestion */
   onCloseCreateQuestion?: () => void;
+  /** Called when user clicks Create Question button to open creation modal. */
+  onCreateQuestion?: () => void;
 
   // Not in API – buttons left unclickable
   onGenerateQuestion?: () => void;
@@ -162,6 +164,7 @@ export default function ManageQuestionsModal({
   onDeleteQuestion,
   onEditQuestion,
   onCloseCreateQuestion,
+  onCreateQuestion,
   onLoadMore,
   onEnsureAllQuestionsLoaded,
   topicOptions = [],
@@ -315,7 +318,7 @@ export default function ManageQuestionsModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onCloseCreateQuestion?.();
+                        onCreateQuestion?.();
                         setCreateQuestionOpen(true);
                       }}
                       className="h-[37px] rounded-[6px] bg-[#F87171] px-4 text-[14px] font-medium leading-[21px] text-white shadow-sm hover:bg-[#EF6262]"

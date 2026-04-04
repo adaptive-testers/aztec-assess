@@ -833,6 +833,10 @@ describe("Instructor Quiz Page", () => {
       if (url === QUIZZES.QUIZZES_BY_CHAPTER(1)) return Promise.resolve({ data: [] });
       if (url === QUIZZES.QUESTIONS_BY_CHAPTER(1)) return Promise.resolve({ data: { count: 0, next: null, results: [] } });
 
+      if (url === COURSES.TOPICS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: "Algebra", name: "Algebra", course_id: COURSE_ID, created_at: "" }] });
+      }
+
       return Promise.resolve({ data: [] });
     });
 
@@ -926,6 +930,10 @@ describe("Instructor Quiz Page", () => {
             topics: ["Algebra"]
           }
         });
+      }
+
+      if (url === COURSES.TOPICS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: "Algebra", name: "Algebra", course_id: COURSE_ID, created_at: "" }] });
       }
 
       return Promise.resolve({ data: [] });

@@ -55,17 +55,16 @@ export default function TopicModal(props: TopicModalProps) {
 
   useEffect(() => {
     if (!open) return;
-    const nextSelected = uniq(initialSelectedTopics ?? []);
-    const nextTopics = topics;
-    const t = window.setTimeout(() => {
-      setSelected(nextSelected);
-      setLocalTopics(nextTopics);
-      setShowAdd(false);
-      setNewTopicName("");
-      setDeleteConfirmFor(null);
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [open, initialSelectedTopics, topics]);
+    setSelected(uniq(initialSelectedTopics ?? []));
+    setShowAdd(false);
+    setNewTopicName("");
+    setDeleteConfirmFor(null);
+  }, [open, initialSelectedTopics]);
+
+  useEffect(() => {
+    if (!open) return;
+    setLocalTopics(topics);
+  }, [open, topics]);
 
   useEffect(() => {
     if (!open) return;
