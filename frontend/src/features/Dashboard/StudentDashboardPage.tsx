@@ -165,7 +165,7 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <section className={`flex min-h-0 flex-col gap-4 ${cardClass}`}>
-          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Performance overview</h2>
+          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Performance Overview</h2>
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
