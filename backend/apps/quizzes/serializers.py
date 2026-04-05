@@ -15,9 +15,11 @@ class ChapterSerializer(serializers.ModelSerializer):
 class ChapterStudentSerializer(serializers.ModelSerializer):
     """Minimal chapter for students: chapters that have published quizzes."""
 
+    course_title = serializers.CharField(source="course.title", read_only=True)
+
     class Meta:
         model = Chapter
-        fields = ("id", "title", "order_index", "course")
+        fields = ("id", "title", "order_index", "course", "course_title")
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):

@@ -169,7 +169,7 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Overall average</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Overall Average</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedAttempts.length > 0 ? `${Math.round(overallAverage)}%` : 'N/A'}
               </span>
@@ -179,7 +179,7 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes completed</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes Completed</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedQuizzesCount}/{totalQuizzes}
               </span>
@@ -198,12 +198,12 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
         <section className={`flex min-h-0 flex-col overflow-hidden ${cardClass}`}>
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Upcoming quizzes</h2>
+            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Upcoming Quizzes</h2>
             <span className="text-[13px] text-[#A1A1AA]">{upcomingQuizzes.length} available</span>
           </div>
 
           {upcomingQuizzes.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No upcoming quizzes</div>
+            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No Upcoming Quizzes</div>
           ) : (
             <div className="scrollbar-dashboard mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
               <ul className="flex flex-col gap-3">
@@ -231,7 +231,7 @@ export default function StudentDashboardPage({ userName: propUserName }: Student
 
       <section className={`flex min-h-0 shrink-0 flex-col ${cardClass}`}>
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent quiz history</h2>
+          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent Quiz History</h2>
           <span className="text-[13px] text-[#A1A1AA]">{recentAttempts.length} shown</span>
         </div>
 

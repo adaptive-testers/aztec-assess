@@ -158,7 +158,7 @@ export default function InstructorDashboardPage({ userName: propUserName }: Inst
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Class average</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Class Average</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedAttempts.length > 0 ? `${Math.round(overallAverage)}%` : 'N/A'}
               </span>
@@ -168,7 +168,7 @@ export default function InstructorDashboardPage({ userName: propUserName }: Inst
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes graded</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Quizzes Graded</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">
                 {completedQuizzesCount}/{totalQuizzes}
               </span>
@@ -178,7 +178,7 @@ export default function InstructorDashboardPage({ userName: propUserName }: Inst
 
           <div className="flex flex-col gap-1">
             <div className="flex flex-row items-center justify-between">
-              <span className="text-[13px] font-normal text-[#A1A1AA]">Course engagement</span>
+              <span className="text-[13px] font-normal text-[#A1A1AA]">Course Engagement</span>
               <span className="text-[15px] font-semibold tabular-nums text-[#F1F5F9]">{Math.round(completionPercentage)}%</span>
             </div>
             <Progress value={completionPercentage} color="teal" size="sm" bg="#262626" className="w-full" />
@@ -187,12 +187,12 @@ export default function InstructorDashboardPage({ userName: propUserName }: Inst
 
         <section className={`flex min-h-0 flex-col overflow-hidden ${cardClass}`}>
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Active quizzes</h2>
+            <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Active Quizzes</h2>
             <span className="text-[13px] text-[#A1A1AA]">{activeQuizzes.length} available</span>
           </div>
 
           {activeQuizzes.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No active quizzes</div>
+            <div className="flex flex-1 items-center justify-center py-6 text-[15px] text-[#A1A1AA]">No Active Quizzes</div>
           ) : (
             <div className="scrollbar-dashboard mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
               <ul className="flex flex-col gap-3">
@@ -220,7 +220,7 @@ export default function InstructorDashboardPage({ userName: propUserName }: Inst
 
       <section className={`flex min-h-0 shrink-0 flex-col ${cardClass}`}>
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent student activity</h2>
+          <h2 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">Recent Student Activity</h2>
           <span className="text-[13px] text-[#A1A1AA]">{recentAttempts.length} shown</span>
         </div>
 
