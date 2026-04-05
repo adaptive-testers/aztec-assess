@@ -151,18 +151,18 @@ function chapterLabel(chapter: Chapter) {
 // SUBCOMPONENTS (ChapterSelector, RowAction)
 // =============================================================================
 
-function ChapterSelector({
+function TopicSelector({
   chapters,
   value,
   onChange,
-  onAddChapter,
-  onEditChapter,
+  onAddTopic,
+  onEditTopic,
 }: {
   chapters: Chapter[];
   value: number | null;
   onChange: (chapterId: number) => void;
-  onAddChapter?: () => void;
-  onEditChapter?: (chapter: Chapter) => void;
+  onAddTopic?: () => void;
+  onEditTopic?: (chapter: Chapter) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -201,7 +201,7 @@ function ChapterSelector({
       >
         <span aria-hidden className="w-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-center text-[15px] font-medium leading-[22px]">
-          {active ? chapterLabel(active) : "Select chapter"}
+          {active ? chapterLabel(active) : "Select topic"}
         </span>
         <FiChevronDown
           className={
@@ -239,9 +239,9 @@ function ChapterSelector({
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpen(false);
-                        onEditChapter?.(c);
+                        onEditTopic?.(c);
                       }}
-                      aria-label="Edit chapter"
+                      aria-label="Edit topic"
                       className="grid h-8 w-8 shrink-0 place-items-center rounded-[6px] text-[#A1A1AA] hover:bg-[#202020]"
                     >
                       <FiEdit2 className="h-4 w-4" />
@@ -251,7 +251,7 @@ function ChapterSelector({
               })
             ) : (
               <div className="px-4 py-3 text-sm text-[#A1A1AA]">
-                No chapters yet
+                No topics yet
               </div>
             )}
             <div className="border-t border-[#404040]" />
@@ -259,12 +259,12 @@ function ChapterSelector({
               type="button"
               onClick={() => {
                 setOpen(false);
-                onAddChapter?.();
+                onAddTopic?.();
               }}
               className="flex h-[41px] w-full items-center gap-2 px-4 text-left text-[14px] font-medium leading-[21px] text-[#F87171] hover:bg-[#151515]"
             >
               <IoAddOutline className="h-4 w-4" />
-              Add Chapter
+              Add Topic
             </button>
           </div>
         </div>
@@ -1228,88 +1228,59 @@ export default function CoursePage() {
             </button>
           </div>
           <div className="flex justify-center">
-            {loading ? (
-              <div className="skeleton-shimmer h-10 w-full max-w-[420px] rounded-[8px]" />
-            ) : (
-              <ChapterSelector
-                chapters={chapters}
-                value={activeChapterId}
-                onChange={(chapterId) => setActiveChapterId(chapterId)}
-                onAddChapter={() => {
-                  setEditingChapter(null);
-                  setAddChapterOpen(true);
-                }}
-                onEditChapter={(chapter) => {
-                  void openEditChapterModal(chapter.id);
-                }}
-              />
-            )}
+            <TopicSelector
+              chapters={chapters}
+              value={activeChapterId}
+              onChange={(chapterId) => setActiveChapterId(chapterId)}
+              onAddTopic={() => {
+                setEditingChapter(null);
+                setAddChapterOpen(true);
+              }}
+              onEditTopic={(chapter) => {
+                void openEditChapterModal(chapter.id);
+              }}
+            />
           </div>
         </div>
 
-        {/* Question Bank */}
-        <div className="mt-6 rounded-xl border border-[#404040] bg-[#1A1A1A] p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.3)] sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-[20px] font-normal leading-7 tracking-[-0.3125px] text-[#F1F5F9]">
-              Question Bank
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setQuestionImportOpen(true)}
-                disabled={!activeChapterId}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] transition hover:bg-[#262626] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Import Questions
-              </button>
-              <button
-                type="button"
-                onClick={openManageQuestionsModal}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[14px] font-normal leading-5 text-[#F1F5F9] hover:bg-[#262626] transition"
-              >
-                Manage Questions
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
-              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
-                {loading ? (
-                  <div className="skeleton-shimmer inline-block h-[20px] w-[200px] rounded" />
-                ) : (
-                  `${questionBankCounts.total} questions`
-                )}
+        {/* Question Bank Summary Bar */}
+        <div className="mt-6 rounded-xl border border-[#404040] bg-[#1A1A1A]">
+          <div className="flex items-center justify-between px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 items-center gap-2 rounded-lg border border-[#404040] bg-[#202020] px-4 text-[13px] font-medium text-[#F1F5F9] shadow-sm">
+                <span className="font-semibold">{questionBankCounts.total}</span>
+                <span className="text-[#A1A1AA]">questions</span>
               </div>
-              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
-                {loading ? (
-                  <div className="skeleton-shimmer inline-block h-[20px] w-[120px] rounded" />
-                ) : (
-                  `${topicOptions.length} topics`
-                )}
+
+              <div className="h-5 w-px bg-[#404040]" />
+
+              <div className="flex h-9 items-center gap-2 rounded-lg border border-[#404040] bg-[#202020] px-4 text-[13px] font-medium text-[#F1F5F9] shadow-sm">
+                <span className="font-semibold">{topicOptions.length}</span>
+                <span className="text-[#A1A1AA]">{topicOptions.length === 1 ? "topic" : "topics"}</span>
               </div>
             </div>
-            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-              {loading ? (
-                <>
-                  <div className="skeleton-shimmer h-[37px] w-[140px] rounded-md" />
-                  <div className="skeleton-shimmer h-[37px] w-[100px] rounded-md" />
-                </>
-              ) : (
-                <>
-                  <div
-                    title="Source not in API"
-                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-                  >
-                    {questionBankCounts.ai} AI Generated
-                  </div>
-                  <div
-                    title="Source not in API"
-                    className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#A1A1AA] cursor-not-allowed pointer-events-none opacity-80"
-                  >
-                    {questionBankCounts.manual} Manual
-                  </div>
-                </>
-              )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled
+                title="Coming soon"
+                className="flex h-[39px] items-center justify-center gap-2 rounded-md border border-[#404040] px-4 text-sm font-medium text-[#A1A1AA] opacity-60 cursor-not-allowed"
+              >
+                <span>View Topics</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (effectiveCourseId) {
+                    navigate(`/courses/${effectiveCourseId}/question-bank${activeChapterId ? `?topic=${activeChapterId}` : ""}`);
+                  }
+                }}
+                className="flex h-[39px] items-center justify-center rounded-md border border-[#404040] px-4 text-sm font-medium text-[#F1F5F9] hover:bg-[#262626] transition"
+              >
+                <span>View Questions</span>
+              </button>
             </div>
           </div>
         </div>

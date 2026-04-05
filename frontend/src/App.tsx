@@ -14,6 +14,7 @@ import LandingPage from "./features/Landing/LandingPage";
 import CookiesPage from "./features/Legal/CookiesPage";
 import PrivacyPage from "./features/Legal/PrivacyPage";
 import TermsPage from "./features/Legal/TermsPage";
+import QuestionBankPage from "./features/InstructorCourse/QuestionBankPage";
 import LogInPage from "./features/LogIn/LogInPage";
 import NotFoundPage from "./features/NotFound/NotFoundPage";
 import ProfilePage from "./features/Profile/ProfilePage";
@@ -85,6 +86,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
           <Route path="/courses/:courseId" element={<CoursePage />} />
+          <Route path="/courses/:courseId/question-bank" element={<QuestionBankPage />} />
           <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
           <Route path="/courses/:courseId/students" element={<StudentsPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
