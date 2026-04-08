@@ -11,6 +11,7 @@ updates:
     open-pull-requests-limit: 5
     groups:
       backend-dependencies:
+        applies-to: version-updates
         patterns:
           - "*"
         update-types:
@@ -32,6 +33,7 @@ updates:
     open-pull-requests-limit: 5
     groups:
       frontend-dependencies:
+        applies-to: version-updates
         patterns:
           - "*"
         update-types:
@@ -70,6 +72,7 @@ updates:
     open-pull-requests-limit: 2
     groups:
       github-actions:
+        applies-to: version-updates
         patterns:
           - "*"
         update-types:
