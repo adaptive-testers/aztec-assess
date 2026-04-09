@@ -5,11 +5,13 @@ on:
     branches:
       - main
       - staging
+      - tester
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - main
       - staging
+      - tester
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

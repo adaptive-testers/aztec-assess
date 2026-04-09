@@ -1,6 +1,7 @@
 import axios from "axios";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { FiArrowRight, FiBookOpen, FiMessageSquare, FiPlus } from "react-icons/fi";
+import { FiArrowRight, FiBookOpen, FiChevronDown, FiMessageSquare, FiPlus } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 import { privateApi } from "../../api/axios";
@@ -40,10 +41,12 @@ function parseCourses(data: unknown): CourseItem[] {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const testerOnboardingEnabled = import.meta.env.VITE_TESTER_ONBOARDING_ENABLED === "true";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [courses, setCourses] = useState<ParsedCourse[]>([]);
+  const [isTesterChecklistExpanded, setIsTesterChecklistExpanded] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -96,6 +99,22 @@ export default function DashboardPage() {
     () => courses.filter((course) => course.status === "ARCHIVED"),
     [courses]
   );
+  const testerRequiredFlow = useMemo(() => {
+    if (profile?.role === "student") {
+      return "Required flow: join one course and submit one quiz attempt.";
+    }
+    return "Required flow: create or open one course and publish one quiz.";
+  }, [profile?.role]);
+  const testerOptionalFlow = useMemo(() => {
+    if (profile?.role === "student") {
+      return "Optional flow: revisit a completed quiz result and verify grading details.";
+    }
+    return "Optional flow: archive one course and verify it appears under Archived Courses.";
+  }, [profile?.role]);
+
+  const toggleTesterChecklist = () => {
+    setIsTesterChecklistExpanded((prev) => !prev);
+  };
 
   return (
     <section className="w-full bg-[#0A0A0A] text-[#F1F5F9]">
@@ -145,6 +164,87 @@ export default function DashboardPage() {
             </a>
           </div>
         </header>
+
+        {testerOnboardingEnabled &&
+          !loading &&
+          !error && (
+            <section className="rounded-xl border border-[#404040] bg-[#1A1A1A] p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-[18px] font-medium">Tester Checklist</h2>
+                <button
+                  type="button"
+                  onClick={toggleTesterChecklist}
+                  className="grid h-8 w-8 place-items-center rounded-[6px] hover:bg-[#202020]"
+                  aria-label="Toggle tester checklist"
+                  aria-expanded={isTesterChecklistExpanded}
+                  aria-controls="tester-checklist-content"
+                >
+                  <FiChevronDown
+                    className={`h-4 w-4 transition-transform duration-300 ${
+                      isTesterChecklistExpanded ? "rotate-180 text-[#A1A1AA]" : "text-[#A1A1AA]"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {isTesterChecklistExpanded && (
+                  <motion.div
+                    id="tester-checklist-content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.24, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                  <p className="mt-2 text-sm text-[#A1A1AA]">
+                    Complete these steps in your first session, then submit feedback.
+                  </p>
+
+                  <ol className="mt-4 space-y-3">
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#F87171] text-xs font-semibold text-white">
+                        1
+                      </span>
+                      <span>
+                        Account setup: confirm your profile name and role are correct on this dashboard.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#F87171] text-xs font-semibold text-white">
+                        2
+                      </span>
+                      <span>{testerRequiredFlow}</span>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#F87171] text-xs font-semibold text-white">
+                        3
+                      </span>
+                      <span>{testerOptionalFlow}</span>
+                    </li>
+                    <li className="flex items-start gap-3 text-sm">
+                      <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#F87171] text-xs font-semibold text-white">
+                        4
+                      </span>
+                      <span>
+                        Feedback: submit issues, UX pain points, and suggestions through the form.
+                      </span>
+                    </li>
+                  </ol>
+
+                  <a
+                    href={FEEDBACK_FORM_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex h-10 items-center gap-2 rounded-md border border-[#404040] px-4 text-sm font-medium text-[#F1F5F9] hover:bg-[#202020]"
+                  >
+                    Open Feedback Form
+                  </a>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          )}
 
         {error ? (
           <div className="rounded-xl border border-red-500/50 bg-red-900/20 p-4 text-sm text-red-300">

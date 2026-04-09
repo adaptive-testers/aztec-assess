@@ -54,10 +54,11 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **MyPy** - Type checking
 - **Ruff** - Python linting
 
-### Deployment (Planned)
-- **Frontend**: Serverless platform (TBD)
-- **Backend**: Cloud hosting platform (TBD)
-- **Database**: Neon PostgreSQL (hosted)
+### Deployment
+- **Frontend**: Cloudflare Pages
+- **Backend**: Google Cloud Run
+- **Database**: Neon PostgreSQL
+- **Tester environment**: See [`docs/tester-environment-runbook.md`](docs/tester-environment-runbook.md)
 
 ## 🚀 Getting Started
 
@@ -135,6 +136,16 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 SECURE_HSTS_PRELOAD=True
 SECURE_REFERRER_POLICY=strict-origin-when-cross-origin
 ```
+
+**Tester Deployment Overrides (controlled cohort):**
+```bash
+SIGNUP_ALLOWLIST_ENABLED=True
+STUDENT_MODE_ONLY=False
+```
+
+Use the dedicated tester templates for full environment setup:
+- `backend/.env.tester.example`
+- `frontend/.env.tester.example`
 
 #### Step 4: Start the Application
 

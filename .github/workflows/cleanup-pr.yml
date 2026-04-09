@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - staging
+      - tester
 
 jobs:
   delete_neon_branch:

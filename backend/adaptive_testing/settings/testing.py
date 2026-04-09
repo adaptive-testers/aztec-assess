@@ -45,6 +45,7 @@ LOGGING = {
 
 # Disable CORS for tests
 CORS_ALLOW_ALL_ORIGINS = True
+COOKIE_SAMESITE = "Lax"
 
 # Use console email backend for tests
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
