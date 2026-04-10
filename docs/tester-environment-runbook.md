@@ -21,7 +21,7 @@ Create a dedicated tester deployment target:
 
 Recommended DNS:
 
-- `tester.aztecassess.app` -> tester frontend deployment
+- `test.aztecassess.app` -> tester frontend deployment
 
 Tester frontend environment variables:
 
@@ -40,7 +40,7 @@ Create a dedicated tester service and trigger:
 
 Recommended DNS:
 
-- `tester-api.aztecassess.app` -> tester Cloud Run service
+- `test-api.aztecassess.app` -> tester Cloud Run service
 
 Tester backend environment variables:
 
