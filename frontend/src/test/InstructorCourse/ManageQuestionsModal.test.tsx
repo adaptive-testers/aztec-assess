@@ -10,8 +10,8 @@ import ManageQuestionsModal, {
 import { type Topic } from "../../types/quizTypes";
 
 const MOCK_TOPIC_OPTIONS: Topic[] = [
-  { id: "Algebra", name: "Algebra", course_id: "c1", created_at: "" },
-  { id: "Geometry", name: "Geometry", course_id: "c1", created_at: "" },
+  { id: "topic-alg-id", name: "Algebra", course_id: "c1", created_at: "" },
+  { id: "topic-geo-id", name: "Geometry", course_id: "c1", created_at: "" },
 ];
 
 /**
@@ -605,11 +605,74 @@ describe("ManageQuestionsModal", () => {
     const user = userEvent.setup();
     renderModal({ questions: [makeQuestion()], topicOptions: MOCK_TOPIC_OPTIONS });
 
-    await user.click(screen.getByRole("button", { name: /^Topic$/i }));
+    await user.click(screen.getByRole("button", { name: "Filter by topic" }));
 
-    // TopicModal is mocked by default — here ManageQuestionsModal renders its own TopicModal
-    // We just verify the click is possible and doesn't crash
-    expect(screen.getByRole("button", { name: /^Topic$/i })).toBeInTheDocument();
+    expect(screen.getByText("Select topics to filter questions")).toBeInTheDocument();
+  });
+
+  it("filters questions to those matching any topic selected in TopicModal (IDs vs display names)", async () => {
+    const user = userEvent.setup();
+    const qAlg = makeQuestion({
+      id: "1",
+      prompt: "Algebra prompt",
+      topics: ["Algebra"],
+    });
+    const qGeo = makeQuestion({
+      id: "2",
+      prompt: "Geometry prompt",
+      topics: ["Geometry"],
+    });
+    renderModal({
+      questions: [qAlg, qGeo],
+      topicOptions: MOCK_TOPIC_OPTIONS,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Filter by topic" }));
+    await user.click(screen.getByRole("button", { name: "Algebra" }));
+    await user.click(screen.getByRole("button", { name: "Apply Filter" }));
+
+    expect(screen.getByText("Algebra prompt")).toBeInTheDocument();
+    expect(screen.queryByText("Geometry prompt")).not.toBeInTheDocument();
+  });
+
+  it("shows all questions when topic filter is cleared (Clear All in TopicModal)", async () => {
+    const user = userEvent.setup();
+    const qAlg = makeQuestion({ id: "1", prompt: "Algebra prompt", topics: ["Algebra"] });
+    const qGeo = makeQuestion({ id: "2", prompt: "Geometry prompt", topics: ["Geometry"] });
+    renderModal({
+      questions: [qAlg, qGeo],
+      topicOptions: MOCK_TOPIC_OPTIONS,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Filter by topic" }));
+    await user.click(screen.getByRole("button", { name: "Algebra" }));
+    await user.click(screen.getByRole("button", { name: "Apply Filter" }));
+    expect(screen.queryByText("Geometry prompt")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Filter by topic" }));
+    await user.click(screen.getByRole("button", { name: "Clear All" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByText("Algebra prompt")).toBeInTheDocument();
+    expect(screen.getByText("Geometry prompt")).toBeInTheDocument();
+  });
+
+  it("calls onEnsureAllQuestionsLoaded when topic filters apply and hasMore=true", async () => {
+    const user = userEvent.setup();
+    const onEnsureAllQuestionsLoaded = vi.fn().mockResolvedValue(undefined);
+
+    renderModal({
+      questions: [makeQuestion({ topics: ["Algebra"] })],
+      hasMore: true,
+      topicOptions: MOCK_TOPIC_OPTIONS,
+      onEnsureAllQuestionsLoaded,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Filter by topic" }));
+    await user.click(screen.getByRole("button", { name: "Algebra" }));
+    await user.click(screen.getByRole("button", { name: "Apply Filter" }));
+
+    await waitFor(() => expect(onEnsureAllQuestionsLoaded).toHaveBeenCalledTimes(1));
   });
 });
 

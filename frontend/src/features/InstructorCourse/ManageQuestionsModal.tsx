@@ -11,9 +11,10 @@ import {
   FiX,
 } from "react-icons/fi";
 
+import { type Topic } from "../../types/quizTypes";
+
 import CreateQuestionModal from "./CreateQuestionModal";
 import TopicModal from "./TopicModal";
-import { type Topic } from "../../types/quizTypes";
 
 type QuestionSource = "ai" | "manual";
 type Difficulty = "easy" | "medium" | "hard";
@@ -191,7 +192,20 @@ export default function ManageQuestionsModal({
   const [selectedTopicFilters, setSelectedTopicFilters] = React.useState<string[]>([]);
 
   const hasActiveFilters = difficultyFilters.size > 0;
+  const hasTopicFilters = selectedTopicFilters.length > 0;
   const isLoadingMore = loadingMore && hasMore;
+
+  /** Topic filter modal stores topic IDs; list items show resolved topic names. */
+  const selectedTopicMatchSet = React.useMemo(() => {
+    if (selectedTopicFilters.length === 0) return null;
+    const namesAndIds = new Set<string>();
+    for (const id of selectedTopicFilters) {
+      namesAndIds.add(id);
+      const name = topicOptions.find((t) => t.id === id)?.name;
+      if (name) namesAndIds.add(name);
+    }
+    return namesAndIds;
+  }, [selectedTopicFilters, topicOptions]);
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -205,6 +219,11 @@ export default function ManageQuestionsModal({
     const filtered = items.filter((item) => {
       if (difficultyFilters.size > 0 && !difficultyFilters.has(item.difficulty)) {
         return false;
+      }
+      if (selectedTopicMatchSet) {
+        const tags = item.topics ?? [];
+        const matchesTopic = tags.some((t) => selectedTopicMatchSet.has(t));
+        if (!matchesTopic) return false;
       }
       if (!normalizedQuery) return true;
       return item.prompt.toLowerCase().includes(normalizedQuery);
@@ -224,7 +243,7 @@ export default function ManageQuestionsModal({
           return 0;
       }
     });
-  }, [items, query, difficultyFilters, sortBy]);
+  }, [items, query, difficultyFilters, sortBy, selectedTopicMatchSet]);
 
   const toggleDifficultyFilter = (difficulty: Difficulty) => {
     setDifficultyFilters((prev) => {
@@ -258,11 +277,19 @@ export default function ManageQuestionsModal({
   React.useEffect(() => {
     const shouldEnsureAll =
       hasMore &&
-      (debouncedQuery.trim().length > 0 || difficultyFilters.size > 0);
+      (debouncedQuery.trim().length > 0 ||
+        difficultyFilters.size > 0 ||
+        selectedTopicFilters.length > 0);
     if (shouldEnsureAll) {
       void onEnsureAllQuestionsLoaded?.();
     }
-  }, [difficultyFilters.size, hasMore, onEnsureAllQuestionsLoaded, debouncedQuery]);
+  }, [
+    difficultyFilters.size,
+    hasMore,
+    onEnsureAllQuestionsLoaded,
+    debouncedQuery,
+    selectedTopicFilters.length,
+  ]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -340,6 +367,7 @@ export default function ManageQuestionsModal({
                     {/* Topic filter button */}
                     <button
                       type="button"
+                      aria-label="Filter by topic"
                       onClick={() => setTopicFilterModalOpen(true)}
                       className={
                         "inline-flex h-[39px] items-center gap-2 rounded-[6px] border px-4 text-[14px] font-medium leading-[21px] transition-colors " +
@@ -706,7 +734,7 @@ export default function ManageQuestionsModal({
                       })}
                     {!loading && filteredAndSortedItems.length === 0 && !isLoadingMore && (
                       <div className="rounded-[8px] border border-[#404040] bg-[#151515] p-4 text-[14px] text-[#A1A1AA]">
-                        {query.trim() || hasActiveFilters
+                        {query.trim() || hasActiveFilters || hasTopicFilters
                           ? "No questions match the current filters."
                           : "No questions yet."}
                       </div>
