@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..models import AttemptAnswer, AttemptStatus, Question, QuizAttempt
+from .adaptive_state import apply_answer_updates
 from .selection import next_difficulty_after, select_next_question
 
 
@@ -10,6 +11,8 @@ def submit_answer(
     attempt: QuizAttempt,
     question_id: int,
     selected_index: int,
+    *,
+    response_time_ms: int | None = None,
 ) -> dict:
     if attempt.status != AttemptStatus.IN_PROGRESS:
         return {"error": "Attempt already completed", "status_code": 400}
@@ -30,17 +33,22 @@ def submit_answer(
         return {"error": "question already answered", "status_code": 409}
 
     is_correct = selected_index == question.correct_index
+    next_number = attempt.num_answered + 1
     AttemptAnswer.objects.create(
         attempt=attempt,
         question=question,
         selected_index=selected_index,
         is_correct=is_correct,
+        response_time_ms=response_time_ms,
+        attempt_number=next_number,
     )
 
     attempt.num_answered += 1
     if is_correct:
         attempt.num_correct += 1
     attempt.current_difficulty = next_difficulty_after(attempt.current_difficulty, is_correct)
+
+    adaptive_meta = apply_answer_updates(attempt.student, question, is_correct)
 
     if attempt.num_answered >= attempt.quiz.num_questions:
         attempt.status = AttemptStatus.COMPLETED
@@ -60,6 +68,7 @@ def submit_answer(
             "completed": True,
             "is_correct": is_correct,
             "attempt": attempt,
+            **adaptive_meta,
         }
 
     attempt.save(update_fields=["num_answered", "num_correct", "current_difficulty"])
@@ -77,6 +86,7 @@ def submit_answer(
             "completed": True,
             "is_correct": is_correct,
             "attempt": attempt,
+            **adaptive_meta,
         }
 
     attempt.current_question = next_question
@@ -87,4 +97,5 @@ def submit_answer(
         "is_correct": is_correct,
         "attempt": attempt,
         "next_question": next_question,
+        **adaptive_meta,
     }

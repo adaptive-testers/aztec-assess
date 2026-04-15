@@ -1,3 +1,4 @@
+import contextlib
 from typing import Any
 from uuid import UUID
 
@@ -281,6 +282,11 @@ class QuizListCreateView(generics.ListCreateAPIView):
     def get_chapter(self) -> Chapter:
         return get_object_or_404(Chapter, id=self.kwargs["chapter_id"])
 
+    def get_serializer_context(self) -> dict[str, Any]:
+        ctx = super().get_serializer_context()
+        ctx["chapter"] = self.get_chapter()
+        return ctx
+
     def get_queryset(self) -> QuerySet[Quiz]:
         chapter = self.get_chapter()
         return Quiz.objects.filter(chapter=chapter).order_by("created_at")
@@ -305,6 +311,12 @@ class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated]
     queryset = Quiz.objects.all()
+
+    def get_serializer_context(self) -> dict[str, Any]:
+        ctx = super().get_serializer_context()
+        with contextlib.suppress(Exception):  # pragma: no cover - object may not exist yet
+            ctx["chapter"] = self.get_object().chapter
+        return ctx
 
     def retrieve(self, request: Request, *_args: Any, **_kwargs: Any) -> Response:
         quiz = self.get_object()
@@ -375,6 +387,8 @@ class StartAttemptView(generics.CreateAPIView):
             return Response({"detail": "Attempt already in progress."}, status=status.HTTP_409_CONFLICT)
 
         first_question = select_next_question(attempt, [])
+        if first_question is not None:
+            first_question = Question.objects.prefetch_related("topics").get(pk=first_question.pk)
         if first_question is None:
             attempt.status = AttemptStatus.COMPLETED
             attempt.ended_at = timezone.now()
@@ -426,6 +440,7 @@ class SubmitAnswerView(generics.CreateAPIView):
             attempt=attempt,
             question_id=serializer.validated_data["question_id"],
             selected_index=serializer.validated_data["selected_index"],
+            response_time_ms=serializer.validated_data.get("response_time_ms"),
         )
         if "error" in result:
             return Response({"detail": result["error"]}, status=result.get("status_code", 400))
@@ -439,6 +454,9 @@ class SubmitAnswerView(generics.CreateAPIView):
             "current_difficulty": attempt.current_difficulty,
             "status": attempt.status,
         }
+        for key in ("theta", "topic_mastery", "focus_topic_id", "focus_topic_name"):
+            if result.get(key) is not None:
+                payload[key] = result[key]
 
         if result.get("completed"):
             payload["ended_at"] = attempt.ended_at
@@ -449,7 +467,9 @@ class SubmitAnswerView(generics.CreateAPIView):
             )
             return Response(payload, status=status.HTTP_200_OK)
 
-        payload["next_question"] = QuestionStudentSerializer(result["next_question"]).data
+        nq = result["next_question"]
+        nq = Question.objects.prefetch_related("topics").get(pk=nq.pk)
+        payload["next_question"] = QuestionStudentSerializer(nq).data
         return Response(payload, status=status.HTTP_200_OK)
 
 

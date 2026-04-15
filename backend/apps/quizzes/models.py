@@ -1,6 +1,11 @@
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+
+if TYPE_CHECKING:
+    from apps.courses.models import Topic
 
 
 class Chapter(models.Model):
@@ -41,6 +46,10 @@ class Question(models.Model):
 
     def __str__(self) -> str:
         return f"Q{self.pk} ({self.difficulty})"
+
+    def get_primary_topic(self) -> "Topic | None":
+        """MVP: first topic by id for BKT when a question has multiple topics."""
+        return self.topics.order_by("id").first()
 
 
 class SelectionMode(models.TextChoices):
@@ -112,6 +121,87 @@ class AttemptAnswer(models.Model):
     selected_index = models.IntegerField(null=True, blank=True)
     is_correct = models.BooleanField(default=False)
     answered_at = models.DateTimeField(auto_now_add=True)
+    response_time_ms = models.PositiveIntegerField(null=True, blank=True)
+    attempt_number = models.PositiveIntegerField(
+        default=1,
+        help_text="Ordinal of this response within the quiz attempt (1-based).",
+    )
 
     class Meta:
         unique_together = ("attempt", "question")
+
+
+class StudentAbility(models.Model):
+    """Global student proficiency (Rasch theta) for online IRT updates."""
+
+    student = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="student_ability",
+    )
+    theta = models.FloatField(default=0.0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Ability θ={self.theta:.3f} ({self.student_id})"
+
+
+class QuestionIRTParameter(models.Model):
+    """Item difficulty b for Rasch-style IRT (paired with StudentAbility.theta)."""
+
+    question = models.OneToOneField(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="irt_parameter",
+    )
+    difficulty_b = models.FloatField(default=0.0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"IRT b={self.difficulty_b:.3f} (Q{self.question_id})"
+
+
+class StudentTopicMastery(models.Model):
+    """BKT posterior P(L) per student per topic."""
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="topic_masteries",
+    )
+    topic = models.ForeignKey(
+        "courses.Topic",
+        on_delete=models.CASCADE,
+        related_name="student_masteries",
+    )
+    p_knowledge = models.FloatField(default=0.35)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "topic"],
+                name="uniq_quizzes_student_topic_mastery",
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Mastery P(L)={self.p_knowledge:.3f} (student {self.student_id}, topic {self.topic_id})"
+
+
+class TopicBKTParameter(models.Model):
+    """Per-topic BKT priors (lazily created; defaults from settings)."""
+
+    topic = models.OneToOneField(
+        "courses.Topic",
+        on_delete=models.CASCADE,
+        related_name="bkt_parameters",
+    )
+    p_l0 = models.FloatField(default=0.35)
+    p_t = models.FloatField(default=0.1)
+    p_g = models.FloatField(default=0.25)
+    p_s = models.FloatField(default=0.1)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"BKT topic {self.topic_id}"

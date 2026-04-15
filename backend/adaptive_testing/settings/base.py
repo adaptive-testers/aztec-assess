@@ -151,6 +151,23 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom User Model
 AUTH_USER_MODEL = "accounts.User"
 
+# Adaptive engine (BKT / IRT). Roll out with ADAPTIVE_ENGINE_V2; selection gated separately.
+ADAPTIVE_BKT_P_L0 = config("ADAPTIVE_BKT_P_L0", default=0.35, cast=float)
+ADAPTIVE_BKT_P_T = config("ADAPTIVE_BKT_P_T", default=0.1, cast=float)
+ADAPTIVE_BKT_P_G = config("ADAPTIVE_BKT_P_G", default=0.25, cast=float)
+ADAPTIVE_BKT_P_S = config("ADAPTIVE_BKT_P_S", default=0.1, cast=float)
+ADAPTIVE_IRT_LEARNING_RATE = config("ADAPTIVE_IRT_LEARNING_RATE", default=0.5, cast=float)
+ADAPTIVE_IRT_DIFFICULTY_B = {
+    "EASY": config("ADAPTIVE_IRT_B_EASY", default=-1.0, cast=float),
+    "MEDIUM": config("ADAPTIVE_IRT_B_MEDIUM", default=0.0, cast=float),
+    "HARD": config("ADAPTIVE_IRT_B_HARD", default=1.0, cast=float),
+}
+ADAPTIVE_WEAK_TOPIC_THRESHOLD = config("ADAPTIVE_WEAK_TOPIC_THRESHOLD", default=0.7, cast=float)
+ADAPTIVE_ENGINE_V2 = config("ADAPTIVE_ENGINE_V2", default=False, cast=bool)
+ADAPTIVE_ENGINE_V2_SELECTION = config("ADAPTIVE_ENGINE_V2_SELECTION", default=False, cast=bool)
+ADAPTIVE_ENGINE_V2_SHADOW = config("ADAPTIVE_ENGINE_V2_SHADOW", default=False, cast=bool)
+ADAPTIVE_REQUIRE_SINGLE_TOPIC = config("ADAPTIVE_REQUIRE_SINGLE_TOPIC", default=False, cast=bool)
+
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

@@ -312,6 +312,16 @@ class QuizSerializerTests(TestCase):
         self.assertTrue(serializer.fields["chapter"].read_only)
         self.assertTrue(serializer.fields["created_at"].read_only)
 
+    def test_adaptive_enabled_requires_topics_when_bank_has_questions(self):
+        """Cannot enable adaptive if active questions exist but none have topics."""
+        make_question(self.chapter, prompt="Untagged")
+        serializer = QuizSerializer(
+            data={"title": "Tagged Quiz", "adaptive_enabled": True, "num_questions": 5},
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("adaptive_enabled", serializer.errors)
+
 
 class QuizStudentSerializerTests(TestCase):
     """Test QuizStudentSerializer attempt_status/attempt_id when no request or unauthenticated."""
