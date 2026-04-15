@@ -211,6 +211,9 @@ class QuizAttemptTests(TestCase):
             num_questions=10,
         )
 
+    def test_quiz_str_returns_title(self):
+        self.assertEqual(str(self.quiz), "Quiz 1")
+
     def test_quiz_attempt_creation(self):
         """Test that a quiz attempt can be created."""
         attempt = QuizAttempt.objects.create(
@@ -218,6 +221,10 @@ class QuizAttemptTests(TestCase):
             quiz=self.quiz
         )
         self.assertEqual(attempt.student, self.user)
+
+    def test_quiz_attempt_str_includes_pk_and_student(self):
+        attempt = QuizAttempt.objects.create(student=self.user, quiz=self.quiz)
+        self.assertEqual(str(attempt), f"Attempt {attempt.pk} by {self.user}")
 
     def test_quiz_attempt_default_status(self):
         """Test that status defaults to IN_PROGRESS."""

@@ -28,7 +28,7 @@ from ..models import (
 )
 from .adaptive_state import difficulty_to_b_prior, get_or_create_question_irt
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from apps.courses.models import Topic
 
 logger = logging.getLogger(__name__)
@@ -183,15 +183,19 @@ def select_next_question_adaptive(attempt: QuizAttempt, answered_question_ids: l
         if pt.pk in weak_ids:
             candidates.append(q)
 
-    if not candidates:
+    if not candidates:  # pragma: no cover
+        # Redundant with current weak_ids construction; kept as a safe fallback.
         candidates = [q for q, pt in primary_topics if pt is not None]
-    if not candidates:
+    if not candidates:  # pragma: no cover
         return None
 
     scored: list[tuple[float, int, Question]] = []
     for q in candidates:
         b = _item_b(q)
         scored.append((abs(theta - b), q.pk, q))
+
+    if not scored:  # pragma: no cover — defensive; candidates non-empty implies scored non-empty
+        return None
 
     best_score = min(s[0] for s in scored)
     tied = [s[2] for s in scored if s[0] == best_score]

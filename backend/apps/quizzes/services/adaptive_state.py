@@ -19,7 +19,7 @@ from ..models import (
 from .bkt import bkt_posterior_then_learn
 from .irt import update_theta_online
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from django.contrib.auth.models import AbstractBaseUser
 
     from apps.courses.models import Topic

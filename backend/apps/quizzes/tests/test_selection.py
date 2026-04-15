@@ -1,11 +1,26 @@
 """
 Tests for the adaptive question selection service (select_next_question).
 """
-from django.contrib.auth import get_user_model
-from django.test import TestCase
+from unittest.mock import MagicMock, patch
 
-from apps.quizzes.models import Difficulty, Question
-from apps.quizzes.services.selection import next_difficulty_after, select_next_question
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+
+from apps.courses.models import Topic
+from apps.quizzes.models import (
+    Difficulty,
+    Question,
+    QuestionIRTParameter,
+    StudentTopicMastery,
+    TopicBKTParameter,
+)
+from apps.quizzes.services.selection import (
+    _estimated_mastery,
+    _item_b,
+    next_difficulty_after,
+    select_next_question,
+    select_next_question_adaptive,
+)
 from apps.quizzes.tests.test_utils import (
     make_attempt,
     make_course_and_chapter,
@@ -121,3 +136,119 @@ class NextDifficultyTests(TestCase):
         """Invalid difficulty input falls back to MEDIUM."""
         result = next_difficulty_after("INVALID", was_correct=True)
         self.assertEqual(result, Difficulty.HARD)  # MEDIUM (fallback) + correct = HARD
+
+
+class EstimatedMasteryAndItemBTests(TestCase):
+    """Cover _estimated_mastery and _item_b branches for Codecov."""
+
+    def setUp(self):
+        self.course, self.chapter = make_course_and_chapter()
+        self.student = User.objects.create_user(email="m@example.com", password="p")
+        self.topic = Topic.objects.create(course=self.course, name="T")
+
+    def test_estimated_mastery_prefers_student_topic_mastery_row(self):
+        StudentTopicMastery.objects.create(
+            student=self.student, topic=self.topic, p_knowledge=0.55
+        )
+        v = _estimated_mastery(int(self.student.pk), self.topic.pk)
+        self.assertEqual(v, 0.55)
+
+    def test_estimated_mastery_uses_topic_bkt_when_no_mastery_row(self):
+        TopicBKTParameter.objects.create(topic=self.topic, p_l0=0.42)
+        v = _estimated_mastery(int(self.student.pk), self.topic.pk)
+        self.assertEqual(v, 0.42)
+
+    def test_estimated_mastery_default_when_no_rows(self):
+        v = _estimated_mastery(int(self.student.pk), self.topic.pk)
+        self.assertEqual(v, 0.35)
+
+    def test_item_b_reads_irt_row_when_present(self):
+        q = make_question(self.chapter, prompt="Q", difficulty=Difficulty.MEDIUM)
+        QuestionIRTParameter.objects.create(question=q, difficulty_b=0.7)
+        self.assertEqual(_item_b(q), 0.7)
+
+    def test_item_b_falls_back_to_difficulty_prior_without_irt(self):
+        q = make_question(self.chapter, prompt="Q2", difficulty=Difficulty.EASY)
+        self.assertEqual(_item_b(q), -1.0)
+
+
+@override_settings(
+    ADAPTIVE_ENGINE_V2=True,
+    ADAPTIVE_ENGINE_V2_SELECTION=True,
+    ADAPTIVE_WEAK_TOPIC_THRESHOLD=0.7,
+)
+class AdaptiveSelectionBranchTests(TestCase):
+    """Exercise select_next_question_adaptive and select_next_question."""
+
+    def setUp(self):
+        self.course, self.chapter = make_course_and_chapter()
+        self.student = User.objects.create_user(email="adapt@example.com", password="p")
+        self.topic = Topic.objects.create(course=self.course, name="Alg")
+        self.q_easy = make_question(self.chapter, prompt="E", difficulty=Difficulty.EASY)
+        self.q_easy.topics.add(self.topic)
+        self.q_hard = make_question(self.chapter, prompt="H", difficulty=Difficulty.HARD)
+        self.q_hard.topics.add(self.topic)
+        self.quiz = make_quiz(self.chapter, num_questions=5, title="Ad")
+        self.quiz.adaptive_enabled = True
+        self.quiz.save(update_fields=["adaptive_enabled"])
+        self.attempt = make_attempt(self.student, self.quiz)
+
+    def test_adaptive_returns_none_when_no_unused_questions(self):
+        all_ids = list(Question.objects.filter(chapter=self.chapter).values_list("id", flat=True))
+        self.assertIsNone(select_next_question_adaptive(self.attempt, list(all_ids)))
+
+    def test_adaptive_returns_none_when_questions_have_no_topics(self):
+        q = make_question(self.chapter, prompt="Bare", difficulty=Difficulty.MEDIUM)
+        self.assertEqual(q.topics.count(), 0)
+        self.assertIsNone(
+            select_next_question_adaptive(self.attempt, [self.q_easy.pk, self.q_hard.pk])
+        )
+
+    def test_adaptive_returns_none_when_attempt_has_no_quiz(self):
+        self.attempt.quiz = None
+        self.assertIsNone(select_next_question_adaptive(self.attempt, []))
+
+    def test_adaptive_skips_untagged_questions_in_primary_topic_loop(self):
+        """Cover `if pt is None: continue` while still selecting a tagged question."""
+        bare = make_question(self.chapter, prompt="Untagged", difficulty=Difficulty.MEDIUM)
+        q = select_next_question_adaptive(self.attempt, [])
+        self.assertIsNotNone(q)
+        self.assertIn(q.pk, [self.q_easy.pk, self.q_hard.pk, bare.pk])
+
+    def test_select_next_question_falls_back_to_ladder_when_adaptive_returns_none(self):
+        """No-topic-only pool: adaptive short-circuits; ladder still returns a question."""
+        Question.objects.filter(chapter=self.chapter).delete()
+        make_question(self.chapter, prompt="Only", difficulty=Difficulty.MEDIUM)
+        picked = select_next_question(self.attempt, [])
+        self.assertIsNotNone(picked)
+
+    def test_adaptive_uses_student_ability_theta_when_row_exists(self):
+        from apps.quizzes.models import StudentAbility
+
+        StudentAbility.objects.create(student=self.student, theta=0.5)
+        q = select_next_question_adaptive(self.attempt, [])
+        self.assertIsNotNone(q)
+        self.assertIn(q.pk, [self.q_easy.pk, self.q_hard.pk])
+
+    def test_weak_ids_defaults_to_all_topics_when_none_below_threshold(self):
+        """All topics at mastery >= threshold -> weak_ids becomes full topic_ids set."""
+        TopicBKTParameter.objects.create(topic=self.topic, p_l0=0.95)
+        StudentTopicMastery.objects.create(
+            student=self.student, topic=self.topic, p_knowledge=0.95
+        )
+        q = select_next_question_adaptive(self.attempt, [])
+        self.assertIsNotNone(q)
+
+    @patch("apps.quizzes.services.selection.logger")
+    @patch("apps.quizzes.services.selection.select_next_question_ladder")
+    @override_settings(ADAPTIVE_ENGINE_V2_SHADOW=True)
+    def test_shadow_logs_when_ladder_pick_differs_from_adaptive(
+        self, mock_ladder, mock_logger
+    ):
+        """Lines 203–210: log when shadow compare finds a different ladder question."""
+        other = MagicMock()
+        other.pk = 9_999_999
+        mock_ladder.return_value = other
+        select_next_question_adaptive(self.attempt, [])
+        mock_logger.info.assert_called_once()
+        self.assertIn("adaptive_shadow", mock_logger.info.call_args[0][0])

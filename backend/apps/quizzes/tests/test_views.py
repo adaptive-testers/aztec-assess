@@ -1,14 +1,17 @@
 """
 Tests for quiz API views: chapters, questions, quizzes, attempts, and student flows.
 """
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.db import IntegrityError
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.courses.models import CourseMembership, CourseRole, Topic
-from apps.quizzes.models import Chapter, Difficulty, Question, Quiz
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
+from apps.quizzes.models import Chapter, Difficulty, Question, Quiz, QuizAttempt
 from apps.quizzes.tests.test_utils import (
     make_attempt,
     make_course_and_chapter,
@@ -407,6 +410,18 @@ class QuestionDetailViewTests(TestCase):
         self.question.refresh_from_db()
         self.assertFalse(self.question.is_active)
 
+    def test_update_question_as_student_returns_403(self):
+        self.client.force_authenticate(user=self.student)
+        url = reverse("question-detail", kwargs={"pk": self.question.pk})
+        res = self.client.patch(url, data={"prompt": "X"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_destroy_question_as_student_returns_403(self):
+        self.client.force_authenticate(user=self.student)
+        url = reverse("question-detail", kwargs={"pk": self.question.pk})
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class QuestionBulkImportViewTests(TestCase):
     """Test bulk question import endpoint for staff users."""
@@ -703,6 +718,12 @@ class QuizDetailViewTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Quiz.objects.filter(pk=self.quiz.pk).exists())
 
+    def test_destroy_quiz_as_non_staff_returns_403(self):
+        self.client.force_authenticate(user=self.student)
+        url = reverse("quiz-detail", kwargs={"pk": self.quiz.pk})
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class StudentQuizListViewTests(TestCase):
     """Test student quiz list (published quizzes for course members)."""
@@ -775,6 +796,43 @@ class StudentQuizListViewTests(TestCase):
         url = reverse("quiz-list")
         res = self.client.get(url)
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_list_quizzes_filter_by_course_id(self):
+        owner2 = User.objects.create_user(
+            email="owner2-course-filter@example.com",
+            password="pass123",
+            first_name="Owner2",
+        )
+        other_course = Course.objects.create(
+            title="Other",
+            owner=owner2,
+            slug="other-course-quiz-list",
+        )
+        other_chapter = Chapter.objects.create(course=other_course, title="OC")
+        CourseMembership.objects.create(
+            course=other_course, user=self.student, role=CourseRole.STUDENT
+        )
+        make_quiz(other_chapter, title="Other Quiz", is_published=True)
+        self.client.force_authenticate(user=self.student)
+        url = reverse("quiz-list")
+        res = self.client.get(url, {"course": str(self.course.id)})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = res.data.get("results", res.data) if isinstance(res.data, dict) else res.data
+        titles = {q["title"] for q in results}
+        self.assertIn("Published Quiz", titles)
+        self.assertNotIn("Other Quiz", titles)
+
+    def test_list_quizzes_filter_by_chapter_id(self):
+        ch2 = Chapter.objects.create(course=self.course, title="Ch2", order_index=2)
+        make_quiz(ch2, title="Chapter2 Quiz", is_published=True)
+        self.client.force_authenticate(user=self.student)
+        url = reverse("quiz-list")
+        res = self.client.get(url, {"chapter": str(self.chapter.id)})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        results = res.data.get("results", res.data) if isinstance(res.data, dict) else res.data
+        titles = {q["title"] for q in results}
+        self.assertIn("Published Quiz", titles)
+        self.assertNotIn("Chapter2 Quiz", titles)
 
 
 class AttemptDetailViewTests(TestCase):
@@ -1025,3 +1083,80 @@ class QuizAttemptFlowTests(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, 401)
+
+    def test_start_attempt_integrity_error_returns_409(self):
+        """Race fallback: create() raises IntegrityError -> same body as in-progress conflict."""
+        url = reverse("quiz-attempt-start", kwargs={"pk": self.quiz.id})
+        with patch.object(QuizAttempt.objects, "create", side_effect=IntegrityError):
+            res = self.client.post(url, data={}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(res.data["detail"], "Attempt already in progress.")
+
+    def test_start_attempt_with_empty_question_bank_completes_immediately(self):
+        """No questions in chapter: first_question is None; attempt completed (lines 392–407)."""
+        Question.objects.filter(chapter=self.chapter).delete()
+        empty_quiz = make_quiz(self.chapter, title="No questions", num_questions=3, is_published=True)
+        url = reverse("quiz-attempt-start", kwargs={"pk": empty_quiz.id})
+        res = self.client.post(url, data={}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["status"], "COMPLETED")
+        self.assertEqual(res.data["score_percent"], 0.0)
+
+    @override_settings(ADAPTIVE_ENGINE_V2=True)
+    def test_submit_answer_includes_adaptive_fields_when_v2_enabled(self):
+        """Payload merges theta / topic telemetry when apply_answer_updates returns them."""
+        Question.objects.filter(chapter=self.chapter).delete()
+        topic = Topic.objects.create(course=self.course, name="TelemetryTopic")
+        tagged = make_question(
+            self.chapter,
+            prompt="Tagged Q",
+            choices=["A", "B", "C", "D"],
+            correct_index=0,
+            difficulty=Difficulty.MEDIUM,
+        )
+        tagged.topics.add(topic)
+        quiz_one = make_quiz(self.chapter, title="Tagged quiz", num_questions=1, is_published=True)
+        start_url = reverse("quiz-attempt-start", kwargs={"pk": quiz_one.id})
+        start_res = self.client.post(start_url, data={}, format="json")
+        self.assertEqual(start_res.status_code, 201)
+        attempt_id = start_res.data["attempt_id"]
+        qid = start_res.data["question"]["id"]
+        answer_url = reverse("attempt-answer", kwargs={"pk": attempt_id})
+        res = self.client.post(
+            answer_url,
+            data={"question_id": qid, "selected_index": 0},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("theta", res.data)
+        self.assertIn("topic_mastery", res.data)
+        self.assertIsNotNone(res.data["theta"])
+
+    def test_start_attempt_non_course_member_returns_403(self):
+        outsider = User.objects.create_user(
+            email="outsider403@example.com", password="pass123"
+        )
+        self.client.force_authenticate(user=outsider)
+        url = reverse("quiz-attempt-start", kwargs={"pk": self.quiz.id})
+        res = self.client.post(url, data={}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_submit_answer_as_other_student_returns_403(self):
+        other = User.objects.create_user(
+            email="other-student-submit@example.com", password="pass123"
+        )
+        CourseMembership.objects.create(
+            course=self.course, user=other, role=CourseRole.STUDENT
+        )
+        start_url = reverse("quiz-attempt-start", kwargs={"pk": self.quiz.id})
+        start_res = self.client.post(start_url, data={}, format="json")
+        attempt_id = start_res.data["attempt_id"]
+        qid = start_res.data["question"]["id"]
+        self.client.force_authenticate(user=other)
+        answer_url = reverse("attempt-answer", kwargs={"pk": attempt_id})
+        res = self.client.post(
+            answer_url,
+            data={"question_id": qid, "selected_index": 0},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)

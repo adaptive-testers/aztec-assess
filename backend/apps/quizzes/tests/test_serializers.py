@@ -1,7 +1,7 @@
 """
 Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer).
 """
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import serializers
 
 from apps.courses.models import Course, Topic
@@ -321,6 +321,40 @@ class QuizSerializerTests(TestCase):
         )
         self.assertFalse(serializer.is_valid())
         self.assertIn("adaptive_enabled", serializer.errors)
+
+    def test_validate_resolves_chapter_from_instance_when_context_omits_chapter(self):
+        """Update path: chapter comes from instance when context has no chapter (line 149–150)."""
+        topic = Topic.objects.create(course=self.course, name="OnlyTopic")
+        q = make_question(self.chapter, prompt="Tagged")
+        q.topics.add(topic)
+        serializer = QuizSerializer(
+            instance=self.quiz,
+            data={"title": "Renamed"},
+            partial=True,
+            context={},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    @override_settings(ADAPTIVE_REQUIRE_SINGLE_TOPIC=True)
+    def test_adaptive_rejects_multi_topic_question_when_single_topic_required(self):
+        """When ADAPTIVE_REQUIRE_SINGLE_TOPIC is on, >1 topic per question fails validation."""
+        t_a = Topic.objects.create(course=self.course, name="A")
+        t_b = Topic.objects.create(course=self.course, name="B")
+        q = make_question(self.chapter, prompt="MultiTagged")
+        q.topics.add(t_a, t_b)
+        serializer = QuizSerializer(
+            data={
+                "title": "Quiz",
+                "adaptive_enabled": True,
+                "num_questions": 5,
+                "selection_mode": "BANK",
+                "is_published": True,
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("adaptive_enabled", serializer.errors)
+        self.assertIn("at most one topic", str(serializer.errors["adaptive_enabled"]).lower())
 
 
 class QuizStudentSerializerTests(TestCase):

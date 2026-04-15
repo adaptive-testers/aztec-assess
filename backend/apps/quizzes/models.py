@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from apps.courses.models import Topic
 
 
