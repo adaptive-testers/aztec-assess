@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
 
-import TopicModal from "./TopicModal";
 import { type Topic } from "../../types/quizTypes";
+
+import TopicModal from "./TopicModal";
 
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 

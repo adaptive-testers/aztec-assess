@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiPlus, FiX } from "react-icons/fi";
+
 import { type Topic } from "../../types/quizTypes";
 
 export type TopicModalMode = "select" | "filter";
