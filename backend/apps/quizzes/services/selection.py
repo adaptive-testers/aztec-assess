@@ -1,4 +1,3 @@
-
 """
 Adaptive question selection service for quizzes.
 
@@ -8,13 +7,16 @@ adaptive_enabled, uses weak-topic prioritization and |theta - b| matching.
 Otherwise uses the difficulty ladder (legacy) strategy.
 """
 
+from __future__ import annotations
+
 import logging
 import random
-from typing import cast
+from typing import TYPE_CHECKING, cast
+from uuid import UUID  # noqa: TC003
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import QuerySet
+from django.db.models import QuerySet  # noqa: TC002
 
 from ..models import (
     Difficulty,
@@ -25,6 +27,9 @@ from ..models import (
     TopicBKTParameter,
 )
 from .adaptive_state import difficulty_to_b_prior, get_or_create_question_irt
+
+if TYPE_CHECKING:
+    from apps.courses.models import Topic
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +112,7 @@ def select_next_question_ladder(attempt: QuizAttempt, answered_question_ids: lis
     return None
 
 
-def _estimated_mastery(student_id: int, topic_id) -> float:
+def _estimated_mastery(student_id: int, topic_id: UUID) -> float:
     m = StudentTopicMastery.objects.filter(student_id=student_id, topic_id=topic_id).first()
     if m:
         return float(m.p_knowledge)
@@ -119,7 +124,8 @@ def _estimated_mastery(student_id: int, topic_id) -> float:
 
 def _item_b(question: Question) -> float:
     try:
-        return float(question.irt_parameter.difficulty_b)
+        # Reverse OneToOne from django-stubs; attribute exists at runtime after select_related.
+        return float(question.irt_parameter.difficulty_b)  # type: ignore[attr-defined]
     except ObjectDoesNotExist:
         return difficulty_to_b_prior(question.difficulty)
 
@@ -144,7 +150,7 @@ def select_next_question_adaptive(attempt: QuizAttempt, answered_question_ids: l
     for q in pool:
         get_or_create_question_irt(q)
     pool = list(
-        Question.objects.filter(id__in=[q.id for q in pool])
+        Question.objects.filter(pk__in=[q.pk for q in pool])
         .prefetch_related("topics")
         .select_related("irt_parameter")
     )
@@ -155,7 +161,7 @@ def select_next_question_adaptive(attempt: QuizAttempt, answered_question_ids: l
 
     weak_threshold = float(getattr(settings, "ADAPTIVE_WEAK_TOPIC_THRESHOLD", 0.7))
 
-    primary_topics: list[tuple[Question, object | None]] = []
+    primary_topics: list[tuple[Question, Topic | None]] = []
     for q in pool:
         primary_topics.append((q, q.get_primary_topic()))
 
@@ -164,7 +170,9 @@ def select_next_question_adaptive(attempt: QuizAttempt, answered_question_ids: l
 
     topic_ids = {t.pk for _, t in primary_topics if t is not None}
 
-    weak_ids = {tid for tid in topic_ids if _estimated_mastery(student.pk, tid) < weak_threshold}
+    weak_ids = {
+        tid for tid in topic_ids if _estimated_mastery(int(student.pk), tid) < weak_threshold
+    }
     if not weak_ids:
         weak_ids = set(topic_ids)
 

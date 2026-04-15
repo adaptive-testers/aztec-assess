@@ -146,7 +146,7 @@ class QuizSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         chapter = self.context.get("chapter")
-        if chapter is None and getattr(self, "instance", None) is not None:
+        if chapter is None and self.instance is not None:
             chapter = self.instance.chapter
 
         adaptive = attrs.get("adaptive_enabled")

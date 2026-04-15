@@ -40,25 +40,35 @@ class BKTFormulaTests(SimpleTestCase):
         self.assertEqual(clamp_p(1.0), 0.999)
 
     def test_same_inputs_are_deterministic(self):
-        args = {
-            "p_knowledge": 0.35,
-            "is_correct": True,
-            "p_guess": 0.25,
-            "p_slip": 0.1,
-            "p_learn": 0.1,
-        }
-        self.assertEqual(
-            bkt_posterior_then_learn(**args),
-            bkt_posterior_then_learn(**args),
+        first = bkt_posterior_then_learn(
+            0.35,
+            True,
+            p_guess=0.25,
+            p_slip=0.1,
+            p_learn=0.1,
         )
+        second = bkt_posterior_then_learn(
+            0.35,
+            True,
+            p_guess=0.25,
+            p_slip=0.1,
+            p_learn=0.1,
+        )
+        self.assertEqual(first, second)
 
     def test_higher_learn_parameter_increases_posterior_after_correct(self):
-        base = {
-            "p_knowledge": 0.2,
-            "is_correct": True,
-            "p_guess": 0.25,
-            "p_slip": 0.1,
-        }
-        with_learn = bkt_posterior_then_learn(**base, p_learn=0.2)
-        no_learn = bkt_posterior_then_learn(**base, p_learn=0.001)
+        with_learn = bkt_posterior_then_learn(
+            0.2,
+            True,
+            p_guess=0.25,
+            p_slip=0.1,
+            p_learn=0.2,
+        )
+        no_learn = bkt_posterior_then_learn(
+            0.2,
+            True,
+            p_guess=0.25,
+            p_slip=0.1,
+            p_learn=0.001,
+        )
         self.assertGreater(with_learn, no_learn)

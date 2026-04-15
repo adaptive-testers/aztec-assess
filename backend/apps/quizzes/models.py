@@ -143,7 +143,7 @@ class StudentAbility(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"Ability θ={self.theta:.3f} ({self.student_id})"
+        return f"Ability θ={self.theta:.3f} ({self.student.pk})"
 
 
 class QuestionIRTParameter(models.Model):
@@ -158,7 +158,7 @@ class QuestionIRTParameter(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"IRT b={self.difficulty_b:.3f} (Q{self.question_id})"
+        return f"IRT b={self.difficulty_b:.3f} (Q{self.question.pk})"
 
 
 class StudentTopicMastery(models.Model):
@@ -186,7 +186,7 @@ class StudentTopicMastery(models.Model):
         ]
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"Mastery P(L)={self.p_knowledge:.3f} (student {self.student_id}, topic {self.topic_id})"
+        return f"Mastery P(L)={self.p_knowledge:.3f} (student {self.student.pk}, topic {self.topic.pk})"
 
 
 class TopicBKTParameter(models.Model):
@@ -204,4 +204,4 @@ class TopicBKTParameter(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"BKT topic {self.topic_id}"
+        return f"BKT topic {self.topic.pk}"
