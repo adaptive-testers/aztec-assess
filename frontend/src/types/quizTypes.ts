@@ -1,6 +1,13 @@
 export type AttemptStatus = "IN_PROGRESS" | "COMPLETED";
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
+export interface Topic {
+  id: string; // UUID
+  course_id: string; // UUID
+  name: string;
+  created_at: string;
+}
+
 export interface Chapter {
   id: number;
   title: string;
@@ -42,6 +49,7 @@ export interface Question {
   prompt: string;
   choices: string[];
   difficulty: Difficulty;
+  topics?: string[];
 }
 
 export interface InstructorQuestion {
@@ -54,6 +62,7 @@ export interface InstructorQuestion {
   created_by?: number;
   is_active: boolean;
   created_at: string;
+  topics?: string[];
 }
 
 export interface QuizAttempt {
