@@ -153,12 +153,15 @@ export default function TopicModal(props: TopicModalProps) {
     if (deleteTimeoutRef.current != null) window.clearTimeout(deleteTimeoutRef.current);
     deleteTimeoutRef.current = null;
 
-    setLocalTopics((prev) => prev.filter((t) => !toDelete.includes(t.id)));
-    setSelected((prev) => prev.filter((t) => !toDelete.includes(t)));
-
-    await onDeleteTopics?.(toDelete);
-
-    setDeleteConfirmFor(null);
+    try {
+      await onDeleteTopics?.(toDelete);
+      setLocalTopics((prev) => prev.filter((t) => !toDelete.includes(t.id)));
+      setSelected((prev) => prev.filter((t) => !toDelete.includes(t)));
+    } catch {
+      // Keep local state unchanged when delete fails.
+    } finally {
+      setDeleteConfirmFor(null);
+    }
   };
 
   const clearAll = () => {

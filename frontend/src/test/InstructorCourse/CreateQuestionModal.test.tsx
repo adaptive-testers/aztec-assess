@@ -196,15 +196,23 @@ describe("CreateQuestionModal", () => {
     expect(screen.getByRole("button", { name: /hard/i })).toBeInTheDocument();
   });
 
-  it("clamps correctIndex from initialValue to the range [0,3]", () => {
+  it("clamps correctIndex from initialValue to the range [0,3] after reset effect runs", async () => {
+    vi.useFakeTimers();
+
     // Too large => clamps to 3
     renderModal({ initialValue: { correctIndex: 999 } });
+    await act(async () => {
+      vi.runAllTimers();
+    });
     expect(getMarkChoiceRadio(4)).toBeChecked();
 
     cleanup();
 
     // Negative => clamps to 0
     renderModal({ initialValue: { correctIndex: -10 } });
+    await act(async () => {
+      vi.runAllTimers();
+    });
     expect(getMarkChoiceRadio(1)).toBeChecked();
   });
 

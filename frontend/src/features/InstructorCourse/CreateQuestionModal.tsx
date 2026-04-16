@@ -102,7 +102,10 @@ export default function CreateQuestionModal({
   useEffect(() => {
     if (!open) return;
     const initChoices = normalizeChoices(initialValue?.choices);
-    const initCorrect = clampIndex(initialValue?.correctIndex ?? 0, initChoices.length);
+    const initCorrect = clampIndex(
+      initialValue?.correctIndex ?? 0,
+      Math.max(0, initChoices.length - 1),
+    );
     const t = window.setTimeout(() => {
       setChoices(initChoices);
       setCorrectIndex(initCorrect);

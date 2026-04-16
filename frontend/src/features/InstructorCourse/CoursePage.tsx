@@ -1441,6 +1441,7 @@ export default function CoursePage() {
               if (activeChapterId) await fetchChapterQuestions(activeChapterId);
             } catch (err) {
               setChapterQuestionsError(formatApiError(err, "Failed to delete topics."));
+              throw err;
             }
           }}
         />

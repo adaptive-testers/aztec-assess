@@ -328,6 +328,45 @@ describe("TopicModal", () => {
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
   });
 
+  it("keeps topics and selection when delete API fails and resets confirm state", async () => {
+    const user = userEvent.setup();
+    const onDeleteTopics = vi.fn(async () => {
+      throw new Error("delete failed");
+    });
+    const onApply = vi.fn();
+
+    renderModal({
+      topics: MOCK_TOPICS.slice(0, 3),
+      initialSelectedTopics: ["1", "2"],
+      onDeleteTopics,
+      onApply,
+      mode: "filter",
+    });
+
+    await waitForInit("Linear Equations");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Confirm?" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Confirm?" }));
+
+    await waitFor(() => expect(onDeleteTopics).toHaveBeenCalledTimes(1));
+    expect(onDeleteTopics).toHaveBeenCalledWith(["1", "2"]);
+
+    // Failed delete should keep topics in the list.
+    expect(screen.getByRole("button", { name: "Linear Equations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Functions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quadratic Functions" })).toBeInTheDocument();
+
+    // Confirm mode should reset back to Delete.
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm?" })).not.toBeInTheDocument();
+
+    // Selection should still be intact.
+    await user.click(screen.getByRole("button", { name: "Apply Filter" }));
+    expect(onApply).toHaveBeenCalledWith(["1", "2"]);
+  });
+
   it("Delete uses snapshot selection: if selection changes after starting delete, confirmation deletes the original snapshot", async () => {
     const user = userEvent.setup();
     const onDeleteTopics = vi.fn(async () => undefined);

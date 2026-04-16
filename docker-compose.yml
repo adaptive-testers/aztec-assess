@@ -20,9 +20,6 @@ services:
       - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID}
       - MICROSOFT_REDIRECT_URI=${MICROSOFT_REDIRECT_URI:-http://localhost:5173}
     command: /app/.venv/bin/python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/app
-      - /app/.venv
 
   frontend-dev:
     build:
