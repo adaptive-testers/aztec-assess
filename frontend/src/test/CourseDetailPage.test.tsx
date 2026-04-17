@@ -793,6 +793,12 @@ describe("CourseDetailPage", () => {
         if (url === COURSES.LIST) {
           return new Promise(resolve => setTimeout(() => resolve({ data: [mockCourse] }), 100));
         }
+        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
+          return Promise.resolve({ data: mockCourse });
+        }
+        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
+          return Promise.resolve({ data: [] });
+        }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 

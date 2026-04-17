@@ -19,6 +19,7 @@ import type {
   InstructorChapter,
   InstructorQuestion,
   InstructorQuiz,
+  Topic,
 } from "../../types/quizTypes";
 import StudentQuizList from "../StudentQuizzes/StudentQuizList";
 
@@ -119,6 +120,7 @@ function toUiQuiz(q: ApiQuiz): UiQuiz {
 function apiQuestionToManageItem(
   q: ApiQuestion,
   creatorNameById: Record<number, string>,
+  topicsMap: Record<string, string>,
 ): ManageQuestionItem {
   const labels = ["A", "B", "C", "D"] as const;
   const choices = (q.choices ?? []).slice(0, 4).map((text, i) => ({
@@ -132,6 +134,7 @@ function apiQuestionToManageItem(
     source: "manual",
     difficulty,
     prompt: q.prompt,
+    topics: (q.topics ?? []).map((id) => topicsMap[id] || id),
     choices,
     created_by: q.created_by,
     created_by_name: q.created_by != null ? creatorNameById[q.created_by] : undefined,
@@ -505,14 +508,26 @@ export default function CoursePage() {
     null,
   );
 
+  // ---------- TOPICS ----------
+  const [topicOptions, setTopicOptions] = useState<Topic[]>([]);
+  // --------------------------------------------------------
+
   // ---------- ADD CHAPTER MODAL ----------
   const [addChapterOpen, setAddChapterOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
 
   // ---------- DERIVED DATA ----------
   const manageQuestionItems: ManageQuestionItem[] = useMemo(
-    () => chapterQuestions.map((question) => apiQuestionToManageItem(question, creatorNameById)),
-    [chapterQuestions, creatorNameById],
+    () => {
+      const topicsMap: Record<string, string> = {};
+      topicOptions.forEach((t) => {
+        topicsMap[t.id] = t.name;
+      });
+      return chapterQuestions.map((question) =>
+        apiQuestionToManageItem(question, creatorNameById, topicsMap),
+      );
+    },
+    [chapterQuestions, creatorNameById, topicOptions],
   );
 
   const drafts: DraftQuiz[] = useMemo(
@@ -637,6 +652,16 @@ export default function CoursePage() {
     }
   }, [effectiveCourseId]);
 
+  const fetchTopics = useCallback(async () => {
+    if (!effectiveCourseId) return;
+    try {
+      const res = await privateApi.get(COURSES.TOPICS_BY_COURSE(effectiveCourseId));
+      setTopicOptions(parseListResponse<Topic>(res.data));
+    } catch (err) {
+      console.error("Failed to fetch topics:", err);
+    }
+  }, [effectiveCourseId]);
+
   // ---------- EFFECTS ----------
   useEffect(() => {
     if (!checkingRefresh && !accessToken) {
@@ -647,8 +672,9 @@ export default function CoursePage() {
   useEffect(() => {
     if (!checkingRefresh && accessToken && isStaff) {
       void fetchAllQuizzes();
+      void fetchTopics();
     }
-  }, [checkingRefresh, accessToken, fetchAllQuizzes, isStaff]);
+  }, [checkingRefresh, accessToken, fetchAllQuizzes, fetchTopics, isStaff]);
 
   // Reset question bank when switching courses so we don't show previous course's questions
   useEffect(() => {
@@ -981,6 +1007,7 @@ export default function CoursePage() {
     correctIndex: number;
     difficulty: string;
     is_active?: boolean;
+    topics?: string[];
   }) {
     if (!activeChapterId) return;
     const difficulty =
@@ -998,6 +1025,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.post(QUIZZES.QUESTIONS_BY_CHAPTER(activeChapterId), body);
@@ -1043,6 +1071,7 @@ export default function CoursePage() {
       correctIndex: number;
       difficulty: string;
       is_active?: boolean;
+      topics?: string[];
     },
   ) {
     const difficulty =
@@ -1059,6 +1088,7 @@ export default function CoursePage() {
       correct_index: Math.max(0, Math.min(3, data.correctIndex)),
       difficulty,
       is_active: data.is_active ?? true,
+      topics: data.topics ?? [],
     };
     try {
       await privateApi.patch(QUIZZES.QUESTION_DETAIL(questionId), body);
@@ -1242,12 +1272,21 @@ export default function CoursePage() {
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[18px] font-normal leading-[24px] tracking-[-0.1504px] text-[#F87171]">
-              {loading ? (
-                <div className="skeleton-shimmer inline-block h-[24px] w-[200px] rounded" />
-              ) : (
-                `${questionBankCounts.total} questions available`
-              )}
+            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto">
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {loading ? (
+                  <div className="skeleton-shimmer inline-block h-[20px] w-[200px] rounded" />
+                ) : (
+                  `${questionBankCounts.total} questions`
+                )}
+              </div>
+              <div className="inline-flex h-[37px] items-center rounded-md border border-[#404040] bg-[#151515] px-4 text-[13px] leading-5 text-[#F87171]">
+                {loading ? (
+                  <div className="skeleton-shimmer inline-block h-[20px] w-[120px] rounded" />
+                ) : (
+                  `${topicOptions.length} topics`
+                )}
+              </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
               {loading ? (
@@ -1381,6 +1420,30 @@ export default function CoursePage() {
           onUpdateQuestion={handleUpdateQuestion}
           onDeleteQuestion={handleDeleteQuestion}
           onCloseCreateQuestion={() => setEditingQuestion(null)}
+          topicOptions={topicOptions}
+          onCreateTopic={async (topicName) => {
+            if (!effectiveCourseId) return;
+            try {
+              await privateApi.post(COURSES.TOPICS_BY_COURSE(effectiveCourseId), {
+                name: topicName.trim(),
+              });
+              await fetchTopics();
+            } catch (err) {
+              setChapterQuestionsError(formatApiError(err, "Failed to create topic."));
+            }
+          }}
+          onDeleteTopics={async (topicIds) => {
+            try {
+              await Promise.all(
+                topicIds.map((id) => privateApi.delete(COURSES.TOPIC_DETAIL(id))),
+              );
+              await fetchTopics();
+              if (activeChapterId) await fetchChapterQuestions(activeChapterId);
+            } catch (err) {
+              setChapterQuestionsError(formatApiError(err, "Failed to delete topics."));
+              throw err;
+            }
+          }}
         />
         <QuestionImportModal
           open={questionImportOpen}

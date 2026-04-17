@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
 
+import { type Topic } from "../../types/quizTypes";
+
+import TopicModal from "./TopicModal";
+
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 
 export interface CreateQuestionFormState {
@@ -10,6 +14,8 @@ export interface CreateQuestionFormState {
   difficulty: QuestionDifficulty;
   /** (optional, defaults to true) */
   is_active: boolean;
+  /** (optional) topic slugs or names for this question */
+  topics?: string[];
 }
 
 export interface CreateQuestionModalProps {
@@ -24,11 +30,23 @@ export interface CreateQuestionModalProps {
   editQuestionId?: number;
   /** When in edit mode, called when user clicks Delete; parent should delete then close/clear. */
   onDelete?: (questionId: number) => void | Promise<void>;
+  /** Optional topic options; if provided, Topics button is enabled and opens TopicModal. */
+  topicOptions?: Topic[];
+  /** Optional handler for creating topics (calls API). */
+  onCreateTopic?: (topicName: string) => void | Promise<void>;
+  /** Optional handler for deleting topics (calls API). */
+  onDeleteTopics?: (topicIds: string[]) => void | Promise<void>;
 }
 
 function clampIndex(value: number, max: number) {
   if (Number.isNaN(value)) return 0;
   return Math.max(0, Math.min(max, value));
+}
+
+function normalizeChoices(choices: string[] | undefined): string[] {
+  const base = Array.isArray(choices) ? [...choices] : [];
+  while (base.length < 4) base.push("");
+  return base.slice(0, 4);
 }
 
 export default function CreateQuestionModal({
@@ -38,6 +56,9 @@ export default function CreateQuestionModal({
   initialValue,
   editQuestionId,
   onDelete,
+  topicOptions,
+  onCreateTopic,
+  onDeleteTopics,
 }: CreateQuestionModalProps) {
   const [prompt, setPrompt] = useState(initialValue?.prompt ?? "");
   const [choices, setChoices] = useState<string[]>(
@@ -52,20 +73,51 @@ export default function CreateQuestionModal({
   const [isActive, setIsActive] = useState(
     initialValue?.is_active ?? true,
   );
-  const isEditMode = editQuestionId != null;
+  const [topics, setTopics] = useState<string[]>(initialValue?.topics ?? []);
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
 
+  const isEditMode = editQuestionId != null;
   const firstFieldRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const availableTopics = topicOptions ?? [];
+
+  const topicsLabel = useMemo(() => {
+    if (topics.length === 0) return "Select topics";
+    if (topics.length === 1) return "1 topic";
+    return `${topics.length} topics`;
+  }, [topics]);
+
   const state: CreateQuestionFormState = useMemo(
-    () => ({ prompt, choices, correctIndex, difficulty, is_active: isActive }),
-    [prompt, choices, correctIndex, difficulty, isActive],
+    () => ({
+      prompt,
+      choices,
+      correctIndex,
+      difficulty,
+      is_active: isActive,
+      ...(topics.length ? { topics } : {}),
+    }),
+    [prompt, choices, correctIndex, difficulty, isActive, topics],
   );
 
   useEffect(() => {
     if (!open) return;
-    const t = window.setTimeout(() => firstFieldRef.current?.focus(), 0);
+    const initChoices = normalizeChoices(initialValue?.choices);
+    const initCorrect = clampIndex(
+      initialValue?.correctIndex ?? 0,
+      Math.max(0, initChoices.length - 1),
+    );
+    const t = window.setTimeout(() => {
+      setChoices(initChoices);
+      setCorrectIndex(initCorrect);
+      setPrompt(initialValue?.prompt ?? "");
+      setDifficulty(initialValue?.difficulty ?? "easy");
+      setIsActive(initialValue?.is_active ?? true);
+      setTopics(initialValue?.topics ?? []);
+      setTopicModalOpen(false);
+      firstFieldRef.current?.focus();
+    }, 0);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, initialValue?.prompt, initialValue?.choices, initialValue?.correctIndex, initialValue?.difficulty, initialValue?.is_active, initialValue?.topics]);
 
   if (!open) return null;
 
@@ -162,50 +214,33 @@ export default function CreateQuestionModal({
 
             {/* Answer Choices */}
             <div className="flex flex-col gap-3">
-              <label
-                htmlFor="choices"
-                className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]"
-              >
+              <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
                 Answer Choices
-              </label>
+              </div>
 
               <div className="flex flex-col gap-3">
-                {choices.map((value, i) => {
-                  const isCorrect = correctIndex === i;
-
-                  const wrapper =
-                    "flex h-[47px] w-full items-center rounded-[6px] border px-3 transition-colors";
-                  const inactive = "border-[#404040] bg-[#262626]";
-                  const active = "border-[#10B981] bg-[#183A2F]";
-
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setCorrectIndex(i)}
-                      className={[wrapper, isCorrect ? active : inactive].join(
-                        " ",
-                      )}
-                      aria-pressed={isCorrect}
-                      title="Click to mark as correct"
-                    >
-                      <span className="sr-only">
-                        Mark choice {i + 1} as correct
-                      </span>
-
-                      <input
-                        value={value}
-                        onChange={(e) => updateChoice(i, e.target.value)}
-                        placeholder={`Choice ${i + 1}`}
-                        className="w-full bg-transparent text-[14px] leading-[21px] text-[#F1F5F9] outline-none placeholder:text-[#71717A]"
-                      />
-                    </button>
-                  );
-                })}
+                {choices.map((value, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="correctChoice"
+                      aria-label={`Mark choice ${i + 1} as correct`}
+                      checked={correctIndex === i}
+                      onChange={() => setCorrectIndex(i)}
+                      className="h-6 w-6 accent-[#F87171]"
+                    />
+                    <input
+                      value={value}
+                      onChange={(e) => updateChoice(i, e.target.value)}
+                      placeholder={`Choice ${i + 1}`}
+                      className="h-11 w-full flex-1 rounded-[6px] border border-[#404040] bg-[#262626] px-3 text-[14px] leading-[21px] text-[#F1F5F9] outline-none placeholder:text-[#71717A] focus:border-[#6B6B6B]"
+                    />
+                  </div>
+                ))}
               </div>
 
               <p className="text-[12px] leading-[18px] text-[#71717A]">
-                Select the choice to mark the correct answer
+                Select the radio button to mark the correct answer
               </p>
             </div>
 
@@ -225,22 +260,37 @@ export default function CreateQuestionModal({
               </div>
             </div>
 
-            {/* Active (included in question bank) */}
-            <div className="flex flex-col gap-2">
-              <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
-                Status
+            {/* Topics + Status */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
+                  Topics
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTopicModalOpen(true)}
+                  className="h-[39px] w-full rounded-[6px] border border-[#404040] bg-transparent px-4 text-left text-[14px] font-medium leading-[21px] text-[#F1F5F9] hover:bg-[#202020]"
+                >
+                  {topicsLabel}
+                </button>
               </div>
-              <label className="inline-flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-[#404040] bg-[#262626] text-[#F87171] focus:ring-[#F87171]"
-                />
-                <span className="text-[14px] leading-[21px] text-[#F1F5F9]">
-                  Active (included in question bank)
-                </span>
-              </label>
+
+              <div className="flex flex-col gap-2">
+                <div className="text-[14px] font-medium leading-[21px] text-[#F1F5F9]">
+                  Status
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    className="h-4 w-4 rounded border-[#404040] bg-[#262626] text-[#F87171] focus:ring-[#F87171]"
+                  />
+                  <span className="text-[14px] leading-[21px] text-[#F1F5F9]">
+                    Active (included in question bank)
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -275,6 +325,20 @@ export default function CreateQuestionModal({
           </button>
         </div>
       </div>
+
+      <TopicModal
+        open={topicModalOpen}
+        mode="select"
+        topics={availableTopics}
+        initialSelectedTopics={topics}
+        onClose={() => setTopicModalOpen(false)}
+        onApply={(selected) => {
+          setTopics(selected);
+          setTopicModalOpen(false);
+        }}
+        onCreateTopic={onCreateTopic}
+        onDeleteTopics={onDeleteTopics}
+      />
     </div>
   );
 }
