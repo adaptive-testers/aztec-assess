@@ -111,3 +111,23 @@ class CourseMembership(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.user.id} in {self.course.id} as {self.role}"
+
+
+class Topic(models.Model):
+    """Conceptual tag at the course level; reusable across chapters within the same course."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="topics",
+    )
+    name = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("course", "name")
+        ordering = ["name"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.name} ({self.course.title})"

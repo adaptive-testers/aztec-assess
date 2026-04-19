@@ -167,25 +167,18 @@ describe("LogInContainer", () => {
 
     await waitFor(() => {
       expect(setAccessTokenMock).toHaveBeenCalledWith("test-token");
-      expect(navigateMock).toHaveBeenCalledWith("/profile");
+      expect(navigateMock).toHaveBeenCalledWith("/dashboard");
     });
   });
 
-  it('toggling "Keep me signed in" flips the visual state (class); consider adding aria-pressed for accessibility', async () => {
+  it("renders the back button and account creation link", () => {
     renderWithRouter(<LogInContainer />);
 
-    // The small square is a <button> with a class that flips bg color when active
-    const square = screen
-      .getAllByRole("button")
-      .find((b) =>
-        b.className.includes("w-[14px] h-[14px]")
-      ) as HTMLButtonElement;
-
-    expect(square.className).not.toContain("bg-[#EF6262]");
-    await userEvent.click(square);
-    expect(square.className).toContain("bg-[#EF6262]");
-    await userEvent.click(square);
-    expect(square.className).not.toContain("bg-[#EF6262]");
+    expect(screen.getByRole("link", { name: /back/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /create an account/i })).toHaveAttribute(
+      "href",
+      "/role-select"
+    );
   });
 
   it("handles API error by setting a root error (note: currently not rendered)", async () => {
@@ -249,7 +242,7 @@ describe("LogInContainer", () => {
           { code: "mock_oauth_code" }
         );
         expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
-        expect(navigateMock).toHaveBeenCalledWith("/profile");
+        expect(navigateMock).toHaveBeenCalledWith("/dashboard");
       });
     });
 
@@ -345,7 +338,7 @@ describe("LogInContainer", () => {
           { access_token: "mock_ms_token" }
         );
         expect(setAccessTokenMock).toHaveBeenCalledWith("mock_access_token");
-        expect(navigateMock).toHaveBeenCalledWith("/profile");
+        expect(navigateMock).toHaveBeenCalledWith("/dashboard");
       });
     });
 

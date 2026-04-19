@@ -33,6 +33,13 @@ SECRET_KEY = config(
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
+# Feature flags for sensitive surfaces.
+# Defaults to enabled in development and disabled when DEBUG=False.
+ENABLE_DJANGO_ADMIN = config("ENABLE_DJANGO_ADMIN", default=DEBUG, cast=bool)
+ENABLE_API_DOCS = config("ENABLE_API_DOCS", default=DEBUG, cast=bool)
+SIGNUP_ALLOWLIST_ENABLED = config("SIGNUP_ALLOWLIST_ENABLED", default=False, cast=bool)
+STUDENT_MODE_ONLY = config("STUDENT_MODE_ONLY", default=False, cast=bool)
+
 # Application definition
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -159,8 +166,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "200/hour",        # Anonymous users: 200 requests per hour
-        "user": "2000/hour",       # Authenticated users: 2000 requests per hour
+        "anon": "200/hour",  # Anonymous users: 200 requests per hour
+        "user": "2000/hour",  # Authenticated users: 2000 requests per hour
+        # Endpoint-specific auth throttles (ScopedRateThrottle)
+        "login": config("AUTH_THROTTLE_LOGIN_RATE", default="30/hour"),
+        "register": config("AUTH_THROTTLE_REGISTER_RATE", default="10/hour"),
+        "oauth": config("AUTH_THROTTLE_OAUTH_RATE", default="30/hour"),
+        "token_refresh": config("AUTH_THROTTLE_TOKEN_REFRESH_RATE", default="120/hour"),
     },
     # drf-spectacular: enable OpenAPI schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -228,11 +240,45 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_origins.split(",") if
 # Controls whether cookies are sent only over HTTPS
 # Defaults to True in production (when DEBUG=False), False in development
 COOKIE_SECURE = config("COOKIE_SECURE", default=not DEBUG, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=COOKIE_SECURE, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=COOKIE_SECURE, cast=bool)
 
 # Controls SameSite attribute for cookies we set (e.g., refresh token)
 # Use "None" when frontend and backend are on different origins
 # Valid values: "Lax", "Strict", "None"
 COOKIE_SAMESITE = config("COOKIE_SAMESITE", default="Lax")
+
+# Reverse proxy / transport security settings.
+_proxy_header_raw = config(
+    "SECURE_PROXY_SSL_HEADER",
+    default="HTTP_X_FORWARDED_PROTO,https",
+)
+_proxy_header_parts = [part.strip() for part in _proxy_header_raw.split(",") if part.strip()]
+if len(_proxy_header_parts) == 2:
+    SECURE_PROXY_SSL_HEADER = (_proxy_header_parts[0], _proxy_header_parts[1])
+else:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = config("USE_X_FORWARDED_HOST", default=not DEBUG, cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=not DEBUG, cast=bool)
+
+# Browser-facing security headers.
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS",
+    default=31536000 if not DEBUG else 0,
+    cast=int,
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    default=not DEBUG,
+    cast=bool,
+)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=not DEBUG, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = config(
+    "SECURE_REFERRER_POLICY",
+    default="strict-origin-when-cross-origin",
+)
 
 # Email Configuration (for password reset, etc.)
 EMAIL_BACKEND = (

@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AxiosError } from "axios";
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 
 import { privateApi } from "../api/axios";
 import { AUTH, COURSES } from "../api/endpoints";
+import { ProfileRoleProvider } from "../context/ProfileRoleContext";
 import CourseDetailPage from "../features/Course/CourseDetailPage";
 
 import { render } from "./utils";
@@ -86,40 +87,23 @@ const mockOwner = {
   role: "instructor" as const,
 };
 
-const mockMembers = [
-  {
-    id: "membership-1",
-    user_id: "owner-uuid-123",
-    user_email: "owner@example.com",
-    user_first_name: "Owner",
-    user_last_name: "User",
-    role: "OWNER" as const,
-    joined_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "membership-2",
-    user_id: "instructor-uuid-123",
-    user_email: "instructor@example.com",
-    user_first_name: "Instructor",
-    user_last_name: "User",
-    role: "INSTRUCTOR" as const,
-    joined_at: "2024-01-01T00:00:00Z",
-  },
-  {
-    id: "membership-3",
-    user_id: "student-uuid-123",
-    user_email: "student@example.com",
-    user_first_name: "Student",
-    user_last_name: "User",
-    role: "STUDENT" as const,
-    joined_at: "2024-01-01T00:00:00Z",
-  },
-];
+// Member record matching mockOwner — needed so userCourseRole resolves to "OWNER"
+const mockOwnerMember = {
+  id: "membership-1",
+  user_id: mockOwner.id,
+  user_email: mockOwner.email,
+  first_name: mockOwner.first_name,
+  last_name: mockOwner.last_name,
+  role: "OWNER" as const,
+};
+
+
 
 describe("CourseDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockParams.courseId = "test-course-slug";
+    // Use UUID directly to avoid async slug-resolution setState issues
+    mockParams.courseId = "123e4567-e89b-12d3-a456-426614174000";
     
     api.get.mockImplementation((url: string) => {
       if (url === AUTH.PROFILE) {
@@ -135,7 +119,17 @@ describe("CourseDetailPage", () => {
         return Promise.resolve({ data: mockCourse });
       }
       if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-        return Promise.resolve({ data: mockMembers });
+        // Return the owner as a member so userCourseRole resolves to "OWNER"
+        return Promise.resolve({
+          data: [{
+            id: "membership-1",
+            user_id: mockOwner.id,
+            user_email: mockOwner.email,
+            first_name: mockOwner.first_name,
+            last_name: mockOwner.last_name,
+            role: "OWNER",
+          }]
+        });
       }
       return Promise.reject(new Error(`Unexpected API call: ${url}`));
     });
@@ -145,7 +139,11 @@ describe("CourseDetailPage", () => {
     it("resolves UUID course ID directly", async () => {
       mockParams.courseId = "123e4567-e89b-12d3-a456-426614174000";
       
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(api.get).toHaveBeenCalledWith(COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000"));
@@ -155,7 +153,11 @@ describe("CourseDetailPage", () => {
     it("resolves slug to UUID by fetching course list", async () => {
       mockParams.courseId = "test-course-slug";
       
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(api.get).toHaveBeenCalledWith(COURSES.LIST);
@@ -175,7 +177,11 @@ describe("CourseDetailPage", () => {
         return Promise.reject(new Error("Not found"));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByTestId("toast")).toHaveTextContent("Course not found");
@@ -202,7 +208,11 @@ describe("CourseDetailPage", () => {
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(api.get).toHaveBeenCalledWith(COURSES.LIST + "?status=ARCHIVED");
@@ -211,15 +221,19 @@ describe("CourseDetailPage", () => {
   });
 
   describe("Role-Based Rendering", () => {
-    it("shows 'Course Info' title for owners", async () => {
-      render(<CourseDetailPage />);
+    it("shows course title for owners", async () => {
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
     });
 
-    it("shows 'Course Info' title for students", async () => {
+    it("shows course title for students", async () => {
       const studentProfile = { ...mockOwner, id: "student-uuid-123" };
       api.get.mockImplementation((url: string) => {
         if (url === AUTH.PROFILE) {
@@ -232,19 +246,23 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: mockCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
     });
 
-    it("shows 'Course Info' title for archived courses", async () => {
+    it("shows course title for archived courses", async () => {
       const archivedCourse = { ...mockCourse, status: "ARCHIVED" as const };
       api.get.mockImplementation((url: string) => {
         if (url === AUTH.PROFILE) {
@@ -257,20 +275,28 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: archivedCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
     });
 
     it("shows Save Changes button for owners/instructors", async () => {
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /save changes/i })).toBeInTheDocument();
@@ -290,23 +316,87 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: mockCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.queryByRole("button", { name: /save changes/i })).not.toBeInTheDocument();
+        // For students, the save-actions-bar container should stay hidden (has pointer-events-none class)
+        expect(screen.getByTestId("save-actions-bar")).toHaveClass("pointer-events-none");
       });
     });
 
     it("shows join code section for staff", async () => {
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByText("Join Code")).toBeInTheDocument();
+      });
+    });
+
+    it("never flashes join code while student role is still resolving", async () => {
+      const studentProfile = { ...mockOwner, id: "student-uuid-123", role: "student" as const };
+      const membersDeferred = (() => {
+        let resolve!: (value: unknown) => void;
+        const promise = new Promise((r) => (resolve = r));
+        return { promise, resolve };
+      })();
+
+      api.get.mockImplementation((url: string) => {
+        if (url === AUTH.PROFILE) {
+          return Promise.resolve({ data: studentProfile });
+        }
+        if (url === COURSES.LIST) {
+          return Promise.resolve({ data: [mockCourse] });
+        }
+        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
+          return Promise.resolve({ data: mockCourse });
+        }
+        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
+          return membersDeferred.promise;
+        }
+        return Promise.reject(new Error(`Unexpected API call: ${url}`));
+      });
+
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("button", { name: /^members$/i })).not.toBeInTheDocument();
+      expect(screen.queryByText("Join Code")).not.toBeInTheDocument();
+
+      membersDeferred.resolve({
+        data: [
+          {
+            id: "membership-1",
+            user_id: "student-uuid-123",
+            user_email: "student@example.com",
+            first_name: "Student",
+            last_name: "User",
+            role: "STUDENT",
+          },
+        ],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /^members$/i })).toBeInTheDocument();
+        expect(screen.queryByText("Join Code")).not.toBeInTheDocument();
       });
     });
 
@@ -323,12 +413,16 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: archivedCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.queryByText("Join Code")).not.toBeInTheDocument();
@@ -337,18 +431,28 @@ describe("CourseDetailPage", () => {
   });
 
   describe("Form Interactions", () => {
-    it("disables Save Changes button when no changes made", async () => {
-      render(<CourseDetailPage />);
+    it("hides Save Changes bar when no changes made", async () => {
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        const saveButton = screen.getByRole("button", { name: /save changes/i });
-        expect(saveButton).toBeDisabled();
+        expect(screen.getByDisplayValue("Test Course")).toBeInTheDocument();
       });
+
+      // The bar should be hidden (no changes yet)
+      expect(screen.getByTestId("save-actions-bar")).toHaveClass("opacity-0");
     });
 
-    it("enables Save Changes button when title is changed", async () => {
+    it("shows Save Changes bar when title is changed", async () => {
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByDisplayValue("Test Course")).toBeInTheDocument();
@@ -358,15 +462,19 @@ describe("CourseDetailPage", () => {
       await user.clear(titleInput);
       await user.type(titleInput, "Updated Course Title");
 
-      const saveButton = screen.getByRole("button", { name: /save changes/i });
-      expect(saveButton).not.toBeDisabled();
+      // The bar should become visible
+      expect(screen.getByTestId("save-actions-bar")).toHaveClass("opacity-100");
     });
 
     it("submits form with updated title", async () => {
       const user = userEvent.setup();
       api.patch.mockResolvedValue({ data: { ...mockCourse, title: "Updated Title" } });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByDisplayValue("Test Course")).toBeInTheDocument();
@@ -400,212 +508,44 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: mockCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        const titleElement = screen.getByText("Test Course");
-        expect(titleElement).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
         // Should not be an input field
         expect(screen.queryByDisplayValue("Test Course")).not.toBeInTheDocument();
       });
     });
   });
 
-  describe("Tab Navigation", () => {
-    it("defaults to Course Details tab", async () => {
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
-        expect(screen.getByText("Course Information")).toBeInTheDocument();
-      });
-    });
-
-    it("switches to Members tab when clicked", async () => {
+  describe("Navigation", () => {
+    it("navigates to Students tab when Members button is clicked", async () => {
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
 
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
+      const studentsButton = await screen.findByRole("button", { name: /^members$/i });
+      await user.click(studentsButton);
 
       await waitFor(() => {
-        expect(screen.getByText("Course Members")).toBeInTheDocument();
+        expect(mockNavigate).toHaveBeenCalledWith("/courses/123e4567-e89b-12d3-a456-426614174000/students");
       });
-    });
-
-    it("shows member count in Members tab", async () => {
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/Members \(3\)/)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("Member Management", () => {
-    it("displays member list with roles", async () => {
-      const user = userEvent.setup();
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
-      });
-
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
-      await waitFor(() => {
-        expect(screen.getByText("Owner User")).toBeInTheDocument();
-        expect(screen.getByText("Instructor User")).toBeInTheDocument();
-        expect(screen.getByText("Student User")).toBeInTheDocument();
-      });
-    });
-
-    it("shows 'Instructor' instead of 'Owner' for students", async () => {
-      const studentProfile = { ...mockOwner, id: "student-uuid-123" };
-      api.get.mockImplementation((url: string) => {
-        if (url === AUTH.PROFILE) {
-          return Promise.resolve({ data: studentProfile });
-        }
-        if (url === COURSES.LIST) {
-          return Promise.resolve({ data: [mockCourse] });
-        }
-        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockCourse });
-        }
-        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
-        }
-        return Promise.reject(new Error(`Unexpected API call: ${url}`));
-      });
-
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
-      });
-
-      await waitFor(() => {
-        const roleTexts = screen.getAllByText(/Instructor|Owner|Student|TA/);
-        const instructorText = roleTexts.find(el => el.textContent === "Instructor");
-        expect(instructorText).toBeInTheDocument();
-      });
-    });
-
-    it("opens add member modal when Add Member button is clicked", async () => {
-      const user = userEvent.setup();
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
-      });
-
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: /add member/i })).toBeInTheDocument();
-      });
-
-      const addButtons = screen.getAllByRole("button", { name: /add member/i });
-      const openAddModalButton = addButtons[0];
-      await user.click(openAddModalButton);
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /add member/i })).toBeInTheDocument();
-        expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-      });
-    });
-
-    it("adds member when form is submitted", async () => {
-      const user = userEvent.setup();
-      api.post.mockResolvedValue({ data: { id: "new-membership" } });
-      api.get.mockImplementation((url: string) => {
-        if (url === AUTH.PROFILE) {
-          return Promise.resolve({ data: mockOwner });
-        }
-        if (url === COURSES.LIST) {
-          return Promise.resolve({ data: [mockCourse] });
-        }
-        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockCourse });
-        }
-        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
-        }
-        return Promise.reject(new Error(`Unexpected API call: ${url}`));
-      });
-
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
-      });
-
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: /add member/i })).toBeInTheDocument();
-      });
-
-      const addButton = screen.getByRole("button", { name: /add member/i });
-      await user.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-      });
-
-      const emailInput = screen.getByLabelText(/email/i);
-      await user.type(emailInput, "newmember@example.com");
-
-      const modalHeading = screen.getByRole("heading", { name: /add member/i });
-      const modalContainer = modalHeading.closest("div")?.parentElement?.parentElement as HTMLElement;
-      const submitButton = within(modalContainer).getByRole("button", { name: /add member/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        expect(api.post).toHaveBeenCalledWith(
-          COURSES.ADD_MEMBER("123e4567-e89b-12d3-a456-426614174000"),
-          { email: "newmember@example.com", role: "STUDENT" }
-        );
-      });
-    });
-
-    it("hides Add Member button for students", async () => {
-      const studentProfile = { ...mockOwner, id: "student-uuid-123" };
-      api.get.mockImplementation((url: string) => {
-        if (url === AUTH.PROFILE) {
-          return Promise.resolve({ data: studentProfile });
-        }
-        if (url === COURSES.LIST) {
-          return Promise.resolve({ data: [mockCourse] });
-        }
-        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockCourse });
-        }
-        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
-        }
-        return Promise.reject(new Error(`Unexpected API call: ${url}`));
-      });
-
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
-      });
-
-      expect(screen.queryByRole("button", { name: /add member/i })).not.toBeInTheDocument();
     });
   });
 
@@ -623,14 +563,18 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: draftCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [mockOwnerMember] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
       api.post.mockResolvedValue({ data: { status: "ACTIVE", join_code: "NEW12345" } });
 
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /activate course/i })).toBeInTheDocument();
@@ -646,15 +590,15 @@ describe("CourseDetailPage", () => {
 
     it("opens archive modal when Archive button is clicked", async () => {
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
-
-      // Switch to details tab to see danger zone
-      const detailsTab = screen.getByRole("button", { name: /course details/i });
-      await user.click(detailsTab);
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /archive course/i })).toBeInTheDocument();
@@ -673,14 +617,15 @@ describe("CourseDetailPage", () => {
       api.post.mockResolvedValue({ data: { status: "ARCHIVED" } });
 
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
-
-      const detailsTab = screen.getByRole("button", { name: /course details/i });
-      await user.click(detailsTab);
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /archive course/i })).toBeInTheDocument();
@@ -703,14 +648,15 @@ describe("CourseDetailPage", () => {
 
     it("opens delete modal when Delete Course button is clicked", async () => {
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
-
-      const detailsTab = screen.getByRole("button", { name: /course details/i });
-      await user.click(detailsTab);
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /delete course/i })).toBeInTheDocument();
@@ -729,14 +675,15 @@ describe("CourseDetailPage", () => {
       api.delete.mockResolvedValue({});
 
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
-
-      const detailsTab = screen.getByRole("button", { name: /course details/i });
-      await user.click(detailsTab);
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /delete course/i })).toBeInTheDocument();
@@ -766,13 +713,14 @@ describe("CourseDetailPage", () => {
       api.post.mockResolvedValue({ data: { join_code_enabled: false } });
 
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
-      await waitFor(() => {
-        expect(screen.getByText("Join Code")).toBeInTheDocument();
-      });
-
-      const toggleButton = screen.getByRole("button", { name: /disable join code/i });
+      // Find the toggle button - findByRole handles the async role resolution
+      const toggleButton = await screen.findByRole("button", { name: /Join Code/i });
       await user.click(toggleButton);
 
       await waitFor(() => {
@@ -784,13 +732,17 @@ describe("CourseDetailPage", () => {
       api.post.mockResolvedValue({ data: { join_code: "NEWCODE123" } });
 
       const user = userEvent.setup();
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByText("ABC12345")).toBeInTheDocument();
       });
 
-      const rotateButton = screen.getByLabelText(/rotate code/i);
+      const rotateButton = await screen.findByRole("button", { name: /rotate code/i });
       await user.click(rotateButton);
 
       await waitFor(() => {
@@ -800,28 +752,6 @@ describe("CourseDetailPage", () => {
   });
 
   describe("Danger Zone", () => {
-    it("shows danger zone only on details tab", async () => {
-      const user = userEvent.setup();
-      render(<CourseDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Course Details")).toBeInTheDocument();
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText("Danger Zone")).toBeInTheDocument();
-      });
-
-      // Switch to members tab
-      const membersTab = screen.getByRole("button", { name: /members/i });
-      await user.click(membersTab);
-
-      await waitFor(() => {
-        // Danger zone should not be visible on members tab
-        expect(screen.queryByText("Danger Zone")).not.toBeInTheDocument();
-      });
-    });
-
     it("hides danger zone for students", async () => {
       const studentProfile = { ...mockOwner, id: "student-uuid-123" };
       api.get.mockImplementation((url: string) => {
@@ -835,15 +765,19 @@ describe("CourseDetailPage", () => {
           return Promise.resolve({ data: mockCourse });
         }
         if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
-          return Promise.resolve({ data: mockMembers });
+          return Promise.resolve({ data: [] });
         }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Course Info" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Test Course" })).toBeInTheDocument();
       });
 
       expect(screen.queryByText("Danger Zone")).not.toBeInTheDocument();
@@ -859,10 +793,20 @@ describe("CourseDetailPage", () => {
         if (url === COURSES.LIST) {
           return new Promise(resolve => setTimeout(() => resolve({ data: [mockCourse] }), 100));
         }
+        if (url === COURSES.DETAIL("123e4567-e89b-12d3-a456-426614174000")) {
+          return Promise.resolve({ data: mockCourse });
+        }
+        if (url === COURSES.MEMBERS("123e4567-e89b-12d3-a456-426614174000")) {
+          return Promise.resolve({ data: [] });
+        }
         return Promise.reject(new Error(`Unexpected API call: ${url}`));
       });
 
-      render(<CourseDetailPage />);
+      render(
+        <ProfileRoleProvider>
+          <CourseDetailPage />
+        </ProfileRoleProvider>
+      );
 
       // Should show loading state initially
       const skeletons = document.querySelectorAll(".skeleton-shimmer");
@@ -870,4 +814,3 @@ describe("CourseDetailPage", () => {
     });
   });
 });
-

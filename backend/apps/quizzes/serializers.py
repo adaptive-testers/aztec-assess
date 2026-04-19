@@ -2,7 +2,9 @@ from typing import Any, cast
 
 from rest_framework import serializers
 
-from .models import Chapter, Question, Quiz, QuizAttempt
+from apps.courses.models import Topic
+
+from .models import Chapter, Difficulty, Question, Quiz, QuizAttempt
 
 
 class ChapterSerializer(serializers.ModelSerializer):
@@ -21,6 +23,13 @@ class ChapterStudentSerializer(serializers.ModelSerializer):
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
+    topics = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Topic.objects.all(),
+        required=False,
+        allow_empty=True,
+    )
+
     class Meta:
         model = Question
         fields = (
@@ -32,6 +41,7 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
             "difficulty",
             "created_by",
             "is_active",
+            "topics",
             "created_at",
         )
         read_only_fields = ("id", "chapter", "created_by", "created_at")
@@ -45,6 +55,64 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         if value < 0 or value > 3:
             raise serializers.ValidationError("correct_index must be between 0 and 3.")
         return value
+
+    def validate_topics(self, value: list[Topic]) -> list[Topic]:
+        chapter = self.context.get("chapter")
+        instance = self.instance
+        if chapter:
+            course_id = chapter.course_id
+        elif instance:
+            course_id = instance.chapter.course_id
+        else:
+            return value
+        for topic in value:
+            if topic.course.pk != course_id:
+                raise serializers.ValidationError(
+                    f"Topic {topic.name} does not belong to this course."
+                )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", [])
+        question: Question = super().create(validated_data)
+        if topics:
+            question.topics.set(topics)
+        return question
+
+    def update(self, instance: Question, validated_data: dict[str, Any]) -> Question:
+        topics = validated_data.pop("topics", None)
+        question: Question = super().update(instance, validated_data)
+        if topics is not None:
+            question.topics.set(topics)
+        return question
+
+
+class QuestionImportItemSerializer(serializers.Serializer):
+    prompt = serializers.CharField()
+    choices = serializers.ListField(child=serializers.CharField(), min_length=4, max_length=4)
+    correct_index = serializers.IntegerField(min_value=0, max_value=3)
+    difficulty = serializers.ChoiceField(choices=Difficulty.choices)
+
+    def validate_prompt(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("prompt cannot be empty.")
+        return value
+
+    def validate_choices(self, value: list[Any]) -> list[Any]:
+        normalized = []
+        for choice in value:
+            if not isinstance(choice, str):
+                raise serializers.ValidationError("choices must contain strings only.")
+            normalized.append(choice.strip())
+        if len(normalized) != 4:
+            raise serializers.ValidationError("choices must be a list of 4 options.")
+        return normalized
+
+
+class QuestionBulkImportSerializer(serializers.Serializer):
+    questions = serializers.ListField(child=serializers.DictField(), allow_empty=False)
+    overwrite_existing = serializers.BooleanField(required=False, default=False)
 
 
 class QuestionStudentSerializer(serializers.ModelSerializer):

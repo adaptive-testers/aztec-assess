@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom";
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
@@ -8,15 +8,31 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import CreateQuestionModal, {
   type CreateQuestionModalProps,
 } from "../../features/InstructorCourse/CreateQuestionModal";
+import { type Topic } from "../../types/quizTypes";
+
+const MOCK_TOPIC_OPTIONS: Topic[] = [
+  { id: "Algebra", name: "Algebra", course_id: "c1", created_at: "" },
+  { id: "Calculus", name: "Calculus", course_id: "c1", created_at: "" },
+];
 
 type OnSaveHandler = NonNullable<CreateQuestionModalProps["onSave"]>;
 type OnDeleteHandler = NonNullable<CreateQuestionModalProps["onDelete"]>;
 
 // Keep tests stable regardless of icon implementation.
 vi.mock("react-icons/fi", () => ({
+  FiChevronDown: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="fi-chevron-down" {...props} />
+  ),
   FiX: (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="fi-x" {...props} />
   ),
+}));
+
+vi.mock("../../features/InstructorCourse/TopicModal", () => ({
+  __esModule: true,
+  default: function TopicModal() {
+    return null;
+  },
 }));
 
 function renderModal(
@@ -44,8 +60,8 @@ function getChoiceInput(n: 1 | 2 | 3 | 4) {
   return screen.getByPlaceholderText(`Choice ${n}`);
 }
 
-function getMarkChoiceButton(n: 1 | 2 | 3 | 4) {
-  return screen.getByRole("button", { name: new RegExp(`mark choice ${n} as correct`, "i") });
+function getMarkChoiceRadio(n: 1 | 2 | 3 | 4) {
+  return screen.getByRole("radio", { name: new RegExp(`mark choice ${n} as correct`, "i") });
 }
 
 describe("CreateQuestionModal", () => {
@@ -165,9 +181,9 @@ describe("CreateQuestionModal", () => {
     expect((getChoiceInput(3) as HTMLInputElement).value).toBe("C");
     expect((getChoiceInput(4) as HTMLInputElement).value).toBe("D");
 
-    // Correct choice should be marked via aria-pressed
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "false");
+    // Correct choice should be marked via radio checked
+    expect(getMarkChoiceRadio(3)).toBeChecked();
+    expect(getMarkChoiceRadio(1)).not.toBeChecked();
 
     // Status checkbox
     expect(
@@ -180,34 +196,42 @@ describe("CreateQuestionModal", () => {
     expect(screen.getByRole("button", { name: /hard/i })).toBeInTheDocument();
   });
 
-  it("clamps correctIndex from initialValue to the range [0,3]", () => {
+  it("clamps correctIndex from initialValue to the range [0,3] after reset effect runs", async () => {
+    vi.useFakeTimers();
+
     // Too large => clamps to 3
     renderModal({ initialValue: { correctIndex: 999 } });
-    expect(getMarkChoiceButton(4)).toHaveAttribute("aria-pressed", "true");
+    await act(async () => {
+      vi.runAllTimers();
+    });
+    expect(getMarkChoiceRadio(4)).toBeChecked();
 
     cleanup();
 
     // Negative => clamps to 0
     renderModal({ initialValue: { correctIndex: -10 } });
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "true");
+    await act(async () => {
+      vi.runAllTimers();
+    });
+    expect(getMarkChoiceRadio(1)).toBeChecked();
   });
 
-  it("lets the user set the correct choice by clicking the choice row or its input", async () => {
+  it("lets the user set the correct choice by clicking the radio or its input", async () => {
     const user = userEvent.setup();
     renderModal();
 
     // Default is choice 1
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "true");
+    expect(getMarkChoiceRadio(1)).toBeChecked();
 
-    // Click choice 3 button wrapper
-    await user.click(getMarkChoiceButton(3));
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(1)).toHaveAttribute("aria-pressed", "false");
+    // Click choice 3 radio
+    await user.click(getMarkChoiceRadio(3));
+    expect(getMarkChoiceRadio(3)).toBeChecked();
+    expect(getMarkChoiceRadio(1)).not.toBeChecked();
 
-    // Click directly into choice 4 input; should also set correctIndex to 3 via bubbling
-    await user.click(getChoiceInput(4));
-    expect(getMarkChoiceButton(4)).toHaveAttribute("aria-pressed", "true");
-    expect(getMarkChoiceButton(3)).toHaveAttribute("aria-pressed", "false");
+    // Click choice 4 radio
+    await user.click(getMarkChoiceRadio(4));
+    expect(getMarkChoiceRadio(4)).toBeChecked();
+    expect(getMarkChoiceRadio(3)).not.toBeChecked();
   });
 
   it("updates prompt and choice text as the user types", async () => {
@@ -270,7 +294,7 @@ describe("CreateQuestionModal", () => {
     await user.type(getChoiceInput(3), "C");
     await user.type(getChoiceInput(4), "D");
 
-    await user.click(getMarkChoiceButton(2)); // correctIndex = 1
+    await user.click(getMarkChoiceRadio(2)); // correctIndex = 1
     await user.click(screen.getByRole("button", { name: /medium/i }));
 
     await user.click(screen.getByRole("button", { name: /^create$/i }));
@@ -280,7 +304,7 @@ describe("CreateQuestionModal", () => {
     const [payload, id] = onSave.mock.calls[0];
     expect(id).toBeUndefined();
 
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       prompt: "Prompt text",
       choices: ["A", "B", "C", "D"],
       correctIndex: 1,
@@ -302,10 +326,13 @@ describe("CreateQuestionModal", () => {
       },
     });
 
+    await waitFor(() => {
+      expect((getPromptTextarea() as HTMLTextAreaElement).value).toBe("Old");
+    });
     await user.clear(getPromptTextarea());
     await user.type(getPromptTextarea(), "New prompt");
 
-    await user.click(getMarkChoiceButton(4));
+    await user.click(getMarkChoiceRadio(4));
     await user.click(screen.getByRole("button", { name: /hard/i }));
 
     await user.click(screen.getByRole("button", { name: /^update$/i }));
@@ -348,5 +375,62 @@ describe("CreateQuestionModal", () => {
 
     // If it threw, the test would fail; also ensure UI still present.
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  // ── Topics UI tests ────────────────────────────────────────────────────────
+  it("shows 'Select topics' button label when no topics are selected", () => {
+    renderModal({ topicOptions: MOCK_TOPIC_OPTIONS });
+    expect(screen.getByRole("button", { name: "Select topics" })).toBeInTheDocument();
+  });
+
+  it("shows '1 topic' label when one topic is pre-selected via initialValue", async () => {
+    vi.useFakeTimers();
+    renderModal({
+      topicOptions: MOCK_TOPIC_OPTIONS,
+      initialValue: { topics: ["Algebra"] },
+    });
+    // The open effect uses setTimeout(0) to set state — flush it with act
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByRole("button", { name: "1 topic" })).toBeInTheDocument();
+  });
+
+  it("shows '2 topics' label when two topics are pre-selected via initialValue", async () => {
+    vi.useFakeTimers();
+    renderModal({
+      topicOptions: MOCK_TOPIC_OPTIONS,
+      initialValue: { topics: ["Algebra", "Calculus"] },
+    });
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByRole("button", { name: "2 topics" })).toBeInTheDocument();
+  });
+
+  it("opens TopicModal when the Topics button is clicked (TopicModal is mocked to null)", async () => {
+    const user = userEvent.setup();
+    // TopicModal is mocked at the top of this file to return null — just verify click
+    renderModal({ topicOptions: MOCK_TOPIC_OPTIONS.slice(0, 1) });
+    await user.click(screen.getByRole("button", { name: "Select topics" }));
+    // CreateQuestionModal should still be open
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("includes pre-selected topics in the onSave payload when Create is clicked", async () => {
+    vi.useFakeTimers();
+    const { onSave } = renderModal({
+      topicOptions: MOCK_TOPIC_OPTIONS,
+      initialValue: { topics: ["Calculus"] },
+    });
+
+    vi.runAllTimers();
+
+    // Restore real timers for userEvent
+    vi.useRealTimers();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const [payload] = onSave.mock.calls[0];
+    expect(payload.topics).toEqual(["Calculus"]);
   });
 });

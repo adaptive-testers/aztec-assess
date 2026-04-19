@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { privateApi } from "../../api/axios";
 import { AUTH, COURSES, QUIZZES } from "../../api/endpoints";
 import { useAuth } from "../../context/AuthContext";
+import { CourseRoleProvider } from "../../context/CourseRoleContext";
+import { ProfileRoleProvider } from "../../context/ProfileRoleContext";
 import CoursePage from "../../features/InstructorCourse/CoursePage";
 
 vi.mock("../../api/axios", () => ({
@@ -79,10 +81,14 @@ const SettingsPage = () => {
 const renderPageAt = (entry: string) => {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/courses/:courseId" element={<CoursePage />} />
-        <Route path="/courses/:courseId/settings" element={<SettingsPage />} />
-      </Routes>
+      <ProfileRoleProvider>
+        <CourseRoleProvider>
+          <Routes>
+            <Route path="/courses/:courseId" element={<CoursePage />} />
+            <Route path="/courses/:courseId/settings" element={<SettingsPage />} />
+          </Routes>
+        </CourseRoleProvider>
+      </ProfileRoleProvider>
     </MemoryRouter>,
   );
 };
@@ -234,7 +240,7 @@ describe("Instructor Quiz Page", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/12 questions available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/12 questions/i)).toBeInTheDocument();
     expect(privateApi.get).not.toHaveBeenCalledWith(
       `${QUIZZES.QUESTIONS_BY_CHAPTER(1)}?page=2`,
     );
@@ -261,8 +267,13 @@ describe("Instructor Quiz Page", () => {
     const user = userEvent.setup();
     renderPage();
 
-    // wait for page hydration
+    // wait for page hydration (role resolves, instructor UI visible)
     await screen.findByRole("button", { name: /create new quiz/i });
+
+    // Also wait for role loading to complete so nav tabs are visible
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^course info$/i })).toBeInTheDocument();
+    });
 
     await user.click(screen.getByRole("button", { name: /^course info$/i }));
     expect(await screen.findByText(`Settings Page for ${COURSE_ID}`)).toBeInTheDocument();
@@ -303,16 +314,57 @@ describe("Instructor Quiz Page", () => {
 
     expect(await screen.findByText("Available Quizzes")).toBeInTheDocument();
     expect(screen.getByText("Track your quizzes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^members$/i })).toBeInTheDocument();
+  });
+
+  it("does not render instructor actions when course role resolves to non-staff", async () => {
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID, role: "instructor" } });
+      if (url === COURSES.LIST) {
+        return Promise.resolve({
+          data: [{ id: COURSE_ID, slug: COURSE_SLUG, title: "Course" }],
+        });
+      }
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) {
+        return Promise.resolve({ data: { id: COURSE_ID, title: "Course" } });
+      }
+      if (url === COURSES.MEMBERS(COURSE_ID)) {
+        return Promise.resolve({
+          data: [
+            {
+              id: "mem-1",
+              user_id: "different-user",
+              user_email: "other@example.com",
+              role: "OWNER",
+              joined_at: "2024-01-01T00:00:00Z",
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByText("You do not have instructor permissions for this course."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /create new quiz/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("when courseId route param is already a UUID, it does not call COURSES.LIST slug lookup", async () => {
     renderPageAt(`/courses/${COURSE_ID}`);
 
-    await screen.findByRole("button", { name: /create new quiz/i });
+    // Wait until chapters are fetched and displayed (instructor UI fully loaded)
+    await waitFor(() => {
+      expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID));
+    });
 
     expect(privateApi.get).not.toHaveBeenCalledWith(COURSES.LIST);
     expect(privateApi.get).not.toHaveBeenCalledWith(`${COURSES.LIST}?status=ARCHIVED`);
-    expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID));
   });
 
   it("falls back to archived courses when slug is not found in active courses list", async () => {
@@ -345,7 +397,10 @@ describe("Instructor Quiz Page", () => {
     renderPage();
 
     // Wait until role resolves and instructor UI (Create New Quiz) is visible
-    await screen.findByRole("button", { name: /create new quiz/i });
+    await waitFor(() => {
+      expect(privateApi.get).toHaveBeenCalledWith(QUIZZES.CHAPTERS_BY_COURSE(ARCHIVED_ID));
+    });
+
     expect(
       screen.getByRole("heading", { name: "Archived Course" }),
     ).toBeInTheDocument();
@@ -760,5 +815,160 @@ describe("Instructor Quiz Page", () => {
     );
     expect(quizPatchCall).toBeTruthy();
     expect(quizPatchCall?.[1]).not.toHaveProperty("chapter");
+  });
+
+  it("creates question with topics via ManageQuestionsModal -> CreateQuestionModal", async () => {
+    const user = userEvent.setup();
+
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
+      if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
+
+      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
+      }
+      if (url === QUIZZES.QUIZZES_BY_CHAPTER(1)) return Promise.resolve({ data: [] });
+      if (url === QUIZZES.QUESTIONS_BY_CHAPTER(1)) return Promise.resolve({ data: { count: 0, next: null, results: [] } });
+
+      if (url === COURSES.TOPICS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: "Algebra", name: "Algebra", course_id: COURSE_ID, created_at: "" }] });
+      }
+
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    await screen.findByRole("button", { name: /manage questions/i });
+    await user.click(screen.getByRole("button", { name: /manage questions/i }));
+
+    // Wait until questions modal fully loads (skeleton disappears)
+    await waitFor(() => {
+      expect(screen.queryByText("Create Question")).toBeInTheDocument();
+    });
+
+    const createBtn = await screen.findByRole("button", { name: "Create Question" });
+    await user.click(createBtn);
+
+    const promptTextarea = await screen.findByPlaceholderText(/enter your question here/i);
+    await user.type(promptTextarea, "What is 2+2?");
+    await user.type(screen.getByPlaceholderText("Choice 1"), "3");
+    await user.type(screen.getByPlaceholderText("Choice 2"), "4");
+
+    // Open TopicModal (Select topics button)
+    await user.click(screen.getByRole("button", { name: "Select topics" }));
+    // Wait for TopicModal to open
+    await screen.findByRole("heading", { name: /select topics/i });
+
+    // Click one of the existing MOCK_TOPIC_OPTIONS (e.g. 'Algebra')
+    await user.click(screen.getByRole("button", { name: "Algebra" }));
+    // Close via Save button
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Wait for the topics button label to update
+    await screen.findByRole("button", { name: "1 topic" });
+
+    // Now create the question
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() =>
+      expect(privateApi.post).toHaveBeenCalledWith(
+        QUIZZES.QUESTIONS_BY_CHAPTER(1),
+        expect.objectContaining({
+          topics: ["Algebra"],
+        }),
+      ),
+    );
+  });
+
+  it("updates question with topics via ManageQuestionsModal -> CreateQuestionModal", async () => {
+    const user = userEvent.setup();
+
+    (privateApi.get as Mock).mockImplementation((url: string) => {
+      if (url === AUTH.PROFILE) return Promise.resolve({ data: { id: TEST_USER_ID } });
+      if (url === COURSES.LIST) return Promise.resolve({ data: [{ id: COURSE_ID, slug: COURSE_SLUG }] });
+      if (url === `${COURSES.LIST}?status=ARCHIVED`) return Promise.resolve({ data: [] });
+      if (url === COURSES.DETAIL(COURSE_ID)) return Promise.resolve({ data: { title: "Course" } });
+      if (url === COURSES.MEMBERS(COURSE_ID)) return Promise.resolve({ data: [{ id: "mem-1", user_id: TEST_USER_ID, user_email: "instructor@example.com", role: "OWNER", joined_at: "2024-01-01T00:00:00Z" }] });
+
+      if (url === QUIZZES.CHAPTERS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: 1, title: "Ch 1", order_index: 1, course: COURSE_ID }] });
+      }
+      if (url === QUIZZES.QUIZZES_BY_CHAPTER(1)) return Promise.resolve({ data: [] });
+      if (url === QUIZZES.QUESTIONS_BY_CHAPTER(1)) return Promise.resolve({ 
+        data: { 
+          count: 1, 
+          next: null, 
+          results: [{ 
+            id: 42, 
+            chapter: 1, 
+            prompt: "What is 2+2?", 
+            choices: ["3", "4", "", ""], 
+            correct_index: 1, 
+            difficulty: "EASY", 
+            is_active: true, 
+            created_at: "2026-01-01T00:00:00Z",
+            topics: ["Algebra"]
+          }] 
+        } 
+      });
+
+      if (url === QUIZZES.QUESTION_DETAIL(42)) {
+        return Promise.resolve({
+          data: { 
+            id: 42, 
+            chapter: 1, 
+            prompt: "What is 2+2?", 
+            choices: ["3", "4", "", ""], 
+            correct_index: 1, 
+            difficulty: "EASY", 
+            is_active: true, 
+            created_at: "2026-01-01T00:00:00Z",
+            topics: ["Algebra"]
+          }
+        });
+      }
+
+      if (url === COURSES.TOPICS_BY_COURSE(COURSE_ID)) {
+        return Promise.resolve({ data: [{ id: "Algebra", name: "Algebra", course_id: COURSE_ID, created_at: "" }] });
+      }
+
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+
+    await screen.findByRole("button", { name: /manage questions/i });
+    await user.click(screen.getByRole("button", { name: /manage questions/i }));
+
+    // Wait until questions modal fully loads (skeleton disappears, question appears)
+    await waitFor(() => {
+      expect(screen.queryByText("What is 2+2?")).toBeInTheDocument();
+    });
+
+    // CoursePage always appends a mock question at the end; the real API question (id=42)
+    // ends up at editBtn[1] after 'newest' sort places both on the same date.
+    // We target the last (real) question by finding all and picking the one that triggers a real fetch.
+    const editBtns = await screen.findAllByRole("button", { name: "Edit question" });
+    // Click the first button: it corresponds to question id=42 (from API)
+    await user.click(editBtns[editBtns.length - 1]);
+
+    // Wait for the Edit Question modal to open
+    await screen.findByRole("heading", { name: /edit question/i });
+
+    // Without modifying topics, clicking Update should include pre-filled topics from the API
+    await user.click(screen.getByRole("button", { name: /^update$/i }));
+
+    await waitFor(() =>
+      expect(privateApi.patch).toHaveBeenCalledWith(
+        QUIZZES.QUESTION_DETAIL(42),
+        expect.objectContaining({
+          topics: ["Algebra"],
+        }),
+      ),
+    );
   });
 });
