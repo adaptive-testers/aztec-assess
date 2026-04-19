@@ -1,20 +1,32 @@
+<p align="center">
+  <img src="frontend/src/assets/brand-mark.svg" alt="Aztec Assess logo" width="120" />
+</p>
+
 # Aztec Assess
 
-A modern, full-stack adaptive testing platform built with Django and React. Aztec Assess provides intelligent, personalized testing experiences designed for educational institutions, with initial focus on San Diego State University (SDSU).
+A modern, full-stack assessment platform built with Django and React. Aztec Assess is designed for educational institutions, with an initial focus on San Diego State University (SDSU).
+
+## 👥 Who It's For
+
+- **Students**: Take quizzes, track progress, and review results in a focused workflow.
+- **Instructors and TAs**: Manage courses, members, question banks, topics, and quiz delivery.
+- **Course/Admin Owners**: Control course lifecycle, permissions, and enrollment flows.
 
 ## 🚧 Project Status
 
-**Currently in Development** - We are actively working on this project. The basic authentication system is complete with user registration and login. Docker support has been added for consistent development environments. Course management features are implemented and functional. Student/instructor dashboards and quiz creation are in development.
+**Currently in Development** - Core platform functionality is implemented and actively improving. Authentication, course lifecycle management, dashboard routing, topic-based question management, and student quiz workflows are live in the codebase. Advanced adaptive behavior, broader analytics/reporting, and deeper AI-assisted tooling are still evolving.
 
 ## ✨ Features
 
 ### 🔐 Authentication
 - **Multi-role Support**: Admin, Instructor, and Student roles
-- **Email-based Authentication**: Secure login with email verification
+- **Email-based Authentication**: Secure login with email/password
 - **Google OAuth**: Sign up and log in with Google accounts
 - **Microsoft OAuth**: Sign up and log in with Microsoft accounts
 - **JWT Token Management**: Stateless authentication with refresh tokens stored in HTTP-only cookies
 - **Auto Token Refresh**: Automatic token refresh for seamless user experience
+- **Signup Policy Controls**: Optional allowlist and student-only signup modes via environment flags
+- **Endpoint Throttling**: Auth endpoint-specific rate limits (login/register/oauth/refresh)
 
 ### 📚 Course Management
 - **Course Lifecycle**: Create, activate, archive, and delete courses
@@ -22,13 +34,19 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Join Code System**: Generate, enable/disable, rotate, and copy join codes for student enrollment
 - **Member Management**: Add/remove members by email, view member roles and details
 - **Role-Based UI**: Different interfaces and permissions for Owners, Instructors, TAs, and Students
+- **Topic Management**: Course-level topics and question-topic associations
+
+### 🧪 Assessment Workflows
+- **Instructor Quiz Authoring**: Chapters, questions, quizzes, and question import flows
+- **Bulk Question Import**: Import question sets for instructor workflows
+- **Student Quiz Experience**: Quiz landing, in-progress attempts, answer submission, and results views
+- **Dashboard and Navigation**: Role-aware routes, landing page, legal pages, and not-found handling
 
 ### 🎯 Planned Core Features
-- **Student Dashboard**: Personalized learning experience with adaptive quizzes
-- **Instructor Dashboard**: Course and quiz management tools with AI assistance
-- **Adaptive Testing**: Dynamic difficulty adjustment and format adaptation based on learning styles
-- **AI-Powered Features**: Question generation and content assistance (instructor-controlled)
-- **Real-time Analytics**: Performance tracking and learning insights
+- **Adaptive Engine Expansion**: More sophisticated question selection and adaptation logic
+- **Analytics and Reporting**: Richer performance insights for instructors and course teams
+- **AI Authoring Enhancements**: Additional instructor-controlled content assistance features
+- **Institutional Integrations**: Deployment and integration hardening for broader adoption
 
 ## 🛠️ Tech Stack
 
@@ -37,26 +55,29 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Django REST Framework** - API development
 - **Neon PostgreSQL** - Hosted database service
 - **JWT Authentication** - Secure token-based auth
+- **Gunicorn** - Production-oriented WSGI server runtime
 - **Poetry** - Dependency management
 
 ### Frontend
 - **React 19** - UI framework
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
+- **Motion** - UI animation and transitions
 - **React Router** - Client-side routing
 - **Axios** - HTTP client
 - **Vite** - Build tool
 
 ### Development Tools
 - **Docker** - Containerization for development and production
-- **ESLint & Prettier** - Code formatting
+- **ESLint** - Frontend linting
 - **Pytest** - Testing framework
 - **MyPy** - Type checking
 - **Ruff** - Python linting
+- **Vitest** - Frontend test runner
 
 ### Deployment (Planned)
-- **Frontend**: Serverless platform (TBD)
-- **Backend**: Cloud hosting platform (TBD)
+- **Frontend**: Serverless/static hosting platform (TBD)
+- **Backend**: Managed container hosting platform (TBD)
 - **Database**: Neon PostgreSQL (hosted)
 
 ## 🚀 Getting Started
@@ -67,7 +88,7 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Git** (for cloning the repository)
 
 > [!NOTE] 
-> If you prefer not to use Docker, you'll also need Python 3.11+, Node.js 18+, and Poetry. See [Manual Setup](#manual-setup-without-docker) section below.
+> If you prefer not to use Docker, you'll also need Python 3.11+, Node.js 20+, and Poetry. See [Manual Setup](#manual-setup-without-docker) section below.
 
 ### Quick Start with Docker (Recommended)
 
@@ -97,6 +118,9 @@ SECRET_KEY=your-secret-key-here-make-it-long-and-random
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1,backend
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ENABLE_DJANGO_ADMIN=True
+ENABLE_API_DOCS=True
 SIGNUP_ALLOWLIST_ENABLED=False
 STUDENT_MODE_ONLY=False
 
@@ -104,6 +128,11 @@ STUDENT_MODE_ONLY=False
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:5173
+
+# Microsoft OAuth (optional)
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_TENANT_ID=common
+MICROSOFT_REDIRECT_URI=http://localhost:5173/auth-callback.html
 ```
 
 **Quick Setup:**
@@ -111,7 +140,7 @@ GOOGLE_REDIRECT_URI=http://localhost:5173
 - **Google OAuth**: Optional - only needed if you want Google sign-in. Leave blank if not using.
 - Never commit the `.env` file to version control
 
-**Staging/Public Deployment Overrides (recommended):**
+**Production Deployment Overrides (recommended):**
 ```bash
 DEBUG=False
 ENABLE_DJANGO_ADMIN=False
@@ -127,6 +156,7 @@ AUTH_THROTTLE_TOKEN_REFRESH_RATE=600/hour
 COOKIE_SECURE=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
+COOKIE_SAMESITE=Lax
 SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
 USE_X_FORWARDED_HOST=True
 SECURE_SSL_REDIRECT=True
@@ -139,7 +169,7 @@ SECURE_REFERRER_POLICY=strict-origin-when-cross-origin
 #### Step 4: Start the Application
 
 ```bash
-docker-compose up --build frontend-dev backend
+docker compose up --build frontend-dev backend
 ```
 
 This builds the containers and starts both services. The first build may take a few minutes.
@@ -150,10 +180,10 @@ In a new terminal (while Docker is running):
 
 ```bash
 # Create database tables
-docker-compose exec backend /app/.venv/bin/python manage.py migrate
+docker compose exec backend /app/.venv/bin/python manage.py migrate
 
 # Create admin account (you'll be prompted for email and password)
-docker-compose exec backend /app/.venv/bin/python manage.py createsuperuser
+docker compose exec backend /app/.venv/bin/python manage.py createsuperuser
 ```
 
 #### Step 6: Access the Application
@@ -161,7 +191,8 @@ docker-compose exec backend /app/.venv/bin/python manage.py createsuperuser
 Open your browser to:
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:8000
-- **Admin Panel**: http://localhost:8000/admin (optional)
+- **Admin Panel**: http://localhost:8000/admin (if enabled)
+- **API Docs**: http://localhost:8000/api/docs (if enabled)
 
 **First Time:**
 - Sign up for a new account or use your superuser credentials
@@ -171,19 +202,19 @@ Open your browser to:
 
 ```bash
 # Start services
-docker-compose up frontend-dev backend
+docker compose up frontend-dev backend
 
 # Stop services
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Run backend commands
-docker-compose exec backend /app/.venv/bin/python manage.py <command>
+docker compose exec backend /app/.venv/bin/python manage.py <command>
 
 # Rebuild after dependency changes
-docker-compose up --build frontend-dev backend
+docker compose up --build frontend-dev backend
 ```
 
 #### Troubleshooting
@@ -197,8 +228,8 @@ docker-compose up --build frontend-dev backend
 
 **Build Issues:**
 - Ensure Docker Desktop is running
-- Try: `docker-compose build --no-cache`
-- Check logs: `docker-compose logs backend`
+- Try: `docker compose build --no-cache`
+- Check logs: `docker compose logs backend`
 
 ### Manual Setup (Without Docker)
 
@@ -206,7 +237,7 @@ If you prefer not to use Docker, you can set up the project manually. This requi
 
 #### Prerequisites
 - **Python 3.11+** installed and accessible in your PATH
-- **Node.js 18+** and npm installed
+- **Node.js 20+** and npm installed
 - **Poetry** for Python dependency management: `pip install poetry` or follow [Poetry installation guide](https://python-poetry.org/docs/#installation)
 - **Neon PostgreSQL** account and database (same as Docker setup)
 
@@ -289,7 +320,7 @@ If you prefer not to use Docker, you can set up the project manually. This requi
 - Activate shell: `poetry shell`
 
 **Node.js:**
-- Verify version: `node --version` (needs 18+)
+- Verify version: `node --version` (needs 20+)
 - If install fails: `npm install --legacy-peer-deps`
 
 ## 🧪 Testing
@@ -297,6 +328,9 @@ If you prefer not to use Docker, you can set up the project manually. This requi
 ### Backend Tests
 ```bash
 cd backend
+poetry install --no-interaction --no-root
+poetry run ruff check .
+poetry run mypy .
 poetry run pytest
 poetry run pytest --cov=apps --cov-report=html
 ```
@@ -304,9 +338,19 @@ poetry run pytest --cov=apps --cov-report=html
 ### Frontend Tests
 ```bash
 cd frontend
-npm run test
+npm ci
+npm run lint
+npm run test:run
 npm run test:coverage
+npm run build
 ```
+
+## 📸 Screenshots
+
+![Landing page](docs/screenshots/01-landing-page.png)
+![Login page](docs/screenshots/02-login-page.png)
+![Instructor course page](docs/screenshots/03-instructor-course-page.png)
+![Student quiz results](docs/screenshots/04-student-quiz-results.png)
 
 ## 📁 Project Structure
 
@@ -318,7 +362,8 @@ aztec-assess/
 │   │   └── ...
 │   ├── apps/                   # Django applications
 │   │   ├── accounts/           # User management and authentication
-│   │   └── courses/            # Course management and enrollment
+│   │   ├── courses/            # Course management, enrollment, and topics
+│   │   └── quizzes/            # Chapters, questions, quizzes, attempts, imports
 │   ├── Dockerfile              # Backend container configuration
 │   ├── .dockerignore           # Files excluded from Docker build
 │   ├── manage.py
@@ -326,18 +371,22 @@ aztec-assess/
 ├── frontend/                   # React frontend
 │   ├── src/
 │   │   ├── features/           # Feature-based components
-│   │   │   ├── Course/         # Course management (detail page, join page)
+│   │   │   ├── Course/         # Course settings, join flow, and students page
 │   │   │   ├── CourseCreation/ # Course creation page
-│   │   │   ├── Dashboard/      # Dashboard layout
+│   │   │   ├── Dashboard/      # Dashboard layout and landing view
+│   │   │   ├── InstructorCourse/ # Instructor quiz/course management
+│   │   │   ├── Landing/        # Public landing page
+│   │   │   ├── Legal/          # Privacy, terms, and cookies pages
 │   │   │   ├── LogIn/          # Login page
+│   │   │   ├── NotFound/       # 404 page
 │   │   │   ├── Profile/        # User profile page
-│   │   │   └── SignUp/         # Sign up page
+│   │   │   ├── SignUp/         # Signup and role selection
+│   │   │   └── StudentQuizzes/ # Student quiz attempt flow
 │   │   ├── components/         # Reusable components
 │   │   │   ├── Sidebar/        # Navigation sidebar
-│   │   │   ├── Toast.tsx       # Toast notifications
 │   │   │   ├── ProtectedRoute.tsx
 │   │   │   └── PublicRoute.tsx
-│   │   ├── context/            # React context providers
+│   │   ├── context/            # Auth and role context providers
 │   │   ├── api/                # API client configuration
 │   │   ├── test/               # Test files
 │   │   └── types/              # TypeScript type definitions
@@ -362,9 +411,9 @@ The project uses Docker for consistent development environments. The setup inclu
 - **Isolated dependencies**: Node modules and Python virtual environments are containerized
 
 ### Code Quality
-- **Python**: Ruff for linting, MyPy for type checking
-- **TypeScript**: ESLint for linting, strict type checking
-- **Pre-commit hooks**: Automated code formatting and linting
+- **Python**: Ruff for linting, MyPy for type checking, Pytest for backend tests
+- **TypeScript**: ESLint for linting, Vitest for frontend tests
+- **Pre-commit hooks**: Automated checks before commits
 
 ## 📝 License
 
@@ -377,18 +426,3 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 ## 📞 Support
 
 If you have any questions or need help, please open an issue in the repository.
-
----
-
-**Note**: This project is currently in active development and is initially designed for San Diego State University (SDSU). Features and documentation may change as we continue to build and improve the platform.
-
-## 🎓 About Aztec Assess
-
-Aztec Assess is designed to revolutionize how educational institutions conduct assessments by providing adaptive testing capabilities that adjust to individual student learning styles and performance. The platform emphasizes instructor control while leveraging AI as a supportive tool for content generation and analysis.
-
-This project is being developed as part of a capstone project class, demonstrating real-world software development practices and modern web technologies in an educational context.
-
-### Key Principles
-- **Instructor-Centric**: AI serves as an assistant, not a replacement for instructor expertise
-- **Adaptive Learning**: Questions and formats adapt to accommodate different learning styles
-- **Educational Focus**: Built specifically for educational institutions with SDSU as the initial deployment target
