@@ -12,30 +12,31 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.11"
 django = "^5.2.13"
-djangorestframework = "^3.16.1"
+djangorestframework = "^3.17.1"
 django-cors-headers = "^4.9.0"
 psycopg2-binary = "^2.9.11"
 python-decouple = "^3.8"
 djangorestframework-simplejwt = "^5.5.1"
 dj-database-url = "^3.1.2"
 drf-spectacular = "^0.29.0"
-drf-spectacular-sidecar = "^2026.3.1"
-requests = "^2.33.0"
+drf-spectacular-sidecar = "^2026.4.1"
+requests = "^2.33.1"
+gunicorn = "^25.3.0"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.15.6"
-mypy = "^1.19.1"
+ruff = "^0.15.10"
+mypy = "^1.20.1"
 pre-commit = "^4.5.1"
-django-stubs = "^5.2.9"
-djangorestframework-stubs = "^3.16.8"
-types-requests = "^2.32.0"
+django-stubs = "^6.0.2"
+djangorestframework-stubs = "^3.16.9"
+types-requests = "^2.33.0"
 
 [tool.poetry.group.test.dependencies]
 factory-boy = "^3.3.3"
-coverage = "^7.13.4"
+coverage = "^7.13.5"
 pytest = "^9.0.3"
 pytest-django = "^4.12.0"
-pytest-cov = "^7.0.0"
+pytest-cov = "^7.1.0"
 pytest-xdist = "^3.6.1"
 
 [build-system]

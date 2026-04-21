@@ -5,10 +5,17 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import CourseDetailPage from "./features/Course/CourseDetailPage";
 import JoinCoursePage from "./features/Course/JoinCoursePage";
+import StudentsPage from "./features/Course/StudentsPage";
 import CourseCreationPage from "./features/CourseCreation/CourseCreationPage";
 import DashboardLayout from "./features/Dashboard/DashBoardLayout";
+import DashboardPage from "./features/Dashboard/DashboardPage";
 import CoursePage from "./features/InstructorCourse/CoursePage";
+import LandingPage from "./features/Landing/LandingPage";
+import CookiesPage from "./features/Legal/CookiesPage";
+import PrivacyPage from "./features/Legal/PrivacyPage";
+import TermsPage from "./features/Legal/TermsPage";
 import LogInPage from "./features/LogIn/LogInPage";
+import NotFoundPage from "./features/NotFound/NotFoundPage";
 import ProfilePage from "./features/Profile/ProfilePage";
 import RoleSelectionPage from "./features/SignUp/RoleSelectionPage";
 import SignUpPage from "./features/SignUp/SignUpPage";
@@ -30,9 +37,7 @@ function App() {
           path="/"
           element={
             <PublicRoute>
-              <div className="h-screen bg-black flex items-center justify-center overflow-hidden">
-                <LogInPage />
-              </div>
+              <LandingPage />
             </PublicRoute>
           }
         />
@@ -66,6 +71,9 @@ function App() {
             </PublicRoute>
           }
         />
+        <Route path="/legal/privacy" element={<PrivacyPage />} />
+        <Route path="/legal/terms" element={<TermsPage />} />
+        <Route path="/legal/cookies" element={<CookiesPage />} />
         <Route
           element={
             <ProtectedRoute>
@@ -73,19 +81,18 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route
-            path="/dashboard"
-            element={<div className="text-primary-text">Dashboard</div>}
-          />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/courses/create" element={<CourseCreationPage />} />
           <Route path="/courses/:courseId" element={<CoursePage />} />
           <Route path="/courses/:courseId/settings" element={<CourseDetailPage />} />
+          <Route path="/courses/:courseId/students" element={<StudentsPage />} />
           <Route path="/join-course" element={<JoinCoursePage />} />
           <Route path="/quiz-landing/:quizId" element={<StudentQuizLanding />} />
           <Route path="/quiz-questions/:attemptId" element={<StudentQuizQuestions />} />
           <Route path="/quiz-results/:attemptId" element={<StudentQuizResults />} />
         </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   );

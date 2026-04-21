@@ -4,7 +4,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import Course, CourseMembership, CourseRole
+from .models import Course, CourseMembership, CourseRole, Topic
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -80,3 +80,42 @@ class CourseMembershipSerializer(serializers.ModelSerializer):
 class JoinCourseSerializer(serializers.Serializer):
     # Payload for /api/enrollment/join/
     join_code = serializers.CharField(max_length=16)
+
+
+class TopicSerializer(serializers.ModelSerializer):
+    course_id = serializers.UUIDField(source="course.id", read_only=True)
+
+    class Meta:
+        model = Topic
+        fields = ["id", "course_id", "name", "created_at"]
+        read_only_fields = ["id", "course_id", "created_at"]
+
+    def validate_name(self, value: str) -> str:
+        course = self.instance.course if self.instance else self.context.get("course")
+        if not course:
+            return value
+        qs = Topic.objects.filter(course=course, name__iexact=value.strip())
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                "A topic with this name already exists in this course."
+            )
+        return value.strip()
+
+
+class TopicCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = ["id", "name", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def validate_name(self, value: str) -> str:
+        course = self.context.get("course")
+        if not course:
+            return value
+        if Topic.objects.filter(course=course, name__iexact=value.strip()).exists():
+            raise serializers.ValidationError(
+                "A topic with this name already exists in this course."
+            )
+        return value.strip()

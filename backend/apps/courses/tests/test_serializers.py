@@ -11,12 +11,14 @@ from rest_framework.test import APIRequestFactory
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
-from apps.courses.models import Course, CourseMembership, CourseRole
+from apps.courses.models import Course, CourseMembership, CourseRole, Topic
 from apps.courses.serializers import (
     CourseCreateSerializer,
     CourseMembershipSerializer,
     CourseSerializer,
     JoinCourseSerializer,
+    TopicCreateSerializer,
+    TopicSerializer,
 )
 
 UserModel = cast("type[User]", get_user_model())
@@ -220,3 +222,23 @@ class TestJoinCourseSerializer:
         assert serializer.is_valid()
         assert serializer.validated_data["join_code"] == "ABC12345"
 
+
+class TestTopicSerializers:
+    """Test TopicSerializer and TopicCreateSerializer validation branches."""
+
+    def test_topic_serializer_validate_name_without_course_context(self):
+        """TopicSerializer allows validation when no course context is supplied."""
+        serializer = TopicSerializer(data={"name": "Algebra"}, context={})
+        assert serializer.is_valid(), serializer.errors
+
+    def test_topic_serializer_duplicate_name_in_course_rejected(self, course):
+        """TopicSerializer rejects duplicate names (case-insensitive) in same course."""
+        Topic.objects.create(course=course, name="Algebra")
+        serializer = TopicSerializer(data={"name": "algebra"}, context={"course": course})
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+
+    def test_topic_create_serializer_validate_name_without_course_context(self):
+        """TopicCreateSerializer allows validation when no course context is supplied."""
+        serializer = TopicCreateSerializer(data={"name": "Geometry"}, context={})
+        assert serializer.is_valid(), serializer.errors
