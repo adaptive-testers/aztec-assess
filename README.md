@@ -4,7 +4,7 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 
 ## 🚧 Project Status
 
-**Currently in Development** - We are actively working on this project. The basic authentication system is complete with user registration and login. Docker support has been added for consistent development environments. Course management features are implemented and functional. Student/instructor dashboards and quiz creation are in development.
+**Currently in Development** - We are actively working on this project. The basic authentication system is complete with user registration and login. Docker support has been added for consistent development environments. Course management features are implemented and functional. Student/instructor dashboards and quiz creation are in development. Initial adaptive quiz modeling (IRT + BKT) is implemented behind backend feature flags.
 
 ## ✨ Features
 
@@ -23,12 +23,19 @@ A modern, full-stack adaptive testing platform built with Django and React. Azte
 - **Member Management**: Add/remove members by email, view member roles and details
 - **Role-Based UI**: Different interfaces and permissions for Owners, Instructors, TAs, and Students
 
-### 🎯 Planned Core Features
+### 🎯 Core Features and Roadmap
 - **Student Dashboard**: Personalized learning experience with adaptive quizzes
 - **Instructor Dashboard**: Course and quiz management tools with AI assistance
-- **Adaptive Testing**: Dynamic difficulty adjustment and format adaptation based on learning styles
+- **Adaptive Testing**: Ongoing improvements to calibration, selection quality, and analytics
 - **AI-Powered Features**: Question generation and content assistance (instructor-controlled)
 - **Real-time Analytics**: Performance tracking and learning insights
+
+### 🧠 Adaptive Engine (V1)
+- **Rasch-style IRT updates**: Student ability (`theta`) is updated online after each graded response.
+- **BKT concept mastery tracking**: Per-student, per-topic mastery (`p_knowledge`) is updated after each response.
+- **Adaptive selection policy**: Prioritizes weak topics, then selects questions closest to ability using `|theta - b|`.
+- **Flag-gated rollout**: Controlled via `ADAPTIVE_ENGINE_V2`, `ADAPTIVE_ENGINE_V2_SELECTION`, and `ADAPTIVE_ENGINE_V2_SHADOW`.
+- **Current item priors**: Question difficulty maps to `b` priors (`EASY=-1`, `MEDIUM=0`, `HARD=1`) with future calibration planned.
 
 ## 🛠️ Tech Stack
 
