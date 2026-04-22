@@ -4,6 +4,7 @@ Tests for quiz models (Chapter, Question, Quiz, QuizAttempt, AttemptAnswer).
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from apps.courses.models import Topic
 from apps.quizzes.models import AttemptAnswer, Chapter, Question, Quiz, QuizAttempt
 from apps.quizzes.tests.test_utils import make_course_and_chapter, make_course_only
 
@@ -191,6 +192,26 @@ class QuestionTests(TestCase):
             created_by=user
         )
         self.assertEqual(q.created_by, user)
+
+    def test_get_primary_topic_uses_prefetch_cache_without_extra_queries(self):
+        q = Question.objects.create(
+            chapter=self.chapter,
+            prompt="Topic test",
+            choices=["A", "B", "C", "D"],
+            correct_index=0,
+        )
+        t1 = Topic.objects.create(course=self.course, name="T1")
+        t2 = Topic.objects.create(course=self.course, name="T2")
+        q.topics.add(t1, t2)
+
+        expected = min((t1, t2), key=lambda topic: topic.pk.hex)
+        prefetched_q = Question.objects.prefetch_related("topics").get(pk=q.pk)
+
+        with self.assertNumQueries(0):
+            primary = prefetched_q.get_primary_topic()
+
+        self.assertIsNotNone(primary)
+        self.assertEqual(primary.pk, expected.pk)
 
 
 class QuizAttemptTests(TestCase):

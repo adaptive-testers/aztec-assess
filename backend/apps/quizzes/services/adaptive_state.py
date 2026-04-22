@@ -41,7 +41,6 @@ def difficulty_to_b_prior(difficulty: str) -> float:
     mapping = getattr(settings, "ADAPTIVE_IRT_DIFFICULTY_B", None)
     if isinstance(mapping, dict):
         return float(mapping.get(difficulty, 0.0))
-    # defaults from plan: EASY/MEDIUM/HARD
     defaults = {"EASY": -1.0, "MEDIUM": 0.0, "HARD": 1.0}
     return float(defaults.get(difficulty, 0.0))
 

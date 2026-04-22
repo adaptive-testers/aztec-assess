@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.conf import settings
 from django.db import models
@@ -49,6 +49,12 @@ class Question(models.Model):
 
     def get_primary_topic(self) -> "Topic | None":
         """MVP: first topic by id for BKT when a question has multiple topics."""
+        prefetched = getattr(self, "_prefetched_objects_cache", None)
+        if isinstance(prefetched, dict) and "topics" in prefetched:
+            topics = cast("list[Topic]", prefetched["topics"])
+            if topics:
+                return min(topics, key=lambda topic: topic.pk.hex)
+            return None
         return self.topics.order_by("id").first()
 
 

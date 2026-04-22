@@ -991,6 +991,25 @@ class QuizAttemptFlowTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["status"], "COMPLETED")
 
+    def test_submit_answer_rejects_oversized_response_time_ms_with_400(self):
+        start_url = reverse("quiz-attempt-start", kwargs={"pk": self.quiz.id})
+        start_res = self.client.post(start_url, data={})
+        attempt_id = start_res.data["attempt_id"]
+        question_id = start_res.data["question"]["id"]
+
+        answer_url = reverse("attempt-answer", kwargs={"pk": attempt_id})
+        res = self.client.post(
+            answer_url,
+            data={
+                "question_id": question_id,
+                "selected_index": 2,
+                "response_time_ms": 2_147_483_648,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("response_time_ms", res.data)
+
     def test_start_attempt_on_unpublished_quiz_returns_404(self):
         """Test that starting an attempt on an unpublished quiz returns 404."""
         self.quiz.is_published = False

@@ -272,7 +272,12 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
 class AttemptAnswerSubmitSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     selected_index = serializers.IntegerField()
-    response_time_ms = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    response_time_ms = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        min_value=1,
+        max_value=2_147_483_647,
+    )
 
     def validate_selected_index(self, value: int) -> int:
         if value < 0 or value > 3:

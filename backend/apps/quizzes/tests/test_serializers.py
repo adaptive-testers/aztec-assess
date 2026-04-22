@@ -443,3 +443,14 @@ class AttemptAnswerSubmitSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("question_id", serializer.errors)
         self.assertIn("selected_index", serializer.errors)
+
+    def test_response_time_ms_rejects_values_over_db_safe_integer_max(self):
+        serializer = AttemptAnswerSubmitSerializer(
+            data={
+                "question_id": 1,
+                "selected_index": 0,
+                "response_time_ms": 2_147_483_648,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("response_time_ms", serializer.errors)
