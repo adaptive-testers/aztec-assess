@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+from django.conf import settings
+from django.db.models import Count
 from rest_framework import serializers
 
 from apps.courses.models import Topic
@@ -116,9 +118,15 @@ class QuestionBulkImportSerializer(serializers.Serializer):
 
 
 class QuestionStudentSerializer(serializers.ModelSerializer):
+    topic_label = serializers.SerializerMethodField()
+
     class Meta:
         model = Question
-        fields = ("id", "prompt", "choices", "difficulty")
+        fields = ("id", "prompt", "choices", "difficulty", "topic_label")
+
+    def get_topic_label(self, obj: Question) -> str | None:
+        t = obj.get_primary_topic()
+        return t.name if t else None
 
 
 class QuizSerializer(serializers.ModelSerializer):
@@ -135,6 +143,52 @@ class QuizSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("id", "chapter", "created_at")
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        chapter = self.context.get("chapter")
+        if chapter is None and self.instance is not None:
+            chapter = self.instance.chapter
+
+        adaptive = attrs.get("adaptive_enabled")
+        if self.instance is not None and adaptive is None:
+            adaptive = self.instance.adaptive_enabled
+        if adaptive is None:
+            adaptive = True
+
+        if chapter and adaptive:
+            if not Question.objects.filter(chapter=chapter, is_active=True).exists():
+                return attrs
+            has_bank_topics = (
+                Question.objects.filter(chapter=chapter, is_active=True)
+                .annotate(topic_count=Count("topics"))
+                .filter(topic_count__gt=0)
+                .exists()
+            )
+            if not has_bank_topics:
+                raise serializers.ValidationError(
+                    {
+                        "adaptive_enabled": (
+                            "Cannot enable adaptive mode until at least one active question "
+                            "in this chapter has a topic."
+                        ),
+                    }
+                )
+            if getattr(settings, "ADAPTIVE_REQUIRE_SINGLE_TOPIC", False):
+                multi = (
+                    Question.objects.filter(chapter=chapter, is_active=True)
+                    .annotate(topic_count=Count("topics"))
+                    .filter(topic_count__gt=1)
+                    .exists()
+                )
+                if multi:
+                    raise serializers.ValidationError(
+                        {
+                            "adaptive_enabled": (
+                                "Adaptive mode requires at most one topic per question for this course."
+                            ),
+                        }
+                    )
+        return attrs
 
 
 class QuizStudentSerializer(serializers.ModelSerializer):
@@ -218,6 +272,12 @@ class AttemptDetailSerializer(serializers.ModelSerializer):
 class AttemptAnswerSubmitSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     selected_index = serializers.IntegerField()
+    response_time_ms = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        min_value=1,
+        max_value=2_147_483_647,
+    )
 
     def validate_selected_index(self, value: int) -> int:
         if value < 0 or value > 3:

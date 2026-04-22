@@ -52,6 +52,9 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # Disable debug toolbar and other development tools
 DEBUG = False
 
+# APIClient uses http://; avoid 301 to https:// from inherited SECURE_SSL_REDIRECT.
+SECURE_SSL_REDIRECT = False
+
 # Use a test secret key
 SECRET_KEY = "test-secret-key-for-testing-only"
 

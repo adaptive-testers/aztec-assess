@@ -1,7 +1,7 @@
 """
 Tests for quiz serializers (Chapter, Question, Quiz, QuizAttempt, submit answer).
 """
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import serializers
 
 from apps.courses.models import Course, Topic
@@ -312,6 +312,50 @@ class QuizSerializerTests(TestCase):
         self.assertTrue(serializer.fields["chapter"].read_only)
         self.assertTrue(serializer.fields["created_at"].read_only)
 
+    def test_adaptive_enabled_requires_topics_when_bank_has_questions(self):
+        """Cannot enable adaptive if active questions exist but none have topics."""
+        make_question(self.chapter, prompt="Untagged")
+        serializer = QuizSerializer(
+            data={"title": "Tagged Quiz", "adaptive_enabled": True, "num_questions": 5},
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("adaptive_enabled", serializer.errors)
+
+    def test_validate_resolves_chapter_from_instance_when_context_omits_chapter(self):
+        """Update path: chapter comes from instance when context has no chapter (line 149–150)."""
+        topic = Topic.objects.create(course=self.course, name="OnlyTopic")
+        q = make_question(self.chapter, prompt="Tagged")
+        q.topics.add(topic)
+        serializer = QuizSerializer(
+            instance=self.quiz,
+            data={"title": "Renamed"},
+            partial=True,
+            context={},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    @override_settings(ADAPTIVE_REQUIRE_SINGLE_TOPIC=True)
+    def test_adaptive_rejects_multi_topic_question_when_single_topic_required(self):
+        """When ADAPTIVE_REQUIRE_SINGLE_TOPIC is on, >1 topic per question fails validation."""
+        t_a = Topic.objects.create(course=self.course, name="A")
+        t_b = Topic.objects.create(course=self.course, name="B")
+        q = make_question(self.chapter, prompt="MultiTagged")
+        q.topics.add(t_a, t_b)
+        serializer = QuizSerializer(
+            data={
+                "title": "Quiz",
+                "adaptive_enabled": True,
+                "num_questions": 5,
+                "selection_mode": "BANK",
+                "is_published": True,
+            },
+            context={"chapter": self.chapter},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("adaptive_enabled", serializer.errors)
+        self.assertIn("at most one topic", str(serializer.errors["adaptive_enabled"]).lower())
+
 
 class QuizStudentSerializerTests(TestCase):
     """Test QuizStudentSerializer attempt_status/attempt_id when no request or unauthenticated."""
@@ -399,3 +443,14 @@ class AttemptAnswerSubmitSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("question_id", serializer.errors)
         self.assertIn("selected_index", serializer.errors)
+
+    def test_response_time_ms_rejects_values_over_db_safe_integer_max(self):
+        serializer = AttemptAnswerSubmitSerializer(
+            data={
+                "question_id": 1,
+                "selected_index": 0,
+                "response_time_ms": 2_147_483_648,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("response_time_ms", serializer.errors)
